@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { setupAuth, isAuthenticated } from "./replitAuth";
 import { 
   insertRwaSubmissionSchema,
   insertPawnLoanSchema,
@@ -12,7 +13,58 @@ import {
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
+// Middleware for checking if user is admin
+const isAdmin = async (req: any, res: any, next: any) => {
+  try {
+    if (!req.user?.claims?.sub) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    
+    const user = await storage.getUser(req.user.claims.sub);
+    if (!user?.isAdmin) {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+    
+    next();
+  } catch (error) {
+    res.status(500).json({ message: "Authorization check failed" });
+  }
+};
+
+// Middleware for checking ownership
+const checkOwnership = async (req: any, res: any, next: any) => {
+  try {
+    if (!req.user?.claims?.sub) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    
+    const userId = req.params.userId || req.body.userId;
+    if (req.user.claims.sub !== userId) {
+      return res.status(403).json({ message: "Access denied - not owner" });
+    }
+    
+    next();
+  } catch (error) {
+    res.status(500).json({ message: "Ownership check failed" });
+  }
+};
+
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Auth middleware setup
+  await setupAuth(app);
+
+  // Auth routes
+  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      res.json(user);
+    } catch (error) {
+      console.error("Error fetching user:", error);
+      res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
+
   // User routes
   app.post("/api/users", async (req, res) => {
     try {
@@ -58,16 +110,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // RWA Submission routes
-  app.post("/api/rwa-submissions", async (req, res) => {
+  app.post("/api/rwa-submissions", isAuthenticated, async (req: any, res) => {
     try {
-      const submissionData = insertRwaSubmissionSchema.parse(req.body);
+      const userId = req.user.claims.sub; // Derive userId from authenticated user
+      const submissionData = insertRwaSubmissionSchema.parse({
+        ...req.body,
+        userId // Override any client-provided userId
+      });
       
       // Create the submission
       const submission = await storage.createRwaSubmission(submissionData);
       
       // Create a fee payment transaction
       const feeTransaction = await storage.createTransaction({
-        userId: submissionData.userId,
+        userId,
         type: "fee_payment",
         amount: "2.00",
         currency: "ICP",
@@ -83,7 +139,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/rwa-submissions/user/:userId", async (req, res) => {
+  app.get("/api/rwa-submissions/user/:userId", isAuthenticated, checkOwnership, async (req, res) => {
     try {
       const submissions = await storage.getRwaSubmissionsByUser(req.params.userId);
       res.json(submissions);
@@ -93,7 +149,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/rwa-submissions/pending", async (req, res) => {
+  app.get("/api/rwa-submissions/pending", isAuthenticated, isAdmin, async (req, res) => {
     try {
       const submissions = await storage.getPendingRwaSubmissions();
       res.json(submissions);
@@ -103,7 +159,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/rwa-submissions/:id/status", async (req, res) => {
+  app.patch("/api/rwa-submissions/:id/status", isAuthenticated, isAdmin, async (req, res) => {
     try {
       const { status, adminNotes, reviewedBy } = req.body;
       
@@ -156,7 +212,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Pawn Loan routes
-  app.get("/api/pawn-loans/user/:userId", async (req, res) => {
+  app.get("/api/pawn-loans/user/:userId", isAuthenticated, checkOwnership, async (req, res) => {
     try {
       const loans = await storage.getPawnLoansByUser(req.params.userId);
       res.json(loans);
@@ -176,13 +232,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/pawn-loans/:id/redeem", async (req, res) => {
+  app.patch("/api/pawn-loans/:id/redeem", isAuthenticated, async (req: any, res) => {
     try {
-      const { userId } = req.body;
+      const userId = req.user.claims.sub;
       const loan = await storage.getPawnLoan(req.params.id);
       
       if (!loan || loan.status !== "active") {
         return res.status(404).json({ error: "Active loan not found" });
+      }
+      
+      // Check ownership - user can only redeem their own loans
+      if (loan.userId !== userId) {
+        return res.status(403).json({ error: "Access denied - not loan owner" });
       }
       
       // Update loan status
@@ -217,7 +278,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/marketplace/assets", async (req, res) => {
+  app.post("/api/marketplace/assets", isAuthenticated, isAdmin, async (req, res) => {
     try {
       const assetData = insertMarketplaceAssetSchema.parse(req.body);
       const asset = await storage.createMarketplaceAsset(assetData);
@@ -228,10 +289,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/marketplace/assets/:id/bid", async (req, res) => {
+  app.post("/api/marketplace/assets/:id/bid", isAuthenticated, async (req: any, res) => {
     try {
+      const bidderId = req.user.claims.sub; // Derive bidderId from authenticated user
       const bidData = insertBidSchema.parse({
         assetId: req.params.id,
+        bidderId, // Use authenticated user ID
         ...req.body
       });
       
@@ -275,9 +338,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Bridge routes
-  app.post("/api/bridge/transfer", async (req, res) => {
+  app.post("/api/bridge/transfer", isAuthenticated, async (req: any, res) => {
     try {
-      const bridgeData = insertBridgeTransactionSchema.parse(req.body);
+      const userId = req.user.claims.sub; // Derive userId from authenticated user
+      const bridgeData = insertBridgeTransactionSchema.parse({
+        ...req.body,
+        userId // Override any client-provided userId
+      });
       const bridge = await storage.createBridgeTransaction(bridgeData);
       
       // Simulate bridge processing
@@ -296,7 +363,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/bridge/user/:userId", async (req, res) => {
+  app.get("/api/bridge/user/:userId", isAuthenticated, checkOwnership, async (req, res) => {
     try {
       const bridges = await storage.getBridgeTransactionsByUser(req.params.userId);
       res.json(bridges);
@@ -307,7 +374,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin routes
-  app.get("/api/admin/stats", async (req, res) => {
+  app.get("/api/admin/stats", isAuthenticated, isAdmin, async (req, res) => {
     try {
       const stats = await storage.getAdminStats();
       res.json(stats);
@@ -318,7 +385,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Transaction routes
-  app.get("/api/transactions/user/:userId", async (req, res) => {
+  app.get("/api/transactions/user/:userId", isAuthenticated, checkOwnership, async (req, res) => {
     try {
       const transactions = await storage.getTransactionsByUser(req.params.userId);
       res.json(transactions);
@@ -329,7 +396,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Mock endpoint for expired loans to marketplace conversion
-  app.post("/api/admin/process-expired-loans", async (req, res) => {
+  app.post("/api/admin/process-expired-loans", isAuthenticated, isAdmin, async (req, res) => {
     try {
       // Get expired loans
       const expiredLoans = await storage.getExpiringPawnLoans(-1); // Already expired

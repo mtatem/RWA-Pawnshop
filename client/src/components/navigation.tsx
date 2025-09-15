@@ -1,36 +1,22 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Wallet, Coins, Menu, X } from "lucide-react";
+import { Wallet, Coins, Menu, X, LogOut, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function Navigation() {
   const [location] = useLocation();
-  const [isWalletConnected, setIsWalletConnected] = useState(false);
-  const [walletAddress, setWalletAddress] = useState("");
+  const { user, isAuthenticated, isLoading } = useAuth();
   const { toast } = useToast();
 
-  const handleConnectWallet = () => {
-    // Mock wallet connection
-    if (!isWalletConnected) {
-      const mockAddress = `icp_${Math.random().toString(36).substring(2, 15)}`;
-      setWalletAddress(mockAddress);
-      setIsWalletConnected(true);
-      
-      toast({
-        title: "Wallet Connected",
-        description: `Connected to ${mockAddress.slice(0, 8)}...${mockAddress.slice(-6)}`,
-      });
-    } else {
-      setIsWalletConnected(false);
-      setWalletAddress("");
-      
-      toast({
-        title: "Wallet Disconnected",
-        description: "Your wallet has been disconnected",
-      });
-    }
+  const handleLogin = () => {
+    window.location.href = "/api/login";
+  };
+
+  const handleLogout = () => {
+    window.location.href = "/api/logout";
   };
 
   const navItems = [
@@ -79,18 +65,41 @@ export default function Navigation() {
             <NavItems />
           </div>
 
-          {/* Wallet Connection */}
+          {/* Authentication */}
           <div className="flex items-center space-x-4">
-            <Button
-              onClick={handleConnectWallet}
-              className="bg-primary hover:bg-primary/90 text-primary-foreground"
-              data-testid="button-connect-wallet"
-            >
-              <Wallet className="mr-2 h-4 w-4" />
-              {isWalletConnected
-                ? `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`
-                : "Connect Wallet"}
-            </Button>
+            {isLoading ? (
+              <Button disabled className="bg-primary hover:bg-primary/90 text-primary-foreground">
+                Loading...
+              </Button>
+            ) : isAuthenticated ? (
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="outline"
+                  className="text-sm"
+                  data-testid="button-user-profile"
+                >
+                  <User className="mr-2 h-4 w-4" />
+                  {user?.firstName || user?.email || "User"}
+                </Button>
+                <Button
+                  onClick={handleLogout}
+                  variant="outline"
+                  size="icon"
+                  data-testid="button-logout"
+                >
+                  <LogOut className="h-4 w-4" />
+                </Button>
+              </div>
+            ) : (
+              <Button
+                onClick={handleLogin}
+                className="bg-primary hover:bg-primary/90 text-primary-foreground"
+                data-testid="button-login"
+              >
+                <User className="mr-2 h-4 w-4" />
+                Login
+              </Button>
+            )}
 
             {/* Mobile Menu */}
             <Sheet>
