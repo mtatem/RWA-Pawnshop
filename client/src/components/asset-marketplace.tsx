@@ -24,7 +24,7 @@ interface MarketplaceAsset {
 
 export default function AssetMarketplace() {
   const [filters, setFilters] = useState({
-    category: "",
+    category: "all",
     sortBy: "",
     minPrice: "",
     maxPrice: "",
@@ -160,7 +160,7 @@ export default function AssetMarketplace() {
                 <SelectValue placeholder="All Categories" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Categories</SelectItem>
+                <SelectItem value="all">All Categories</SelectItem>
                 <SelectItem value="jewelry">Jewelry</SelectItem>
                 <SelectItem value="art-collectibles">Art & Collectibles</SelectItem>
                 <SelectItem value="electronics">Electronics</SelectItem>
