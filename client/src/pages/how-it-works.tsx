@@ -80,7 +80,7 @@ export default function HowItWorks() {
       <div className="container mx-auto px-4 py-16">
         {/* Header */}
         <div className="text-center mb-16">
-          <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-gray-900 dark:text-white mb-6">
+          <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-6" style={{ color: '#ffffff' }}>
             How ICP RWA Pawn Works
           </h1>
           <p className="text-xl text-muted-foreground max-w-3xl mx-auto">

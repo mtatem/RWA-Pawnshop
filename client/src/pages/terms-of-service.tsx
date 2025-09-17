@@ -169,7 +169,7 @@ These Terms are effective as of January 1, 2025, and were last updated on Januar
       <div className="container mx-auto px-4 py-16">
         {/* Header */}
         <div className="text-center mb-12">
-          <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-gray-900 dark:text-white mb-6">
+          <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-6" style={{ color: '#ffffff' }}>
             Terms of Service
           </h1>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
