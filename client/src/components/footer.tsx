@@ -3,10 +3,10 @@ import { Coins } from "lucide-react";
 export default function Footer() {
   const footerLinks = {
     platform: [
-      { label: "How it Works", href: "#" },
-      { label: "Security", href: "#" },
-      { label: "Fees", href: "#" },
-      { label: "API Docs", href: "#" },
+      { label: "How it Works", href: "/how-it-works" },
+      { label: "Security", href: "/security" },
+      { label: "Fees", href: "/fees" },
+      { label: "API Docs", href: "/api-docs" },
     ],
     support: [
       { label: "Help Center", href: "#" },
@@ -93,7 +93,7 @@ export default function Footer() {
         </div>
 
         <div className="border-t border-border mt-8 pt-8 text-center text-sm text-muted-foreground">
-          <p>&copy; 2024 ICP RWA Pawn. All rights reserved. Powered by Internet Computer Protocol.</p>
+          <p>&copy; 2025 ICP RWA Pawn. All rights reserved. Powered by Internet Computer Protocol.</p>
         </div>
       </div>
     </footer>
