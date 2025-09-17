@@ -6,6 +6,8 @@ import {
   bids,
   transactions,
   bridgeTransactions,
+  assetPricingCache,
+  pricingEstimates,
   type User,
   type InsertUser,
   type RwaSubmission,
@@ -20,6 +22,10 @@ import {
   type InsertTransaction,
   type BridgeTransaction,
   type InsertBridgeTransaction,
+  type AssetPricingCache,
+  type InsertAssetPricingCache,
+  type PricingEstimate,
+  type InsertPricingEstimate,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, lt, gte, sql } from "drizzle-orm";
@@ -68,6 +74,16 @@ export interface IStorage {
   createBridgeTransaction(bridge: InsertBridgeTransaction): Promise<BridgeTransaction>;
   getBridgeTransactionsByUser(userId: string): Promise<BridgeTransaction[]>;
   updateBridgeTransactionStatus(id: string, status: string, destinationTxHash?: string): Promise<BridgeTransaction>;
+
+  // Pricing operations
+  storePricingCache(cache: InsertAssetPricingCache): Promise<AssetPricingCache>;
+  getPricingCache(category: string, symbol?: string, itemType?: string): Promise<AssetPricingCache | undefined>;
+  updatePricingCache(id: string, updates: Partial<InsertAssetPricingCache>): Promise<AssetPricingCache>;
+  clearExpiredPricingCache(): Promise<number>;
+  
+  // Pricing estimates for audit trail
+  createPricingEstimate(estimate: InsertPricingEstimate): Promise<PricingEstimate>;
+  getPricingEstimatesBySubmission(submissionId: string): Promise<PricingEstimate[]>;
 
   // Admin statistics
   getAdminStats(): Promise<{
@@ -313,6 +329,92 @@ export class DatabaseStorage implements IStorage {
       .where(eq(bridgeTransactions.id, id))
       .returning();
     return bridge;
+  }
+
+  // Pricing operations
+  async storePricingCache(cache: InsertAssetPricingCache): Promise<AssetPricingCache> {
+    const [cachedData] = await db
+      .insert(assetPricingCache)
+      .values(cache)
+      .onConflictDoUpdate({
+        target: [assetPricingCache.category, assetPricingCache.symbol, assetPricingCache.itemType],
+        set: {
+          medianPrice: cache.medianPrice,
+          p25Price: cache.p25Price,
+          p75Price: cache.p75Price,
+          sources: cache.sources,
+          confidence: cache.confidence,
+          ttlSeconds: cache.ttlSeconds,
+          lastUpdated: new Date(),
+        },
+      })
+      .returning();
+    return cachedData;
+  }
+
+  async getPricingCache(category: string, symbol?: string, itemType?: string): Promise<AssetPricingCache | undefined> {
+    const conditions = [eq(assetPricingCache.category, category)];
+    
+    if (symbol) {
+      conditions.push(eq(assetPricingCache.symbol, symbol));
+    }
+    if (itemType) {
+      conditions.push(eq(assetPricingCache.itemType, itemType));
+    }
+
+    const [cached] = await db
+      .select()
+      .from(assetPricingCache)
+      .where(and(...conditions))
+      .orderBy(desc(assetPricingCache.lastUpdated))
+      .limit(1);
+
+    // Check if cache is still valid
+    if (cached) {
+      const now = Date.now();
+      const lastUpdated = new Date(cached.lastUpdated).getTime();
+      const ttlMs = cached.ttlSeconds * 1000;
+      
+      if (now - lastUpdated > ttlMs) {
+        return undefined; // Cache expired
+      }
+    }
+
+    return cached || undefined;
+  }
+
+  async updatePricingCache(id: string, updates: Partial<InsertAssetPricingCache>): Promise<AssetPricingCache> {
+    const [updated] = await db
+      .update(assetPricingCache)
+      .set({ ...updates, lastUpdated: new Date() })
+      .where(eq(assetPricingCache.id, id))
+      .returning();
+    return updated;
+  }
+
+  async clearExpiredPricingCache(): Promise<number> {
+    // Calculate expiry cutoff time
+    const now = new Date();
+    const expiredCondition = sql`${assetPricingCache.lastUpdated} + INTERVAL '1 second' * ${assetPricingCache.ttlSeconds} < ${now}`;
+    
+    const deletedRows = await db
+      .delete(assetPricingCache)
+      .where(expiredCondition);
+    
+    return deletedRows.rowCount || 0;
+  }
+
+  async createPricingEstimate(estimate: InsertPricingEstimate): Promise<PricingEstimate> {
+    const [pricingEstimate] = await db.insert(pricingEstimates).values(estimate).returning();
+    return pricingEstimate;
+  }
+
+  async getPricingEstimatesBySubmission(submissionId: string): Promise<PricingEstimate[]> {
+    return await db
+      .select()
+      .from(pricingEstimates)
+      .where(eq(pricingEstimates.submissionId, submissionId))
+      .orderBy(desc(pricingEstimates.createdAt));
   }
 
   // Admin statistics

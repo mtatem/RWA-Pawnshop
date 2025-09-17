@@ -234,6 +234,73 @@ export const paymentIntentSchema = z.object({
   metadata: z.record(z.any()).optional(),
 });
 
+// Asset pricing cache table for efficient lookups
+export const assetPricingCache = pgTable("asset_pricing_cache", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  category: text("category").notNull(), // crypto, precious_metals, jewelry, electronics, collectibles
+  symbol: text("symbol"), // For crypto: BTC, ETH, ICP. For metals: XAU, XAG, XPT
+  itemType: text("item_type"), // For physical: rolex_watch, diamond_ring, gold_coin
+  specifications: jsonb("specifications"), // Item-specific data: weight, purity, model, etc.
+  medianPrice: numeric("median_price", { precision: 15, scale: 2 }).notNull(),
+  p25Price: numeric("p25_price", { precision: 15, scale: 2 }),
+  p75Price: numeric("p75_price", { precision: 15, scale: 2 }),
+  currency: text("currency").notNull().default("USD"),
+  sources: text("sources").array().notNull(), // Array of pricing sources used
+  confidence: numeric("confidence", { precision: 3, scale: 2 }).notNull(), // 0-1 confidence score
+  lastUpdated: timestamp("last_updated").defaultNow(),
+  ttlSeconds: integer("ttl_seconds").notNull().default(300), // Time to live in seconds
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Pricing estimates linked to RWA submissions for audit trail
+export const pricingEstimates = pgTable("pricing_estimates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  submissionId: varchar("submission_id").references(() => rwaSubmissions.id),
+  category: text("category").notNull(),
+  estimatedValue: numeric("estimated_value", { precision: 12, scale: 2 }).notNull(),
+  confidenceScore: numeric("confidence_score", { precision: 3, scale: 2 }),
+  priceRange: jsonb("price_range"), // { min, max, median }
+  methodology: text("methodology"), // Description of how price was estimated
+  sources: text("sources").array(), // Sources used for this estimate
+  metadata: jsonb("metadata"), // Additional pricing context
+  validAt: timestamp("valid_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Insert schemas for pricing tables
+export const insertAssetPricingCacheSchema = createInsertSchema(assetPricingCache).omit({
+  id: true,
+  lastUpdated: true,
+  createdAt: true,
+});
+
+export const insertPricingEstimateSchema = createInsertSchema(pricingEstimates).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Pricing query schemas for API validation
+export const pricingQuerySchema = z.object({
+  category: z.enum(['crypto', 'precious_metals', 'jewelry', 'electronics', 'collectibles', 'artwork', 'watches']),
+  symbol: z.string().optional(), // For crypto/metals
+  itemType: z.string().optional(), // For physical items
+  specifications: z.record(z.any()).optional(), // Item-specific data
+  forceRefresh: z.boolean().default(false), // Force fresh API call
+});
+
+// Pricing response schema
+export const pricingResponseSchema = z.object({
+  median: z.number(),
+  p25: z.number().optional(),
+  p75: z.number().optional(),
+  currency: z.string(),
+  sources: z.array(z.string()),
+  confidence: z.number(),
+  timestamp: z.string(),
+  methodology: z.string().optional(),
+  metadata: z.record(z.any()).optional(),
+});
+
 // Type exports
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -249,3 +316,11 @@ export type Transaction = typeof transactions.$inferSelect;
 export type InsertTransaction = z.infer<typeof insertTransactionSchema>;
 export type BridgeTransaction = typeof bridgeTransactions.$inferSelect;
 export type InsertBridgeTransaction = z.infer<typeof insertBridgeTransactionSchema>;
+
+// Pricing types
+export type AssetPricingCache = typeof assetPricingCache.$inferSelect;
+export type InsertAssetPricingCache = z.infer<typeof insertAssetPricingCacheSchema>;
+export type PricingEstimate = typeof pricingEstimates.$inferSelect;
+export type InsertPricingEstimate = z.infer<typeof insertPricingEstimateSchema>;
+export type PricingQuery = z.infer<typeof pricingQuerySchema>;
+export type PricingResponse = z.infer<typeof pricingResponseSchema>;

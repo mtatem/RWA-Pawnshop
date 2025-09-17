@@ -1,5 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import rateLimit from 'express-rate-limit';
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { 
@@ -13,7 +14,8 @@ import {
   walletBindIntentSchema,
   walletBindVerificationSchema,
   userUpdateSchema,
-  paymentIntentSchema
+  paymentIntentSchema,
+  assetPricingCache
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -27,6 +29,10 @@ const isValidAccountId = (accountId: string): boolean => {
 };
 import { CryptoVerificationService } from "./crypto-utils";
 import { ICPLedgerService } from "./icp-ledger-service";
+import { pricingService } from "./services/pricing-service";
+import { pricingQuerySchema } from "@shared/schema";
+import { db } from "./db";
+import { sql, eq } from "drizzle-orm";
 
 // In-memory storage for wallet binding nonces (in production, use Redis)
 const bindingNonces = new Map<string, { nonce: string; userId: string; expires: number; walletType: string; challenge: string }>();
@@ -851,6 +857,576 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error processing expired loans:", error);
       res.status(500).json({ error: "Failed to process expired loans" });
+    }
+  });
+
+  // Rate limiting configuration for pricing endpoints
+  const pricingRateLimit = rateLimit({
+    windowMs: 60 * 1000, // 1 minute window
+    max: 30, // 30 requests per minute per IP
+    message: { error: "Too many pricing requests, please try again later" },
+    standardHeaders: true,
+    legacyHeaders: false,
+    handler: (req, res) => {
+      console.warn(`Rate limit exceeded for pricing API: ${req.ip}`);
+      res.status(429).json({
+        error: "Rate limit exceeded for pricing API",
+        retryAfter: Math.ceil(60), // 1 minute
+        limit: 30
+      });
+    }
+  });
+
+  // Apply rate limiting to all pricing endpoints
+  app.use("/api/pricing", pricingRateLimit);
+
+  // Circuit breaker for external pricing APIs
+  const circuitBreaker = {
+    failures: new Map<string, { count: number; lastFailure: number; isOpen: boolean }>(),
+    
+    isCircuitOpen(service: string): boolean {
+      const circuit = this.failures.get(service);
+      if (!circuit) return false;
+      
+      const now = Date.now();
+      const timeSinceLastFailure = now - circuit.lastFailure;
+      
+      // Reset circuit after 5 minutes
+      if (timeSinceLastFailure > 5 * 60 * 1000) {
+        circuit.count = 0;
+        circuit.isOpen = false;
+        return false;
+      }
+      
+      // Open circuit after 5 failures in 5 minutes
+      if (circuit.count >= 5) {
+        circuit.isOpen = true;
+        return true;
+      }
+      
+      return circuit.isOpen;
+    },
+    
+    recordFailure(service: string): void {
+      const circuit = this.failures.get(service) || { count: 0, lastFailure: 0, isOpen: false };
+      circuit.count++;
+      circuit.lastFailure = Date.now();
+      circuit.isOpen = circuit.count >= 5;
+      this.failures.set(service, circuit);
+    },
+    
+    recordSuccess(service: string): void {
+      const circuit = this.failures.get(service);
+      if (circuit) {
+        circuit.count = Math.max(0, circuit.count - 1);
+        if (circuit.count === 0) {
+          circuit.isOpen = false;
+        }
+      }
+    }
+  };
+
+  // Comprehensive Pricing API Endpoints
+  app.get("/api/pricing/estimate", async (req, res) => {
+    try {
+      const query = pricingQuerySchema.parse(req.query);
+      
+      // Use database cache first, then API service
+      const cachedPricing = await storage.getPricingCache(
+        query.category,
+        query.symbol,
+        query.itemType
+      );
+      
+      // Return cached data if valid and not forcing refresh
+      if (cachedPricing && !query.forceRefresh) {
+        return res.json({
+          median: parseFloat(cachedPricing.medianPrice),
+          p25: cachedPricing.p25Price ? parseFloat(cachedPricing.p25Price) : undefined,
+          p75: cachedPricing.p75Price ? parseFloat(cachedPricing.p75Price) : undefined,
+          currency: cachedPricing.currency,
+          sources: cachedPricing.sources,
+          confidence: parseFloat(cachedPricing.confidence),
+          timestamp: cachedPricing.lastUpdated.toISOString(),
+          cached: true,
+          metadata: cachedPricing.specifications
+        });
+      }
+      
+      // Check circuit breaker before calling external APIs
+      const serviceKey = `pricing_${query.category}`;
+      if (circuitBreaker.isCircuitOpen(serviceKey)) {
+        return res.status(503).json({
+          error: "Pricing service temporarily unavailable",
+          reason: "Circuit breaker is open due to repeated failures",
+          retryAfter: 300 // 5 minutes
+        });
+      }
+
+      // Get fresh pricing from external APIs
+      let pricing;
+      try {
+        pricing = await pricingService.getAssetPricing(query);
+        circuitBreaker.recordSuccess(serviceKey);
+      } catch (apiError) {
+        console.error(`Pricing API error for ${serviceKey}:`, apiError);
+        circuitBreaker.recordFailure(serviceKey);
+        
+        // Try to return cached data even if expired as fallback
+        if (cachedPricing) {
+          console.warn("Returning expired cached data due to API failure");
+          return res.json({
+            median: parseFloat(cachedPricing.medianPrice),
+            p25: cachedPricing.p25Price ? parseFloat(cachedPricing.p25Price) : undefined,
+            p75: cachedPricing.p75Price ? parseFloat(cachedPricing.p75Price) : undefined,
+            currency: cachedPricing.currency,
+            sources: cachedPricing.sources,
+            confidence: parseFloat(cachedPricing.confidence) * 0.5, // Reduce confidence for stale data
+            timestamp: cachedPricing.lastUpdated.toISOString(),
+            cached: true,
+            stale: true,
+            warning: "Using stale data due to API unavailability",
+            metadata: cachedPricing.specifications
+          });
+        }
+        
+        throw apiError;
+      }
+      
+      // Store in database cache for future requests
+      try {
+        await storage.storePricingCache({
+          category: query.category,
+          symbol: query.symbol,
+          itemType: query.itemType,
+          specifications: query.specifications,
+          medianPrice: pricing.median.toString(),
+          p25Price: pricing.p25?.toString(),
+          p75Price: pricing.p75?.toString(),
+          currency: pricing.currency,
+          sources: pricing.sources,
+          confidence: pricing.confidence.toString(),
+          ttlSeconds: pricing.metadata?.ttl || 300, // Default 5 minute TTL
+        });
+      } catch (cacheError) {
+        console.warn("Failed to cache pricing data:", cacheError);
+        // Continue without caching
+      }
+      
+      res.json({ ...pricing, cached: false });
+    } catch (error) {
+      console.error("Pricing estimate error:", error);
+      
+      if (error.message.includes("required") || error.message.includes("Invalid")) {
+        return res.status(400).json({ 
+          error: "Invalid pricing query parameters",
+          details: error.message 
+        });
+      }
+      
+      res.status(500).json({ 
+        error: "Unable to fetch pricing estimate",
+        details: error.message 
+      });
+    }
+  });
+
+  // POST endpoint for complex pricing estimates with JSON body (supports complex specifications)
+  app.post("/api/pricing/estimate", async (req, res) => {
+    try {
+      const query = pricingQuerySchema.parse(req.body);
+      
+      // Use database cache first, then API service
+      const cachedPricing = await storage.getPricingCache(
+        query.category,
+        query.symbol,
+        query.itemType
+      );
+      
+      // Return cached data if valid and not forcing refresh
+      if (cachedPricing && !query.forceRefresh) {
+        return res.json({
+          median: parseFloat(cachedPricing.medianPrice),
+          p25: cachedPricing.p25Price ? parseFloat(cachedPricing.p25Price) : undefined,
+          p75: cachedPricing.p75Price ? parseFloat(cachedPricing.p75Price) : undefined,
+          currency: cachedPricing.currency,
+          sources: cachedPricing.sources,
+          confidence: parseFloat(cachedPricing.confidence),
+          timestamp: cachedPricing.lastUpdated.toISOString(),
+          cached: true,
+          metadata: cachedPricing.specifications
+        });
+      }
+      
+      // Check circuit breaker before calling external APIs
+      const serviceKey = `pricing_${query.category}`;
+      if (circuitBreaker.isCircuitOpen(serviceKey)) {
+        return res.status(503).json({
+          error: "Pricing service temporarily unavailable",
+          reason: "Circuit breaker is open due to repeated failures",
+          retryAfter: 300 // 5 minutes
+        });
+      }
+
+      // Get fresh pricing from external APIs
+      let pricing;
+      try {
+        pricing = await pricingService.getAssetPricing(query);
+        circuitBreaker.recordSuccess(serviceKey);
+        
+        // Create pricing estimate audit trail
+        await storage.createPricingEstimate({
+          submissionId: req.body.submissionId || null, // Optional reference to RWA submission
+          category: query.category,
+          symbol: query.symbol || null,
+          itemType: query.itemType || null,
+          specifications: query.specifications || null,
+          estimatedValue: pricing.median.toString(),
+          confidence: pricing.confidence.toString(),
+          methodology: pricing.methodology,
+          sources: pricing.sources,
+        });
+      } catch (apiError) {
+        console.error(`Pricing API error for ${serviceKey}:`, apiError);
+        circuitBreaker.recordFailure(serviceKey);
+        
+        // Try to return cached data even if expired as fallback
+        if (cachedPricing) {
+          console.warn("Returning expired cached data due to API failure");
+          return res.json({
+            median: parseFloat(cachedPricing.medianPrice),
+            p25: cachedPricing.p25Price ? parseFloat(cachedPricing.p25Price) : undefined,
+            p75: cachedPricing.p75Price ? parseFloat(cachedPricing.p75Price) : undefined,
+            currency: cachedPricing.currency,
+            sources: cachedPricing.sources,
+            confidence: parseFloat(cachedPricing.confidence) * 0.5, // Reduce confidence for stale data
+            timestamp: cachedPricing.lastUpdated.toISOString(),
+            cached: true,
+            stale: true,
+            warning: "Using stale data due to API unavailability",
+            metadata: cachedPricing.specifications
+          });
+        }
+        
+        throw apiError;
+      }
+      
+      // Store in database cache for future requests
+      try {
+        await storage.storePricingCache({
+          category: query.category,
+          symbol: query.symbol,
+          itemType: query.itemType,
+          specifications: query.specifications,
+          medianPrice: pricing.median.toString(),
+          p25Price: pricing.p25?.toString(),
+          p75Price: pricing.p75?.toString(),
+          currency: pricing.currency,
+          sources: pricing.sources,
+          confidence: pricing.confidence.toString(),
+          ttlSeconds: pricing.metadata?.ttl || 300, // Default 5 minute TTL
+        });
+      } catch (cacheError) {
+        console.warn("Failed to cache pricing data:", cacheError);
+        // Continue without caching
+      }
+      
+      res.json({ ...pricing, cached: false, method: 'POST' });
+    } catch (error) {
+      console.error("Pricing estimate error (POST):", error);
+      
+      if (error.message.includes("required") || error.message.includes("Invalid")) {
+        return res.status(400).json({ 
+          error: "Invalid pricing query in request body",
+          details: error.message 
+        });
+      }
+      
+      res.status(500).json({ 
+        error: "Unable to fetch pricing estimate",
+        details: error.message 
+      });
+    }
+  });
+
+  // Get available pricing categories and supported symbols
+  app.get("/api/pricing/categories", async (req, res) => {
+    try {
+      const categories = {
+        crypto: {
+          description: "Cryptocurrencies and digital assets",
+          supported_symbols: ["BTC", "ETH", "ICP", "USDC", "USDT", "ADA", "DOT", "LINK"],
+          sample_query: "/api/pricing/estimate?category=crypto&symbol=BTC"
+        },
+        precious_metals: {
+          description: "Gold, silver, platinum, and palladium",
+          supported_symbols: ["XAU", "XAG", "XPT", "XPD"],
+          sample_query: "/api/pricing/estimate?category=precious_metals&symbol=XAU"
+        },
+        jewelry: {
+          description: "Jewelry and precious metal items",
+          supported_types: ["ring", "necklace", "earrings", "bracelet", "watch"],
+          required_specs: ["weight", "purity"],
+          sample_query: "/api/pricing/estimate?category=jewelry&itemType=ring&specifications[weight]=10&specifications[purity]=18k"
+        },
+        electronics: {
+          description: "Electronic devices and gadgets",
+          supported_types: ["smartphone", "laptop", "tablet", "tv", "gaming_console"],
+          required_specs: ["brand", "model", "age_years", "condition"],
+          sample_query: "/api/pricing/estimate?category=electronics&itemType=smartphone&specifications[brand]=apple&specifications[model]=iphone13&specifications[age_years]=1"
+        },
+        collectibles: {
+          description: "Collectible items and memorabilia",
+          supported_types: ["trading_cards", "coins", "stamps", "comics"],
+          sample_query: "/api/pricing/estimate?category=collectibles&itemType=trading_cards&specifications[set]=pokemon&specifications[rarity]=rare"
+        },
+        artwork: {
+          description: "Paintings, sculptures, and art pieces",
+          required_specs: ["artist", "medium", "size"],
+          sample_query: "/api/pricing/estimate?category=artwork&specifications[artist]=banksy&specifications[medium]=print&specifications[size]=medium"
+        },
+        watches: {
+          description: "Luxury and collectible timepieces",
+          supported_brands: ["rolex", "omega", "tag_heuer", "seiko", "casio"],
+          required_specs: ["brand", "model", "year", "condition"],
+          sample_query: "/api/pricing/estimate?category=watches&specifications[brand]=rolex&specifications[model]=submariner&specifications[year]=2020"
+        }
+      };
+      
+      res.json(categories);
+    } catch (error) {
+      console.error("Error fetching pricing categories:", error);
+      res.status(500).json({ error: "Failed to fetch pricing categories" });
+    }
+  });
+
+  // Bulk pricing estimates for multiple assets
+  app.post("/api/pricing/bulk-estimate", async (req, res) => {
+    try {
+      const { queries } = req.body;
+      
+      if (!Array.isArray(queries) || queries.length === 0) {
+        return res.status(400).json({ error: "Array of pricing queries required" });
+      }
+      
+      if (queries.length > 10) {
+        return res.status(400).json({ error: "Maximum 10 queries allowed per bulk request" });
+      }
+      
+      // Validate all queries first
+      const validatedQueries = queries.map(query => pricingQuerySchema.parse(query));
+      
+      // Process pricing estimates in parallel
+      const results = await Promise.allSettled(
+        validatedQueries.map(async (query, index) => {
+          try {
+            const pricing = await pricingService.getAssetPricing(query);
+            return { index, status: 'success', data: pricing };
+          } catch (error) {
+            return { 
+              index, 
+              status: 'error', 
+              error: error.message,
+              query: query 
+            };
+          }
+        })
+      );
+      
+      const responses = results.map(result => {
+        if (result.status === 'fulfilled') {
+          return result.value;
+        } else {
+          return { 
+            status: 'error', 
+            error: 'Processing failed',
+            details: result.reason?.message 
+          };
+        }
+      });
+      
+      res.json({ results: responses });
+    } catch (error) {
+      console.error("Bulk pricing estimate error:", error);
+      res.status(500).json({ 
+        error: "Bulk pricing estimation failed",
+        details: error.message 
+      });
+    }
+  });
+
+  // Get pricing history for an asset (from database cache)
+  app.get("/api/pricing/history", async (req, res) => {
+    try {
+      const { category, symbol, itemType, days = 7 } = req.query;
+      
+      if (!category) {
+        return res.status(400).json({ error: "Category parameter required" });
+      }
+      
+      // This would require a more sophisticated query to get historical data
+      // For now, return a simple response indicating feature availability
+      res.json({ 
+        message: "Pricing history feature",
+        category,
+        symbol,
+        itemType,
+        days: parseInt(days as string),
+        note: "Historical pricing data collection in progress"
+      });
+    } catch (error) {
+      console.error("Pricing history error:", error);
+      res.status(500).json({ error: "Failed to fetch pricing history" });
+    }
+  });
+
+  // Admin endpoint to clear expired pricing cache
+  app.delete("/api/pricing/cache", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const deletedCount = await storage.clearExpiredPricingCache();
+      res.json({ 
+        message: `Cleared ${deletedCount} expired pricing cache entries`,
+        deletedCount 
+      });
+    } catch (error) {
+      console.error("Cache clearing error:", error);
+      res.status(500).json({ error: "Failed to clear pricing cache" });
+    }
+  });
+
+  // Enhanced admin endpoint to get comprehensive pricing service statistics
+  app.get("/api/pricing/stats", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const memoryCache = pricingService.getCacheStats();
+      
+      // Get database cache statistics
+      const dbCacheQuery = await db.select({
+        category: assetPricingCache.category,
+        count: sql<number>`count(*)::int`,
+        avgTtl: sql<number>`avg(extract(epoch from (created_at + interval '1 second' * ttl_seconds - now())))::int`,
+        expired: sql<number>`count(case when (created_at + interval '1 second' * ttl_seconds) < now() then 1 end)::int`
+      })
+      .from(assetPricingCache)
+      .groupBy(assetPricingCache.category);
+      
+      // Get circuit breaker status
+      const circuitBreakerStatus = Array.from(circuitBreaker.failures.entries()).map(([service, stats]) => ({
+        service,
+        failures: stats.count,
+        isOpen: stats.isOpen,
+        lastFailure: new Date(stats.lastFailure).toISOString()
+      }));
+      
+      res.json({
+        memory_cache: memoryCache,
+        database_cache: dbCacheQuery,
+        circuit_breakers: circuitBreakerStatus,
+        timestamp: new Date().toISOString(),
+        system_status: circuitBreakerStatus.some(cb => cb.isOpen) ? "degraded" : "operational"
+      });
+    } catch (error) {
+      console.error("Pricing stats error:", error);
+      res.status(500).json({ error: "Failed to fetch pricing statistics" });
+    }
+  });
+
+  // Admin endpoint to clear specific cache entries
+  app.delete("/api/pricing/cache/:category", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { category } = req.params;
+      const { symbol, itemType } = req.query;
+      
+      // Clear from database cache
+      let query = db.delete(assetPricingCache).where(eq(assetPricingCache.category, category));
+      
+      if (symbol) {
+        query = query.where(eq(assetPricingCache.symbol, symbol));
+      }
+      if (itemType) {
+        query = query.where(eq(assetPricingCache.itemType, itemType));
+      }
+      
+      await query;
+      
+      res.json({ 
+        message: `Cleared cache entries for category: ${category}`,
+        category,
+        symbol: symbol || "all",
+        itemType: itemType || "all"
+      });
+    } catch (error) {
+      console.error("Cache clearing error:", error);
+      res.status(500).json({ error: "Failed to clear specific cache entries" });
+    }
+  });
+
+  // Admin endpoint to reset circuit breakers
+  app.post("/api/pricing/circuit-breaker/reset", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { service } = req.body;
+      
+      if (service) {
+        // Reset specific service
+        circuitBreaker.failures.set(service, { count: 0, lastFailure: 0, isOpen: false });
+        res.json({ message: `Circuit breaker reset for service: ${service}` });
+      } else {
+        // Reset all circuit breakers
+        circuitBreaker.failures.clear();
+        res.json({ message: "All circuit breakers reset" });
+      }
+    } catch (error) {
+      console.error("Circuit breaker reset error:", error);
+      res.status(500).json({ error: "Failed to reset circuit breaker" });
+    }
+  });
+
+  // Health check endpoint for pricing system
+  app.get("/api/pricing/health", async (req, res) => {
+    try {
+      const healthCheck = {
+        status: "healthy",
+        timestamp: new Date().toISOString(),
+        checks: {
+          database: "unknown",
+          memory_cache: "unknown",
+          external_apis: "unknown"
+        }
+      };
+      
+      // Test database connection
+      try {
+        await storage.getPricingCache("crypto", "BTC"); // Simple test query
+        healthCheck.checks.database = "healthy";
+      } catch (dbError) {
+        healthCheck.checks.database = "unhealthy";
+        healthCheck.status = "unhealthy";
+      }
+      
+      // Test memory cache
+      try {
+        const memCache = pricingService.getCacheStats();
+        healthCheck.checks.memory_cache = "healthy";
+      } catch (cacheError) {
+        healthCheck.checks.memory_cache = "unhealthy";
+        healthCheck.status = "unhealthy";
+      }
+      
+      // Check circuit breaker status
+      const hasOpenCircuits = Array.from(circuitBreaker.failures.values()).some(cb => cb.isOpen);
+      healthCheck.checks.external_apis = hasOpenCircuits ? "degraded" : "healthy";
+      if (hasOpenCircuits && healthCheck.status === "healthy") {
+        healthCheck.status = "degraded";
+      }
+      
+      const statusCode = healthCheck.status === "healthy" ? 200 : healthCheck.status === "degraded" ? 200 : 503;
+      res.status(statusCode).json(healthCheck);
+    } catch (error) {
+      console.error("Health check error:", error);
+      res.status(500).json({
+        status: "unhealthy",
+        timestamp: new Date().toISOString(),
+        error: "Health check failed"
+      });
     }
   });
 
