@@ -16,21 +16,67 @@ import {
   paymentIntentSchema
 } from "@shared/schema";
 import { randomUUID } from "crypto";
+
+// System wallet configuration - CRITICAL: These are AccountIdentifiers, not Principals
+const SYSTEM_ICP_ACCOUNT_ID = "1ef008c2d7e445954e12ec2033b202888723046fde489be3a250cacf01d65963";
+const SYSTEM_ETH_ADDRESS = "0x00f3C42833C3170159af4E92dbb451Fb3F708917";
+
+// Helper function to validate ICP AccountIdentifier format (64 hex chars)
+const isValidAccountId = (accountId: string): boolean => {
+  return /^[0-9a-fA-F]{64}$/.test(accountId);
+};
 import { CryptoVerificationService } from "./crypto-utils";
 import { ICPLedgerService } from "./icp-ledger-service";
 
 // In-memory storage for wallet binding nonces (in production, use Redis)
 const bindingNonces = new Map<string, { nonce: string; userId: string; expires: number; walletType: string; challenge: string }>();
 
-// Cleanup expired nonces every 5 minutes
+// Track successful bindings to prevent replay attacks (in production, use Redis with TTL)
+const successfulBindings = new Map<string, { userId: string; principalId: string; timestamp: number }>();
+
+// Track failed attempts for rate limiting (in production, use Redis)
+const failedAttempts = new Map<string, { count: number; lastAttempt: number; blocked: boolean }>();
+
+// Cleanup expired nonces and old data every 5 minutes
 setInterval(() => {
   const now = Date.now();
+  
+  // Clean expired nonces
   for (const [key, value] of Array.from(bindingNonces.entries())) {
     if (value.expires < now) {
       bindingNonces.delete(key);
     }
   }
+  
+  // Clean old successful bindings (keep for 24 hours to prevent replay)
+  for (const [key, value] of Array.from(successfulBindings.entries())) {
+    if (now - value.timestamp > 24 * 60 * 60 * 1000) {
+      successfulBindings.delete(key);
+    }
+  }
+  
+  // Reset failed attempt counters after 1 hour
+  for (const [key, value] of Array.from(failedAttempts.entries())) {
+    if (now - value.lastAttempt > 60 * 60 * 1000) {
+      failedAttempts.delete(key);
+    }
+  }
 }, 5 * 60 * 1000);
+
+// Rate limiting helper
+const checkRateLimit = (userId: string): { allowed: boolean; reason?: string } => {
+  const userAttempts = failedAttempts.get(userId);
+  if (!userAttempts) return { allowed: true };
+  
+  const now = Date.now();
+  
+  // Block if too many failed attempts in the last hour
+  if (userAttempts.count >= 5 && (now - userAttempts.lastAttempt) < 60 * 60 * 1000) {
+    return { allowed: false, reason: "Too many failed attempts. Try again later." };
+  }
+  
+  return { allowed: true };
+};
 
 // Middleware for checking if user is admin
 const isAdmin = async (req: any, res: any, next: any) => {
@@ -201,9 +247,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       const { principalId, nonce, walletType, proof, signature } = walletBindVerificationSchema.parse(req.body);
       
-      // Verify nonce exists and belongs to user
+      // SECURITY: Check rate limiting
+      const rateLimit = checkRateLimit(userId);
+      if (!rateLimit.allowed) {
+        return res.status(429).json({ error: rateLimit.reason });
+      }
+      
+      // SECURITY: Check for replay attacks using successful bindings
+      const bindingKey = `${userId}_${principalId}`;
+      if (successfulBindings.has(bindingKey)) {
+        const existing = successfulBindings.get(bindingKey)!;
+        return res.status(400).json({ 
+          error: "Principal already bound to this account",
+          timestamp: new Date(existing.timestamp).toISOString()
+        });
+      }
+      
+      // Verify nonce exists and belongs to user  
       const bindingIntent = bindingNonces.get(nonce);
       if (!bindingIntent || bindingIntent.userId !== userId || bindingIntent.expires < Date.now()) {
+        // Track failed attempt
+        const userAttempts = failedAttempts.get(userId) || { count: 0, lastAttempt: 0, blocked: false };
+        userAttempts.count++;
+        userAttempts.lastAttempt = Date.now();
+        failedAttempts.set(userId, userAttempts);
+        
         return res.status(400).json({ error: "Invalid or expired nonce" });
       }
       
@@ -234,9 +302,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(400).json({ error: "Signature required for Plug wallet verification" });
         }
         
+        // SECURITY: Require public key for Plug verification
+        const { publicKey } = req.body;
+        if (!publicKey) {
+          // Increment failed attempts for rate limiting
+          const userAttempts = failedAttempts.get(userId) || { count: 0, lastAttempt: 0, blocked: false };
+          failedAttempts.set(userId, {
+            count: userAttempts.count + 1,
+            lastAttempt: Date.now(),
+            blocked: userAttempts.count >= 4
+          });
+          
+          return res.status(400).json({ error: "Public key required for Plug verification" });
+        }
+        
         verificationResult = await CryptoVerificationService.verifyPlugSignature(
           challenge,
           signature,
+          publicKey,
           principalId
         );
       } else if (walletType === 'internetIdentity') {
@@ -260,6 +343,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (!verificationResult.valid) {
         console.error(`Wallet verification failed for user ${userId}:`, verificationResult.error);
+        
+        // SECURITY: Increment failed attempts for rate limiting
+        const userAttempts = failedAttempts.get(userId) || { count: 0, lastAttempt: 0, blocked: false };
+        failedAttempts.set(userId, {
+          count: userAttempts.count + 1,
+          lastAttempt: Date.now(),
+          blocked: userAttempts.count >= 4
+        });
+        
         return res.status(403).json({ 
           error: "Cryptographic verification failed",
           details: verificationResult.error
@@ -308,8 +400,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       const { type, amount, metadata } = paymentIntentSchema.parse(req.body);
       
-      // Get system wallet address from environment or config
-      const systemWalletPrincipal = process.env.SYSTEM_WALLET_PRINCIPAL || "rrkah-fqaaa-aaaaa-aaaaq-cai";
+      // CRITICAL: Use AccountIdentifier for ICP payments (not Principal)
+      const systemAccountId = SYSTEM_ICP_ACCOUNT_ID;
+      
+      // Validate system account ID format
+      if (!isValidAccountId(systemAccountId)) {
+        throw new Error("Invalid system account ID format");
+      }
       
       // Generate a secure, trackable memo
       const memo = CryptoVerificationService.generatePaymentMemo(type, userId, metadata);
@@ -319,10 +416,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const amountE8s = Math.floor(amountFloat * 100000000);
       const feeE8s = 10000; // Standard ICP transaction fee
       
-      console.log(`Generated payment intent for user ${userId}: ${amountFloat} ICP to ${systemWalletPrincipal} with memo ${memo}`);
+      console.log(`Generated payment intent for user ${userId}: ${amountFloat} ICP to AccountID ${systemAccountId} with memo ${memo}`);
       
       res.json({
-        recipient: systemWalletPrincipal,
+        recipientAccountId: systemAccountId, // CRITICAL: Use AccountIdentifier, not Principal
         memo,
         amountE8s,
         feeE8s,
@@ -332,7 +429,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         totalICP: amountFloat + 0.0001,
         type,
         metadata,
-        expires: new Date(Date.now() + 10 * 60 * 1000).toISOString() // 10 minutes
+        expires: new Date(Date.now() + 10 * 60 * 1000).toISOString(), // 10 minutes
+        instructions: {
+          format: "recipientAccountId is ICP AccountIdentifier (64-character hex string)",
+          usage: "Use this AccountIdentifier as the destination for ICP ledger transfers"
+        }
       });
     } catch (error) {
       console.error("Error creating payment intent:", error);
