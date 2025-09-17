@@ -9,9 +9,28 @@ import {
   insertBidSchema,
   insertTransactionSchema,
   insertBridgeTransactionSchema,
-  insertUserSchema
+  insertUserSchema,
+  walletBindIntentSchema,
+  walletBindVerificationSchema,
+  userUpdateSchema,
+  paymentIntentSchema
 } from "@shared/schema";
 import { randomUUID } from "crypto";
+import { CryptoVerificationService } from "./crypto-utils";
+import { ICPLedgerService } from "./icp-ledger-service";
+
+// In-memory storage for wallet binding nonces (in production, use Redis)
+const bindingNonces = new Map<string, { nonce: string; userId: string; expires: number; walletType: string; challenge: string }>();
+
+// Cleanup expired nonces every 5 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, value] of Array.from(bindingNonces.entries())) {
+    if (value.expires < now) {
+      bindingNonces.delete(key);
+    }
+  }
+}, 5 * 60 * 1000);
 
 // Middleware for checking if user is admin
 const isAdmin = async (req: any, res: any, next: any) => {
@@ -69,7 +88,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/users", async (req, res) => {
     try {
       const userData = insertUserSchema.parse(req.body);
-      const existingUser = await storage.getUserByWallet(userData.walletAddress);
+      const existingUser = await storage.getUserByWallet(userData.walletAddress!);
       
       if (existingUser) {
         return res.json(existingUser);
@@ -109,10 +128,311 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.patch("/api/users/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.params.id;
+      
+      // Check if user is updating their own profile
+      if (req.user.claims.sub !== userId) {
+        return res.status(403).json({ error: "Access denied - not owner" });
+      }
+
+      // Use Zod validation for secure input handling
+      const updateData = userUpdateSchema.parse(req.body);
+      
+      if (Object.keys(updateData).length === 0) {
+        return res.status(400).json({ error: "No valid fields to update" });
+      }
+
+      // SECURITY: Block principalId updates - require wallet binding verification
+      if (updateData.principalId) {
+        return res.status(403).json({ 
+          error: "Direct principalId updates not allowed. Use /api/wallet/verify-binding endpoint." 
+        });
+      }
+
+      const updatedUser = await storage.updateUser(userId, updateData);
+      
+      if (!updatedUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      res.json(updatedUser);
+    } catch (error) {
+      console.error("Error updating user:", error);
+      res.status(500).json({ error: "Failed to update user" });
+    }
+  });
+
+  // Secure Wallet Binding endpoints
+  app.post("/api/wallet/bind-intent", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { walletType } = walletBindIntentSchema.parse(req.body);
+      
+      // Generate a secure challenge with proper format
+      const challengeData = CryptoVerificationService.generateChallenge(userId, walletType);
+      
+      // Store binding intent with challenge
+      bindingNonces.set(challengeData.nonce, {
+        nonce: challengeData.nonce,
+        userId,
+        expires: challengeData.expires,
+        walletType,
+        challenge: challengeData.challenge
+      });
+      
+      res.json({
+        nonce: challengeData.nonce,
+        expires: new Date(challengeData.expires).toISOString(),
+        challenge: challengeData.challenge,
+        instructions: walletType === 'plug' 
+          ? "Sign this challenge message with your Plug wallet to prove ownership"
+          : "Authenticate with Internet Identity delegation to prove ownership"
+      });
+    } catch (error) {
+      console.error("Error creating bind intent:", error);
+      res.status(400).json({ error: "Invalid request" });
+    }
+  });
+
+  app.post("/api/wallet/verify-binding", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { principalId, nonce, walletType, proof, signature } = walletBindVerificationSchema.parse(req.body);
+      
+      // Verify nonce exists and belongs to user
+      const bindingIntent = bindingNonces.get(nonce);
+      if (!bindingIntent || bindingIntent.userId !== userId || bindingIntent.expires < Date.now()) {
+        return res.status(400).json({ error: "Invalid or expired nonce" });
+      }
+      
+      const challenge = bindingIntent.challenge;
+      
+      // CRITICAL SECURITY: Perform real cryptographic verification
+      console.log(`Verifying wallet binding for user ${userId}, type: ${walletType}, principal: ${principalId}`);
+      
+      // Validate challenge format
+      const challengeValidation = CryptoVerificationService.validateChallenge(
+        challenge,
+        userId,
+        walletType,
+        nonce
+      );
+      
+      if (!challengeValidation.valid) {
+        bindingNonces.delete(nonce);
+        return res.status(400).json({ error: `Challenge validation failed: ${challengeValidation.error}` });
+      }
+      
+      // Perform cryptographic verification based on wallet type
+      let verificationResult;
+      
+      if (walletType === 'plug') {
+        if (!signature) {
+          bindingNonces.delete(nonce);
+          return res.status(400).json({ error: "Signature required for Plug wallet verification" });
+        }
+        
+        verificationResult = await CryptoVerificationService.verifyPlugSignature(
+          challenge,
+          signature,
+          principalId
+        );
+      } else if (walletType === 'internetIdentity') {
+        if (!proof) {
+          bindingNonces.delete(nonce);
+          return res.status(400).json({ error: "Delegation proof required for Internet Identity verification" });
+        }
+        
+        verificationResult = await CryptoVerificationService.verifyInternetIdentityDelegation(
+          proof,
+          principalId,
+          challenge
+        );
+      } else {
+        bindingNonces.delete(nonce);
+        return res.status(400).json({ error: "Unsupported wallet type" });
+      }
+      
+      // Remove used nonce after verification attempt
+      bindingNonces.delete(nonce);
+      
+      if (!verificationResult.valid) {
+        console.error(`Wallet verification failed for user ${userId}:`, verificationResult.error);
+        return res.status(403).json({ 
+          error: "Cryptographic verification failed",
+          details: verificationResult.error
+        });
+      }
+      
+      console.log(`Wallet verification successful for user ${userId}, principal: ${principalId}`);
+      
+      // Validate principal format
+      if (!CryptoVerificationService.isValidPrincipal(principalId)) {
+        return res.status(400).json({ error: "Invalid principal ID format" });
+      }
+      
+      // Check if principalId is already used by another user
+      const existingUser = await storage.getUserByPrincipalId?.(principalId);
+      if (existingUser && existingUser.id !== userId) {
+        return res.status(409).json({ error: "Principal ID already bound to another account" });
+      }
+      
+      // Update user with cryptographically verified principal
+      const updatedUser = await storage.updateUser(userId, { principalId });
+      if (!updatedUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      res.json({
+        success: true,
+        user: updatedUser,
+        message: "Wallet successfully bound with cryptographic verification",
+        verification: {
+          walletType,
+          principalId,
+          verifiedAt: new Date().toISOString(),
+          method: walletType === 'plug' ? 'signature' : 'delegation'
+        }
+      });
+    } catch (error) {
+      console.error("Error verifying wallet binding:", error);
+      res.status(500).json({ error: "Wallet verification failed" });
+    }
+  });
+
+  // Payment Intents endpoint - generates secure payment intents
+  app.post("/api/payment-intents", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { type, amount, metadata } = paymentIntentSchema.parse(req.body);
+      
+      // Get system wallet address from environment or config
+      const systemWalletPrincipal = process.env.SYSTEM_WALLET_PRINCIPAL || "rrkah-fqaaa-aaaaa-aaaaq-cai";
+      
+      // Generate a secure, trackable memo
+      const memo = CryptoVerificationService.generatePaymentMemo(type, userId, metadata);
+      
+      // Convert amount to e8s (ICP's smallest unit)
+      const amountFloat = parseFloat(amount);
+      const amountE8s = Math.floor(amountFloat * 100000000);
+      const feeE8s = 10000; // Standard ICP transaction fee
+      
+      console.log(`Generated payment intent for user ${userId}: ${amountFloat} ICP to ${systemWalletPrincipal} with memo ${memo}`);
+      
+      res.json({
+        recipient: systemWalletPrincipal,
+        memo,
+        amountE8s,
+        feeE8s,
+        totalE8s: amountE8s + feeE8s,
+        amountICP: amountFloat,
+        feeICP: 0.0001,
+        totalICP: amountFloat + 0.0001,
+        type,
+        metadata,
+        expires: new Date(Date.now() + 10 * 60 * 1000).toISOString() // 10 minutes
+      });
+    } catch (error) {
+      console.error("Error creating payment intent:", error);
+      res.status(400).json({ error: "Invalid payment intent request" });
+    }
+  });
+  
+  // CRITICAL SECURITY: Payment Verification endpoint - queries ICP Ledger to confirm payments
+  app.post("/api/payments/verify", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { 
+        transactionId,
+        expectedRecipient, 
+        expectedAmount, 
+        expectedMemo, 
+        paymentType,
+        timeoutMinutes = 10 
+      } = req.body;
+      
+      // Validate required fields
+      if (!expectedRecipient || !expectedAmount || !expectedMemo) {
+        return res.status(400).json({ error: "Missing required payment verification fields" });
+      }
+      
+      // Validate memo format for security
+      if (!CryptoVerificationService.validatePaymentMemo(expectedMemo)) {
+        return res.status(400).json({ error: "Invalid payment memo format" });
+      }
+      
+      console.log(`Starting payment verification for user ${userId}:`);
+      console.log(`Expected: ${expectedAmount} ICP to ${expectedRecipient} with memo ${expectedMemo}`);
+      
+      // Get ICP Ledger service instance
+      const ledgerService = ICPLedgerService.getInstance();
+      
+      // Poll for payment confirmation
+      const verification = await ledgerService.pollForPayment(
+        expectedRecipient,
+        parseFloat(expectedAmount),
+        expectedMemo,
+        timeoutMinutes
+      );
+      
+      if (!verification.verified) {
+        console.error(`Payment verification failed for user ${userId}:`, verification.error);
+        return res.status(400).json({
+          verified: false,
+          error: verification.error || "Payment not found on ICP Ledger",
+          details: {
+            searched: true,
+            found: verification.found,
+            timeout: timeoutMinutes
+          }
+        });
+      }
+      
+      console.log(`Payment verified for user ${userId} at block ${verification.blockHeight}`);
+      
+      // Update transaction status in database if transactionId provided
+      if (transactionId) {
+        try {
+          await storage.updateTransactionStatus(
+            transactionId,
+            "confirmed",
+            verification.blockHeight?.toString(),
+            Number(verification.blockHeight)
+          );
+        } catch (error) {
+          console.error("Error updating transaction status:", error);
+          // Continue - verification succeeded even if DB update failed
+        }
+      }
+      
+      res.json({
+        verified: true,
+        success: true,
+        message: "Payment confirmed on ICP Ledger",
+        verification: {
+          blockHeight: verification.blockHeight?.toString(),
+          timestamp: verification.timestamp,
+          amount: verification.actualAmount?.toString(),
+          memo: verification.actualMemo?.toString(),
+          recipient: verification.actualRecipient,
+          verifiedAt: new Date().toISOString()
+        }
+      });
+    } catch (error) {
+      console.error("Error verifying payment:", error);
+      res.status(500).json({ 
+        error: "Payment verification failed",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
   // RWA Submission routes
   app.post("/api/rwa-submissions", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub; // Derive userId from authenticated user
+      const userId = req.user.claims.sub as string; // Derive userId from authenticated user
       const submissionData = insertRwaSubmissionSchema.parse({
         ...req.body,
         userId // Override any client-provided userId
@@ -127,8 +447,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         type: "fee_payment",
         amount: "2.00",
         currency: "ICP",
-        txHash: `icp_${randomUUID()}`,
-        status: "confirmed",
+        status: "pending",
         metadata: { submissionId: submission.id }
       });
       
@@ -196,8 +515,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           type: "loan_disbursement",
           amount: loanAmount,
           currency: "ICP",
-          txHash: `icp_${randomUUID()}`,
-          status: "confirmed",
+          status: "pending",
           metadata: { loanId: loan.id }
         });
         
@@ -234,7 +552,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch("/api/pawn-loans/:id/redeem", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.claims.sub as string;
       const loan = await storage.getPawnLoan(req.params.id);
       
       if (!loan || loan.status !== "active") {
@@ -255,8 +573,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         type: "redemption_payment",
         amount: loan.loanAmount,
         currency: "ICP",
-        txHash: `icp_${randomUUID()}`,
-        status: "confirmed",
+        status: "pending",
         metadata: { loanId: loan.id }
       });
       
@@ -291,7 +608,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/marketplace/assets/:id/bid", isAuthenticated, async (req: any, res) => {
     try {
-      const bidderId = req.user.claims.sub; // Derive bidderId from authenticated user
+      const bidderId = req.user.claims.sub as string; // Derive bidderId from authenticated user
       const bidData = insertBidSchema.parse({
         assetId: req.params.id,
         bidderId, // Use authenticated user ID
@@ -325,8 +642,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         type: "bid_payment",
         amount: bidData.amount,
         currency: "ICP",
-        txHash: `icp_${randomUUID()}`,
-        status: "confirmed",
+        status: "pending",
         metadata: { bidId: bid.id, assetId: req.params.id }
       });
       
@@ -340,7 +656,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Bridge routes
   app.post("/api/bridge/transfer", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub; // Derive userId from authenticated user
+      const userId = req.user.claims.sub as string; // Derive userId from authenticated user
       const bridgeData = insertBridgeTransactionSchema.parse({
         ...req.body,
         userId // Override any client-provided userId

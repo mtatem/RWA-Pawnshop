@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Upload, FileText, Image, Tag } from "lucide-react";
+import { Upload, FileText, Image, Tag, Wallet } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +13,8 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { insertRwaSubmissionSchema } from "@shared/schema";
+import { useAuth } from "@/hooks/useAuth";
+import { useICPWallet } from "@/hooks/useICPWallet";
 import { z } from "zod";
 
 const formSchema = insertRwaSubmissionSchema.extend({
@@ -34,6 +36,8 @@ export default function RwaSubmissionForm() {
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user, isAuthenticated } = useAuth();
+  const { wallet, isConnected, sendTransaction } = useICPWallet();
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -41,14 +45,33 @@ export default function RwaSubmissionForm() {
       assetName: "",
       category: "",
       estimatedValue: "",
-      walletAddress: "",
+      walletAddress: wallet?.principalId || "",
       description: "",
-      userId: "mock-user-id", // In production, this would come from auth
     },
   });
 
+  // Update wallet address when wallet connects
+  useEffect(() => {
+    if (wallet?.principalId) {
+      form.setValue('walletAddress', wallet.principalId);
+    }
+  }, [wallet?.principalId, form]);
+
   const submitMutation = useMutation({
     mutationFn: async (data: FormData) => {
+      if (!isAuthenticated || !user) {
+        throw new Error('Please log in to submit an RWA');
+      }
+      
+      if (!isConnected || !wallet) {
+        throw new Error('Please connect your ICP wallet to submit an RWA');
+      }
+
+      // Check if user has sufficient balance for fee
+      if (wallet.balance < 2) {
+        throw new Error('Insufficient ICP balance. You need at least 2 ICP to cover the pawning fee.');
+      }
+
       // In production, you would upload files first and get URLs
       const submissionData = {
         ...data,
@@ -56,6 +79,7 @@ export default function RwaSubmissionForm() {
         coaUrl: files.coa ? `uploads/coa_${Date.now()}.pdf` : null,
         nftUrl: files.nft ? `uploads/nft_${Date.now()}.json` : null,
         physicalDocsUrl: files.physicalDocs ? `uploads/docs_${Date.now()}.pdf` : null,
+        walletAddress: wallet.principalId, // Use connected wallet's principal ID
       };
 
       const response = await apiRequest("POST", "/api/rwa-submissions", submissionData);
@@ -68,6 +92,9 @@ export default function RwaSubmissionForm() {
       });
       form.reset();
       setFiles({ coa: null, nft: null, physicalDocs: null });
+      if (wallet?.principalId) {
+        form.setValue('walletAddress', wallet.principalId);
+      }
       queryClient.invalidateQueries({ queryKey: ["/api/rwa-submissions"] });
     },
     onError: (error) => {
@@ -193,14 +220,33 @@ export default function RwaSubmissionForm() {
               <FormItem>
                 <FormLabel>ICP Wallet Address</FormLabel>
                 <FormControl>
-                  <Input
-                    placeholder="Enter your ICP wallet address"
-                    className="font-mono text-sm"
-                    {...field}
-                    data-testid="input-wallet-address"
-                  />
+                  <div className="flex space-x-2">
+                    <Input
+                      placeholder={isConnected ? "Connected wallet will be used" : "Connect your ICP wallet"}
+                      className="font-mono text-sm"
+                      {...field}
+                      readOnly={isConnected}
+                      disabled={isConnected}
+                      data-testid="input-wallet-address"
+                    />
+                    {isConnected && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="shrink-0"
+                        data-testid="button-wallet-connected"
+                      >
+                        <Wallet className="h-4 w-4 text-green-600" />
+                      </Button>
+                    )}
+                  </div>
                 </FormControl>
-                <p className="text-xs text-muted-foreground">Must be a valid ICP wallet address</p>
+                <p className="text-xs text-muted-foreground">
+                  {isConnected 
+                    ? `Using connected wallet: ${wallet?.walletType === 'plug' ? 'Plug' : 'Internet Identity'}` 
+                    : "Please connect your ICP wallet to auto-fill this field"}
+                </p>
                 <FormMessage />
               </FormItem>
             )}
@@ -256,6 +302,12 @@ export default function RwaSubmissionForm() {
               <span className="text-sm">Pawning Fee:</span>
               <span className="font-medium">2 ICP</span>
             </div>
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-sm">Your Balance:</span>
+              <span className={`font-medium ${wallet && wallet.balance < 2 ? 'text-destructive' : 'text-foreground'}`}>
+                {wallet ? `${wallet.balance.toFixed(4)} ICP` : 'Not connected'}
+              </span>
+            </div>
             <div className="flex justify-between items-center text-sm text-muted-foreground">
               <span>Loan Period:</span>
               <span>90 days</span>
@@ -265,10 +317,18 @@ export default function RwaSubmissionForm() {
           <Button
             type="submit"
             className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
-            disabled={submitMutation.isPending}
+            disabled={submitMutation.isPending || !isAuthenticated || !isConnected || (wallet ? wallet.balance < 2 : false)}
             data-testid="button-submit-rwa"
           >
-            {submitMutation.isPending ? "Submitting..." : "Submit for Pawning (2 ICP)"}
+            {submitMutation.isPending 
+              ? "Submitting..." 
+              : !isAuthenticated 
+              ? "Please Login First" 
+              : !isConnected 
+              ? "Connect ICP Wallet First" 
+              : wallet && wallet.balance < 2 
+              ? "Insufficient ICP Balance" 
+              : "Submit for Pawning (2 ICP)"}
           </Button>
         </form>
       </Form>

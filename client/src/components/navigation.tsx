@@ -1,14 +1,26 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Wallet, Coins, Menu, X, LogOut, User } from "lucide-react";
+import { Wallet, Coins, Menu, X, LogOut, User, Plug } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { useICPWallet } from "@/hooks/useICPWallet";
 
 export default function Navigation() {
   const [location] = useLocation();
+  const [showWalletDialog, setShowWalletDialog] = useState(false);
   const { user, isAuthenticated, isLoading } = useAuth();
+  const { 
+    wallet, 
+    isConnecting, 
+    isConnected, 
+    connectPlug, 
+    connectInternetIdentity, 
+    disconnect, 
+    isPlugAvailable 
+  } = useICPWallet();
   const { toast } = useToast();
 
   const handleLogin = () => {
@@ -17,6 +29,23 @@ export default function Navigation() {
 
   const handleLogout = () => {
     window.location.href = "/api/logout";
+  };
+
+  const handleConnectWallet = async (type: 'plug' | 'internetIdentity') => {
+    try {
+      if (type === 'plug') {
+        await connectPlug();
+      } else {
+        await connectInternetIdentity();
+      }
+      setShowWalletDialog(false);
+    } catch (error) {
+      console.error('Wallet connection failed:', error);
+    }
+  };
+
+  const handleDisconnectWallet = async () => {
+    await disconnect();
   };
 
   const navItems = [
@@ -65,8 +94,75 @@ export default function Navigation() {
             <NavItems />
           </div>
 
-          {/* Authentication */}
+          {/* Authentication and Wallet */}
           <div className="flex items-center space-x-4">
+            {/* Wallet Connection */}
+            {isConnected && wallet ? (
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="outline"
+                  className="text-sm font-mono"
+                  data-testid="button-wallet-info"
+                >
+                  <Wallet className="mr-2 h-4 w-4" />
+                  {wallet.balance.toFixed(4)} ICP
+                </Button>
+                <Button
+                  onClick={handleDisconnectWallet}
+                  variant="outline"
+                  size="icon"
+                  data-testid="button-disconnect-wallet"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            ) : (
+              <Dialog open={showWalletDialog} onOpenChange={setShowWalletDialog}>
+                <DialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    disabled={isConnecting}
+                    data-testid="button-connect-wallet"
+                  >
+                    <Wallet className="mr-2 h-4 w-4" />
+                    {isConnecting ? "Connecting..." : "Connect Wallet"}
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>Connect ICP Wallet</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <Button
+                      onClick={() => handleConnectWallet('plug')}
+                      className="w-full flex items-center justify-center space-x-2"
+                      disabled={isConnecting || !isPlugAvailable}
+                      data-testid="button-connect-plug"
+                    >
+                      <Plug className="h-5 w-5" />
+                      <span>Connect with Plug Wallet</span>
+                    </Button>
+                    {!isPlugAvailable && (
+                      <p className="text-sm text-muted-foreground text-center">
+                        Plug wallet extension not detected
+                      </p>
+                    )}
+                    <Button
+                      onClick={() => handleConnectWallet('internetIdentity')}
+                      variant="outline"
+                      className="w-full flex items-center justify-center space-x-2"
+                      disabled={isConnecting}
+                      data-testid="button-connect-internet-identity"
+                    >
+                      <span className="text-lg">🔐</span>
+                      <span>Connect with Internet Identity</span>
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            )}
+
+            {/* Authentication */}
             {isLoading ? (
               <Button disabled className="bg-primary hover:bg-primary/90 text-primary-foreground">
                 Loading...
@@ -79,7 +175,7 @@ export default function Navigation() {
                   data-testid="button-user-profile"
                 >
                   <User className="mr-2 h-4 w-4" />
-                  {user?.firstName || user?.email || "User"}
+                  {user?.principalId?.slice(0, 8) + "..." || "User"}
                 </Button>
                 <Button
                   onClick={handleLogout}
