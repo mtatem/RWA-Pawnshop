@@ -26,14 +26,54 @@ import {
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
+// Import comprehensive validation middleware and utilities
+import { 
+  validateRequest, 
+  errorHandler, 
+  notFoundHandler, 
+  successResponse, 
+  rateLimitConfigs, 
+  securityHeaders 
+} from "./middleware/validation";
+import { 
+  AddressValidator, 
+  FileValidator, 
+  FinancialValidator, 
+  InputSanitizer 
+} from "./utils/validation";
+import { z } from "zod";
+
 // System wallet configuration - CRITICAL: These are AccountIdentifiers, not Principals
 const SYSTEM_ICP_ACCOUNT_ID = "1ef008c2d7e445954e12ec2033b202888723046fde489be3a250cacf01d65963";
 const SYSTEM_ETH_ADDRESS = "0x00f3C42833C3170159af4E92dbb451Fb3F708917";
 
-// Helper function to validate ICP AccountIdentifier format (64 hex chars)
-const isValidAccountId = (accountId: string): boolean => {
-  return /^[0-9a-fA-F]{64}$/.test(accountId);
-};
+// Enhanced validation schemas for API endpoints
+const userIdParamSchema = z.object({
+  id: z.string().min(1, 'User ID is required').max(50, 'User ID too long')
+    .regex(/^[a-zA-Z0-9-_]+$/, 'Invalid User ID format')
+});
+
+const assetIdParamSchema = z.object({
+  id: z.string().min(1, 'Asset ID is required').max(50, 'Asset ID too long')
+    .regex(/^[a-zA-Z0-9-_]+$/, 'Invalid Asset ID format')
+});
+
+const paginationQuerySchema = z.object({
+  page: z.coerce.number().min(1, 'Page must be at least 1').max(1000, 'Page number too high').default(1),
+  limit: z.coerce.number().min(1, 'Limit must be at least 1').max(100, 'Limit cannot exceed 100').default(20),
+  sort: z.enum(['createdAt', 'updatedAt', 'name', 'value']).default('createdAt'),
+  order: z.enum(['asc', 'desc']).default('desc')
+});
+
+const walletAddressParamSchema = z.object({
+  address: z.string().min(1, 'Wallet address is required').max(100, 'Wallet address too long')
+    .refine((addr) => {
+      const ethValidation = AddressValidator.isValidEthereumAddress(addr);
+      const icpPrincipalValidation = AddressValidator.isValidPrincipalId(addr);
+      const icpAccountValidation = AddressValidator.isValidAccountId(addr);
+      return ethValidation.valid || icpPrincipalValidation || icpAccountValidation;
+    }, 'Invalid wallet address format')
+});
 import { CryptoVerificationService } from "./crypto-utils";
 import { ICPLedgerService } from "./icp-ledger-service";
 import { pricingService } from "./services/pricing-service";
@@ -156,100 +196,294 @@ const upload = multer({
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Apply security headers to all routes
+  app.use(securityHeaders);
+
+  // Apply general API rate limiting
+  app.use('/api/', rateLimitConfigs.api);
+
   // Auth middleware setup
   await setupAuth(app);
 
-  // Auth routes
-  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
-      res.json(user);
-    } catch (error) {
-      console.error("Error fetching user:", error);
-      res.status(500).json({ message: "Failed to fetch user" });
-    }
-  });
-
-  // User routes
-  app.post("/api/users", async (req, res) => {
-    try {
-      const userData = insertUserSchema.parse(req.body);
-      const existingUser = await storage.getUserByWallet(userData.walletAddress!);
-      
-      if (existingUser) {
-        return res.json(existingUser);
-      }
-      
-      const user = await storage.createUser(userData);
-      res.json(user);
-    } catch (error) {
-      console.error("Error creating user:", error);
-      res.status(400).json({ error: "Invalid user data" });
-    }
-  });
-
-  app.get("/api/users/:id", async (req, res) => {
-    try {
-      const user = await storage.getUser(req.params.id);
-      if (!user) {
-        return res.status(404).json({ error: "User not found" });
-      }
-      res.json(user);
-    } catch (error) {
-      console.error("Error fetching user:", error);
-      res.status(500).json({ error: "Failed to fetch user" });
-    }
-  });
-
-  app.get("/api/users/wallet/:address", async (req, res) => {
-    try {
-      const user = await storage.getUserByWallet(req.params.address);
-      if (!user) {
-        return res.status(404).json({ error: "User not found" });
-      }
-      res.json(user);
-    } catch (error) {
-      console.error("Error fetching user by wallet:", error);
-      res.status(500).json({ error: "Failed to fetch user" });
-    }
-  });
-
-  app.patch("/api/users/:id", isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.params.id;
-      
-      // Check if user is updating their own profile
-      if (req.user.claims.sub !== userId) {
-        return res.status(403).json({ error: "Access denied - not owner" });
-      }
-
-      // Use Zod validation for secure input handling
-      const updateData = userUpdateSchema.parse(req.body);
-      
-      if (Object.keys(updateData).length === 0) {
-        return res.status(400).json({ error: "No valid fields to update" });
-      }
-
-      // SECURITY: Block principalId updates - require wallet binding verification
-      if (updateData.principalId) {
-        return res.status(403).json({ 
-          error: "Direct principalId updates not allowed. Use /api/wallet/verify-binding endpoint." 
+  // Auth routes with enhanced validation
+  app.get('/api/auth/user', 
+    rateLimitConfigs.auth, 
+    isAuthenticated, 
+    async (req: any, res) => {
+      try {
+        const userId = req.user.claims.sub;
+        
+        // Validate user ID format
+        if (!userId || typeof userId !== 'string' || userId.length > 50) {
+          return res.status(400).json({
+            success: false,
+            error: 'Invalid user ID format',
+            code: 'INVALID_USER_ID',
+            timestamp: new Date().toISOString()
+          });
+        }
+        
+        const user = await storage.getUser(userId);
+        
+        if (!user) {
+          return res.status(404).json({
+            success: false,
+            error: 'User not found',
+            code: 'USER_NOT_FOUND',
+            timestamp: new Date().toISOString()
+          });
+        }
+        
+        res.json(successResponse(user));
+      } catch (error) {
+        console.error("Error fetching user:", {
+          userId: req.user?.claims?.sub,
+          error: error instanceof Error ? error.message : error,
+          stack: error instanceof Error ? error.stack : undefined,
+          timestamp: new Date().toISOString(),
+          userAgent: req.get('User-Agent'),
+          ip: req.ip
+        });
+        res.status(500).json({
+          success: false,
+          error: "Failed to fetch user",
+          code: 'INTERNAL_ERROR',
+          timestamp: new Date().toISOString()
         });
       }
-
-      const updatedUser = await storage.updateUser(userId, updateData);
-      
-      if (!updatedUser) {
-        return res.status(404).json({ error: "User not found" });
-      }
-
-      res.json(updatedUser);
-    } catch (error) {
-      console.error("Error updating user:", error);
-      res.status(500).json({ error: "Failed to update user" });
     }
-  });
+  );
+
+  // User routes with comprehensive validation
+  app.post("/api/users", 
+    rateLimitConfigs.auth,
+    validateRequest(insertUserSchema, 'body'),
+    async (req, res) => {
+      try {
+        const userData = req.body; // Already validated by middleware
+        
+        // Additional business logic validation
+        if (userData.walletAddress) {
+          const addressValidation = AddressValidator.validateBridgeAddress(
+            userData.walletAddress,
+            userData.walletAddress.startsWith('0x') ? 'ethereum' : 'icp',
+            userData.walletAddress.startsWith('0x') ? 'address' : 
+            (userData.walletAddress.length === 64 ? 'accountId' : 'principal')
+          );
+          
+          if (!addressValidation.valid) {
+            return res.status(400).json({
+              success: false,
+              error: `Invalid wallet address: ${addressValidation.error}`,
+              code: 'INVALID_WALLET_ADDRESS',
+              field: 'walletAddress',
+              timestamp: new Date().toISOString()
+            });
+          }
+        }
+        
+        // Check for existing user
+        if (userData.walletAddress) {
+          const existingUser = await storage.getUserByWallet(userData.walletAddress);
+          
+          if (existingUser) {
+            return res.json(successResponse(existingUser, 'User already exists'));
+          }
+        }
+        
+        // Create new user
+        const user = await storage.createUser(userData);
+        
+        console.log('User created successfully:', {
+          userId: user.id,
+          walletAddress: userData.walletAddress,
+          timestamp: new Date().toISOString(),
+          ip: req.ip,
+          userAgent: req.get('User-Agent')
+        });
+        
+        res.status(201).json(successResponse(user, 'User created successfully'));
+      } catch (error) {
+        console.error("Error creating user:", {
+          error: error instanceof Error ? error.message : error,
+          stack: error instanceof Error ? error.stack : undefined,
+          requestBody: req.body,
+          timestamp: new Date().toISOString(),
+          ip: req.ip,
+          userAgent: req.get('User-Agent')
+        });
+        
+        res.status(500).json({
+          success: false,
+          error: "Failed to create user",
+          code: 'INTERNAL_ERROR',
+          timestamp: new Date().toISOString()
+        });
+      }
+    }
+  );
+
+  app.get("/api/users/:id", 
+    validateRequest(userIdParamSchema, 'params'),
+    async (req, res) => {
+      try {
+        const userId = req.params.id;
+        
+        const user = await storage.getUser(userId);
+        if (!user) {
+          return res.status(404).json({
+            success: false,
+            error: "User not found",
+            code: 'USER_NOT_FOUND',
+            timestamp: new Date().toISOString()
+          });
+        }
+        
+        res.json(successResponse(user));
+      } catch (error) {
+        console.error("Error fetching user:", {
+          userId: req.params.id,
+          error: error instanceof Error ? error.message : error,
+          timestamp: new Date().toISOString(),
+          ip: req.ip
+        });
+        res.status(500).json({
+          success: false,
+          error: "Failed to fetch user",
+          code: 'INTERNAL_ERROR',
+          timestamp: new Date().toISOString()
+        });
+      }
+    }
+  );
+
+  app.get("/api/users/wallet/:address", 
+    validateRequest(walletAddressParamSchema, 'params'),
+    async (req, res) => {
+      try {
+        const walletAddress = req.params.address;
+        
+        // Additional wallet address validation
+        const addressValidation = AddressValidator.validateBridgeAddress(
+          walletAddress,
+          walletAddress.startsWith('0x') ? 'ethereum' : 'icp',
+          walletAddress.startsWith('0x') ? 'address' : 
+          (walletAddress.length === 64 ? 'accountId' : 'principal')
+        );
+        
+        if (!addressValidation.valid) {
+          return res.status(400).json({
+            success: false,
+            error: `Invalid wallet address format: ${addressValidation.error}`,
+            code: 'INVALID_WALLET_ADDRESS',
+            field: 'address',
+            timestamp: new Date().toISOString()
+          });
+        }
+        
+        const user = await storage.getUserByWallet(walletAddress);
+        if (!user) {
+          return res.status(404).json({
+            success: false,
+            error: "User not found for this wallet address",
+            code: 'USER_NOT_FOUND',
+            timestamp: new Date().toISOString()
+          });
+        }
+        
+        res.json(successResponse(user));
+      } catch (error) {
+        console.error("Error fetching user by wallet:", {
+          address: req.params.address,
+          error: error instanceof Error ? error.message : error,
+          timestamp: new Date().toISOString(),
+          ip: req.ip
+        });
+        res.status(500).json({
+          success: false,
+          error: "Failed to fetch user",
+          code: 'INTERNAL_ERROR',
+          timestamp: new Date().toISOString()
+        });
+      }
+    }
+  );
+
+  app.patch("/api/users/:id", 
+    validateRequest(userIdParamSchema, 'params'),
+    isAuthenticated, 
+    validateRequest(userUpdateSchema, 'body'),
+    async (req: any, res) => {
+      try {
+        const userId = req.params.id;
+        
+        // Check if user is updating their own profile
+        if (req.user.claims.sub !== userId) {
+          return res.status(403).json({
+            success: false,
+            error: "Access denied - not owner",
+            code: 'FORBIDDEN',
+            timestamp: new Date().toISOString()
+          });
+        }
+
+        const updateData = req.body; // Already validated by middleware
+      
+        if (Object.keys(updateData).length === 0) {
+          return res.status(400).json({
+            success: false,
+            error: "No valid fields to update",
+            code: 'NO_UPDATE_DATA',
+            timestamp: new Date().toISOString()
+          });
+        }
+
+        // SECURITY: Block principalId updates - require wallet binding verification
+        if (updateData.principalId) {
+          return res.status(403).json({ 
+            success: false,
+            error: "Direct principalId updates not allowed. Use /api/wallet/verify-binding endpoint.",
+            code: 'PRINCIPAL_UPDATE_FORBIDDEN',
+            timestamp: new Date().toISOString()
+          });
+        }
+
+        const updatedUser = await storage.updateUser(userId, updateData);
+        
+        if (!updatedUser) {
+          return res.status(404).json({
+            success: false,
+            error: "User not found",
+            code: 'USER_NOT_FOUND',
+            timestamp: new Date().toISOString()
+          });
+        }
+
+        console.log('User updated successfully:', {
+          userId,
+          updatedFields: Object.keys(updateData),
+          timestamp: new Date().toISOString(),
+          ip: req.ip
+        });
+
+        res.json(successResponse(updatedUser, 'User updated successfully'));
+      } catch (error) {
+        console.error("Error updating user:", {
+          userId: req.params.id,
+          updateData: req.body,
+          error: error instanceof Error ? error.message : error,
+          timestamp: new Date().toISOString(),
+          ip: req.ip
+        });
+        res.status(500).json({
+          success: false,
+          error: "Failed to update user",
+          code: 'INTERNAL_ERROR',
+          timestamp: new Date().toISOString()
+        });
+      }
+    }
+  );
 
   // Secure Wallet Binding endpoints
   app.post("/api/wallet/bind-intent", isAuthenticated, async (req: any, res) => {
@@ -435,11 +669,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Payment Intents endpoint - generates secure payment intents
-  app.post("/api/payment-intents", isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const { type, amount, metadata } = paymentIntentSchema.parse(req.body);
+  // Payment Intents endpoint with comprehensive validation
+  app.post("/api/payment-intents", 
+    rateLimitConfigs.financial,
+    isAuthenticated, 
+    validateRequest(paymentIntentSchema, 'body'),
+    async (req: any, res) => {
+      try {
+        const userId = req.user.claims.sub;
+        const { type, amount, metadata } = req.body; // Already validated
+        
+        // Additional financial validation
+        const amountValidation = FinancialValidator.isValidAmount(parseFloat(amount), {
+          min: 0.00001,
+          max: 1000000,
+          decimalPlaces: 8
+        });
+        
+        if (!amountValidation.valid) {
+          return res.status(400).json({
+            success: false,
+            error: amountValidation.error,
+            code: 'INVALID_AMOUNT',
+            field: 'amount',
+            timestamp: new Date().toISOString()
+          });
+        }
       
       // CRITICAL: Use AccountIdentifier for ICP payments (not Principal)
       const systemAccountId = SYSTEM_ICP_ACCOUNT_ID;
