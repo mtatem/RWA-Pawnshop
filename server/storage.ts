@@ -29,6 +29,7 @@ export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   upsertUser(user: any): Promise<User>;
   getUserByWallet(walletAddress: string): Promise<User | undefined>;
+  getUserByPrincipalId(principalId: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: string, user: Partial<InsertUser>): Promise<User>;
 
@@ -61,7 +62,7 @@ export interface IStorage {
   // Transaction operations
   createTransaction(transaction: InsertTransaction): Promise<Transaction>;
   getTransactionsByUser(userId: string): Promise<Transaction[]>;
-  updateTransactionStatus(id: string, status: string, txHash?: string): Promise<Transaction>;
+  updateTransactionStatus(id: string, status: string, txHash?: string, blockHeight?: number): Promise<Transaction>;
 
   // Bridge operations
   createBridgeTransaction(bridge: InsertBridgeTransaction): Promise<BridgeTransaction>;
@@ -86,6 +87,11 @@ export class DatabaseStorage implements IStorage {
 
   async getUserByWallet(walletAddress: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.walletAddress, walletAddress));
+    return user || undefined;
+  }
+
+  async getUserByPrincipalId(principalId: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.principalId, principalId));
     return user || undefined;
   }
 
@@ -268,10 +274,13 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(transactions).where(eq(transactions.userId, userId)).orderBy(desc(transactions.createdAt));
   }
 
-  async updateTransactionStatus(id: string, status: string, txHash?: string): Promise<Transaction> {
+  async updateTransactionStatus(id: string, status: string, txHash?: string, blockHeight?: number): Promise<Transaction> {
     const updateData: any = { status, updatedAt: new Date() };
     if (txHash) {
       updateData.txHash = txHash;
+    }
+    if (blockHeight !== undefined) {
+      updateData.blockHeight = blockHeight;
     }
 
     const [transaction] = await db

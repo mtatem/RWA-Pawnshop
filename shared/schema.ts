@@ -18,6 +18,7 @@ export const sessions = pgTable(
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   walletAddress: text("wallet_address"),
+  principalId: text("principal_id").unique(), // ICP wallet principal ID for real blockchain integration
   email: varchar("email").unique(),
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
@@ -92,14 +93,17 @@ export const bids = pgTable("bids", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-// Blockchain transactions table (mock ICP transactions)
+// Blockchain transactions table (real ICP transactions)
 export const transactions = pgTable("transactions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull().references(() => users.id),
   type: text("type").notNull(), // fee_payment, loan_disbursement, redemption_payment, bid_payment
   amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
   currency: text("currency").notNull().default("ICP"),
-  txHash: text("tx_hash").notNull(),
+  network: text("network").notNull().default("ICP"), // support multi-chain transactions
+  txHash: text("tx_hash"), // nullable to allow payment intent creation before confirmation
+  memo: text("memo"), // ICP transaction memo for verification
+  blockHeight: text("block_height"), // text type to handle 64-bit ICP block heights safely
   status: text("status").notNull().default("pending"), // pending, confirmed, failed
   metadata: jsonb("metadata"),
   createdAt: timestamp("created_at").defaultNow(),
@@ -164,6 +168,7 @@ export const insertTransactionSchema = createInsertSchema(transactions).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
+  txHash: true, // omit nullable txHash - will be set after blockchain confirmation
 });
 
 export const insertBridgeTransactionSchema = createInsertSchema(bridgeTransactions).omit({
