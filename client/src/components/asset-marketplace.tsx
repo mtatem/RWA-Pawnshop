@@ -8,19 +8,11 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { useICPWallet } from "@/hooks/useICPWallet";
 import { apiRequest } from "@/lib/queryClient";
+import type { MarketplaceAsset } from "@shared/schema";
 
-interface MarketplaceAsset {
-  id: string;
-  assetName: string;
-  category: string;
-  originalValue: string;
-  startingPrice: string;
-  currentBid?: string;
-  daysExpired: number;
-  imageUrl?: string;
-  description: string;
-}
 
 export default function AssetMarketplace() {
   const [filters, setFilters] = useState({
@@ -35,50 +27,48 @@ export default function AssetMarketplace() {
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user, isAuthenticated } = useAuth();
+  const { wallet, sendTransaction } = useICPWallet();
 
-  // Mock data - in production this would fetch from API
-  const { data: assets = [], isLoading } = useQuery({
+  // Fetch real marketplace assets from API
+  const { data: assets = [], isLoading } = useQuery<MarketplaceAsset[]>({
     queryKey: ["/api/marketplace/assets"],
-    initialData: [
-      {
-        id: "1",
-        assetName: "Diamond Tennis Necklace",
-        category: "Luxury Jewelry",
-        originalValue: "15000.00",
-        startingPrice: "12000.00",
-        currentBid: "12500.00",
-        daysExpired: 7,
-        description: "Stunning 5-carat diamond tennis necklace",
-        imageUrl: "https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=600",
-      },
-      {
-        id: "2",
-        assetName: "1973 Martin D-28",
-        category: "Musical Instrument",
-        originalValue: "8500.00",
-        startingPrice: "6800.00",
-        daysExpired: 3,
-        description: "Vintage acoustic guitar in excellent condition",
-        imageUrl: "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=600",
-      },
-      {
-        id: "3",
-        assetName: "Canon EOS R5",
-        category: "Electronics",
-        originalValue: "4200.00",
-        startingPrice: "3360.00",
-        daysExpired: 12,
-        description: "Professional camera with lens kit",
-        imageUrl: "https://images.unsplash.com/photo-1502920917128-1aa500764cbd?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=600",
-      },
-    ] as MarketplaceAsset[],
   });
 
   const bidMutation = useMutation({
     mutationFn: async ({ assetId, amount }: { assetId: string; amount: string }) => {
+      if (!isAuthenticated || !user) {
+        throw new Error('Please log in to place bids');
+      }
+      
+      if (!wallet) {
+        throw new Error('Please connect your ICP wallet to place bids');
+      }
+
+      const bidAmountICP = parseFloat(amount);
+      if (wallet.balance < (bidAmountICP + 0.0001)) {
+        throw new Error(`Insufficient balance. You need ${bidAmountICP + 0.0001} ICP (including transaction fee) to place this bid.`);
+      }
+
+      // Get secure payment intent from backend
+      const paymentIntentResponse = await apiRequest('POST', '/api/payment-intents', {
+        type: 'bid_payment',
+        amount: amount,
+        metadata: { assetId }
+      });
+      const paymentIntent = await paymentIntentResponse.json();
+
+      // Send bid payment using secure recipient
+      await sendTransaction(
+        paymentIntent.recipient,
+        bidAmountICP,
+        'bid_payment',
+        paymentIntent.memo
+      );
+
       const response = await apiRequest("POST", `/api/marketplace/assets/${assetId}/bid`, {
-        bidderId: "mock-user-id",
-        amount: parseFloat(amount).toFixed(2),
+        bidderId: user.id,
+        amount: bidAmountICP.toFixed(2),
       });
       return response.json();
     },
@@ -290,11 +280,25 @@ export default function AssetMarketplace() {
                         </div>
                         <Button
                           onClick={submitBid}
-                          disabled={bidMutation.isPending || !bidAmount}
+                          disabled={
+                            bidMutation.isPending || 
+                            !bidAmount || 
+                            !isAuthenticated || 
+                            !wallet || 
+                            (bidAmount && wallet ? wallet.balance < parseFloat(bidAmount) : false)
+                          }
                           className="w-full"
                           data-testid="button-submit-bid"
                         >
-                          {bidMutation.isPending ? "Placing Bid..." : "Place Bid"}
+                          {bidMutation.isPending
+                            ? "Placing Bid..."
+                            : !isAuthenticated
+                            ? "Login to Bid"
+                            : !wallet
+                            ? "Connect Wallet"
+                            : bidAmount && wallet.balance < parseFloat(bidAmount)
+                            ? "Insufficient Balance"
+                            : "Place Bid"}
                         </Button>
                       </div>
                     </DialogContent>

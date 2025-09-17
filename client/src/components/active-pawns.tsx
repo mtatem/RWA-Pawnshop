@@ -1,49 +1,83 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Clock } from "lucide-react";
+import type { PawnLoan, RwaSubmission } from "@shared/schema";
+
+// Extended type for pawn loans with submission details
+type PawnLoanWithSubmission = PawnLoan & {
+  assetName: string;
+  category: string;
+};
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/hooks/useAuth";
+import { useICPWallet } from "@/hooks/useICPWallet";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 import CountdownTimer from "@/components/countdown-timer";
 
-interface PawnLoan {
-  id: string;
-  assetName: string;
-  category: string;
-  loanAmount: string;
-  assetValue: string;
-  expiryDate: string;
-  status: string;
-}
 
 export default function ActivePawns() {
-  // Mock data - in production this would fetch from API
-  const { data: pawns = [], isLoading } = useQuery({
-    queryKey: ["/api/pawn-loans/user", "mock-user-id"],
-    initialData: [
-      {
-        id: "1",
-        assetName: "Rolex Submariner",
-        category: "Luxury Watch",
-        loanAmount: "7000.00",
-        assetValue: "10000.00",
-        expiryDate: new Date(Date.now() + 67 * 24 * 60 * 60 * 1000).toISOString(),
-        status: "active",
-      },
-      {
-        id: "2",
-        assetName: "Vintage Guitar",
-        category: "Musical Instrument",
-        loanAmount: "2100.00",
-        assetValue: "3000.00",
-        expiryDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
-        status: "active",
-      },
-    ] as PawnLoan[],
+  const { user, isAuthenticated } = useAuth();
+  const { wallet, sendTransaction } = useICPWallet();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  // Fetch real pawn loans from API  
+  const { data: pawns = [], isLoading } = useQuery<PawnLoanWithSubmission[]>({
+    queryKey: ["/api/pawn-loans/user", user?.id],
+    enabled: isAuthenticated && !!user?.id,
   });
 
-  const handleRedeemAsset = (pawnId: string) => {
-    // Mock redemption - in production this would call the API
-    console.log("Redeeming asset:", pawnId);
+  const redeemMutation = useMutation({
+    mutationFn: async ({ pawnId, loanAmount }: { pawnId: string; loanAmount: string }) => {
+      if (!wallet) {
+        throw new Error('Please connect your ICP wallet to redeem assets');
+      }
+
+      const amount = parseFloat(loanAmount);
+      if (wallet.balance < (amount + 0.0001)) {
+        throw new Error(`Insufficient balance. You need ${amount + 0.0001} ICP (including transaction fee) to redeem this asset.`);
+      }
+
+      // Get secure payment intent from backend
+      const paymentIntentResponse = await apiRequest('POST', '/api/payment-intents', {
+        type: 'redemption_payment',
+        amount: loanAmount,
+        metadata: { pawnId }
+      });
+      const paymentIntent = await paymentIntentResponse.json();
+
+      // Send redemption payment using secure recipient
+      await sendTransaction(
+        paymentIntent.recipient,
+        amount,
+        'redemption_payment',
+        paymentIntent.memo
+      );
+
+      // Update pawn status via API
+      const response = await apiRequest('PATCH', `/api/pawn-loans/${pawnId}/redeem`, {});
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Asset Redeemed",
+        description: "Your asset has been successfully redeemed!",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/pawn-loans/user", user?.id] });
+    },
+    onError: (error) => {
+      toast({
+        title: "Redemption Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleRedeemAsset = (pawnId: string, loanAmount: string) => {
+    redeemMutation.mutate({ pawnId, loanAmount });
   };
 
   if (isLoading) {
@@ -61,7 +95,11 @@ export default function ActivePawns() {
         Your Active Pawns
       </h3>
 
-      {pawns.length === 0 ? (
+      {!isAuthenticated ? (
+        <div className="text-center py-8 text-muted-foreground">
+          <p>Please log in to view your active pawns.</p>
+        </div>
+      ) : pawns.length === 0 ? (
         <div className="text-center py-8 text-muted-foreground">
           <p>No active pawns found.</p>
           <p className="text-sm mt-2">Submit an RWA to get started!</p>
@@ -117,7 +155,8 @@ export default function ActivePawns() {
                 />
 
                 <Button
-                  onClick={() => handleRedeemAsset(pawn.id)}
+                  onClick={() => handleRedeemAsset(pawn.id, pawn.loanAmount)}
+                  disabled={redeemMutation.isPending || !wallet || wallet.balance < parseFloat(pawn.loanAmount)}
                   className={`w-full mt-4 ${
                     isExpiringSoon
                       ? "bg-destructive hover:bg-destructive/90 text-destructive-foreground"
@@ -125,7 +164,15 @@ export default function ActivePawns() {
                   }`}
                   data-testid={`button-redeem-${pawn.id}`}
                 >
-                  {isExpiringSoon ? "Redeem Now" : "Redeem Asset"}
+                  {redeemMutation.isPending
+                    ? "Processing..."
+                    : !wallet
+                    ? "Connect Wallet"
+                    : wallet.balance < parseFloat(pawn.loanAmount)
+                    ? "Insufficient Balance"
+                    : isExpiringSoon
+                    ? "Redeem Now"
+                    : "Redeem Asset"}
                 </Button>
               </Card>
             );
