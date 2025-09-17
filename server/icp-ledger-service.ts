@@ -178,6 +178,23 @@ export class ICPLedgerService {
       subAccount: undefined,
     }).toUint8Array();
   }
+  
+  // Convert hex AccountIdentifier to Uint8Array
+  private accountIdHexToBytes(accountIdHex: string): Uint8Array {
+    if (!/^[0-9a-fA-F]{64}$/.test(accountIdHex)) {
+      throw new Error('Invalid AccountIdentifier format - must be 64 hex characters');
+    }
+    const bytes = new Uint8Array(32);
+    for (let i = 0; i < 32; i++) {
+      bytes[i] = parseInt(accountIdHex.substr(i * 2, 2), 16);
+    }
+    return bytes;
+  }
+  
+  // Helper method to convert bytes to hex string
+  private bytesToHex(bytes: Uint8Array): string {
+    return Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
+  }
 
   // Get account balance for a principal
   async getBalance(principalId: string): Promise<number> {
@@ -198,7 +215,7 @@ export class ICPLedgerService {
     }
   }
 
-  // Verify a specific payment transaction
+  // Verify a specific payment transaction by AccountIdentifier or Principal
   async verifyPayment(
     expectedRecipient: string,
     expectedAmount: number,
@@ -209,8 +226,20 @@ export class ICPLedgerService {
     try {
       await this.initAgent();
 
-      const recipientPrincipal = Principal.fromText(expectedRecipient);
-      const recipientAccountId = this.principalToAccountId(recipientPrincipal);
+      let recipientAccountId: Uint8Array;
+      
+      // SECURITY: Handle both Principal and AccountIdentifier formats
+      if (/^[0-9a-fA-F]{64}$/.test(expectedRecipient)) {
+        // Input is AccountIdentifier (64 hex chars)
+        recipientAccountId = this.accountIdHexToBytes(expectedRecipient);
+        console.log(`Verifying payment to AccountIdentifier: ${expectedRecipient}`);
+      } else {
+        // Input is Principal - convert to AccountIdentifier
+        const recipientPrincipal = Principal.fromText(expectedRecipient);
+        recipientAccountId = this.principalToAccountId(recipientPrincipal);
+        console.log(`Verifying payment to Principal ${expectedRecipient} (AccountId: ${this.bytesToHex(recipientAccountId)})`);
+      }
+      
       const expectedAmountE8s = BigInt(Math.floor(expectedAmount * 100000000));
       const expectedMemoNum = BigInt(expectedMemo);
 
