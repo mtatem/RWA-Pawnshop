@@ -12,6 +12,8 @@ import TermsOfService from "@/pages/terms-of-service";
 import PrivacyPolicy from "@/pages/privacy-policy";
 import RiskDisclosure from "@/pages/risk-disclosure";
 import Compliance from "@/pages/compliance";
+import HelpCenter from "@/pages/help-center";
+import ContactUs from "@/pages/contact-us";
 import Dashboard from "@/pages/dashboard";
 import Marketplace from "@/pages/marketplace";
 import Bridge from "@/pages/bridge";
@@ -30,6 +32,8 @@ function Router() {
       <Route path="/privacy-policy" component={PrivacyPolicy} />
       <Route path="/risk-disclosure" component={RiskDisclosure} />
       <Route path="/compliance" component={Compliance} />
+      <Route path="/help-center" component={HelpCenter} />
+      <Route path="/contact-us" component={ContactUs} />
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/marketplace" component={Marketplace} />
       <Route path="/bridge" component={Bridge} />

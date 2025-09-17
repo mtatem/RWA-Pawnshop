@@ -163,7 +163,7 @@ These Terms are effective as of January 1, 2025, and were last updated on Januar
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-black">
       <Navigation />
       
       <div className="container mx-auto px-4 py-16">

@@ -9,8 +9,8 @@ export default function Footer() {
       { label: "API Docs", href: "/api-docs" },
     ],
     support: [
-      { label: "Help Center", href: "#" },
-      { label: "Contact Us", href: "#" },
+      { label: "Help Center", href: "/help-center" },
+      { label: "Contact Us", href: "/contact-us" },
       { label: "Discord", href: "#" },
       { label: "Twitter", href: "#" },
     ],
