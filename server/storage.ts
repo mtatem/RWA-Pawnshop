@@ -8,6 +8,12 @@ import {
   bridgeTransactions,
   assetPricingCache,
   pricingEstimates,
+  documents,
+  documentAnalysisResults,
+  fraudDetectionResults,
+  documentVerifications,
+  documentAnalysisQueue,
+  documentTemplates,
   type User,
   type InsertUser,
   type RwaSubmission,
@@ -26,6 +32,19 @@ import {
   type InsertAssetPricingCache,
   type PricingEstimate,
   type InsertPricingEstimate,
+  type Document,
+  type InsertDocument,
+  type DocumentAnalysisResult,
+  type InsertDocumentAnalysisResult,
+  type FraudDetectionResult,
+  type InsertFraudDetectionResult,
+  type DocumentVerification,
+  type InsertDocumentVerification,
+  type DocumentAnalysisQueue,
+  type InsertDocumentAnalysisQueue,
+  type DocumentTemplate,
+  type InsertDocumentTemplate,
+  type DocumentSearch,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, lt, gte, sql } from "drizzle-orm";
@@ -96,6 +115,58 @@ export interface IStorage {
     expiringSoon: number;
     totalRevenue: string;
   }>;
+
+  // Document Analysis operations
+  createDocument(document: InsertDocument): Promise<Document>;
+  getDocument(id: string): Promise<Document | undefined>;
+  getDocumentsBySubmission(submissionId: string): Promise<Document[]>;
+  updateDocumentAnalysisStatus(id: string, status: string): Promise<Document>;
+  updateDocumentPriority(id: string, priority: number): Promise<Document>;
+
+  // Document Analysis Results operations
+  createDocumentAnalysisResult(result: InsertDocumentAnalysisResult): Promise<DocumentAnalysisResult>;
+  getDocumentAnalysisResult(documentId: string): Promise<DocumentAnalysisResult | undefined>;
+  getDocumentAnalysisResults(documentId: string): Promise<DocumentAnalysisResult[]>;
+  deleteDocumentAnalysisResult(documentId: string): Promise<void>;
+
+  // Fraud Detection Results operations
+  createFraudDetectionResult(result: InsertFraudDetectionResult): Promise<FraudDetectionResult>;
+  getFraudDetectionResult(documentId: string): Promise<FraudDetectionResult | undefined>;
+  getFraudDetectionResults(documentId: string): Promise<FraudDetectionResult[]>;
+  deleteFraudDetectionResult(documentId: string): Promise<void>;
+
+  // Document Verification operations
+  createDocumentVerification(verification: InsertDocumentVerification): Promise<DocumentVerification>;
+  getDocumentVerifications(documentId: string): Promise<DocumentVerification[]>;
+  updateDocumentVerification(id: string, updates: Partial<DocumentVerification>): Promise<DocumentVerification>;
+
+  // Document Analysis Queue operations
+  addToAnalysisQueue(queueItem: InsertDocumentAnalysisQueue): Promise<DocumentAnalysisQueue>;
+  getAnalysisQueue(): Promise<DocumentAnalysisQueue[]>;
+  getAnalysisQueueItem(id: string): Promise<DocumentAnalysisQueue | undefined>;
+  updateAnalysisQueueStatus(id: string, status: string, updates?: Partial<DocumentAnalysisQueue>): Promise<DocumentAnalysisQueue>;
+  updateQueuePriority(documentId: string, priority: number): Promise<void>;
+  getDocumentQueueHistory(documentId: string): Promise<DocumentAnalysisQueue[]>;
+
+  // Document Template operations
+  createDocumentTemplate(template: InsertDocumentTemplate): Promise<DocumentTemplate>;
+  getDocumentTemplates(): Promise<DocumentTemplate[]>;
+  getDocumentTemplate(id: string): Promise<DocumentTemplate | undefined>;
+  updateDocumentTemplate(id: string, updates: Partial<DocumentTemplate>): Promise<DocumentTemplate>;
+  deleteDocumentTemplate(id: string): Promise<void>;
+
+  // Document Statistics and Management
+  getDocumentStatistics(): Promise<{
+    totalDocuments: number;
+    pendingAnalysis: number;
+    completedAnalysis: number;
+    failedAnalysis: number;
+    highRiskDocuments: number;
+    processingQueue: number;
+  }>;
+  getDocumentsRequiringManualReview(): Promise<Document[]>;
+  searchDocuments(filters: DocumentSearch): Promise<{ documents: Document[]; totalCount: number }>;
+  getDocumentsByRiskLevel(riskLevel: string): Promise<Document[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -540,6 +611,310 @@ export class DatabaseStorage implements IStorage {
       expiringSoon: expiringSoonResult[0]?.count || 0,
       totalRevenue: totalRevenueResult[0]?.total || "0",
     };
+  }
+
+  // Document Analysis operations
+  async createDocument(document: InsertDocument): Promise<Document> {
+    const [newDocument] = await db.insert(documents).values(document).returning();
+    return newDocument;
+  }
+
+  async getDocument(id: string): Promise<Document | undefined> {
+    const [document] = await db.select().from(documents).where(eq(documents.id, id));
+    return document || undefined;
+  }
+
+  async getDocumentsBySubmission(submissionId: string): Promise<Document[]> {
+    return await db.select().from(documents)
+      .where(eq(documents.submissionId, submissionId))
+      .orderBy(desc(documents.createdAt));
+  }
+
+  async updateDocumentAnalysisStatus(id: string, status: string): Promise<Document> {
+    const [document] = await db
+      .update(documents)
+      .set({ analysisStatus: status, updatedAt: new Date() })
+      .where(eq(documents.id, id))
+      .returning();
+    return document;
+  }
+
+  async updateDocumentPriority(id: string, priority: number): Promise<Document> {
+    const [document] = await db
+      .update(documents)
+      .set({ priority, updatedAt: new Date() })
+      .where(eq(documents.id, id))
+      .returning();
+    return document;
+  }
+
+  // Document Analysis Results operations
+  async createDocumentAnalysisResult(result: InsertDocumentAnalysisResult): Promise<DocumentAnalysisResult> {
+    const [analysisResult] = await db.insert(documentAnalysisResults).values(result).returning();
+    return analysisResult;
+  }
+
+  async getDocumentAnalysisResult(documentId: string): Promise<DocumentAnalysisResult | undefined> {
+    const [result] = await db.select().from(documentAnalysisResults)
+      .where(eq(documentAnalysisResults.documentId, documentId))
+      .orderBy(desc(documentAnalysisResults.analyzedAt))
+      .limit(1);
+    return result || undefined;
+  }
+
+  async getDocumentAnalysisResults(documentId: string): Promise<DocumentAnalysisResult[]> {
+    return await db.select().from(documentAnalysisResults)
+      .where(eq(documentAnalysisResults.documentId, documentId))
+      .orderBy(desc(documentAnalysisResults.analyzedAt));
+  }
+
+  async deleteDocumentAnalysisResult(documentId: string): Promise<void> {
+    await db.delete(documentAnalysisResults)
+      .where(eq(documentAnalysisResults.documentId, documentId));
+  }
+
+  // Fraud Detection Results operations
+  async createFraudDetectionResult(result: InsertFraudDetectionResult): Promise<FraudDetectionResult> {
+    const [fraudResult] = await db.insert(fraudDetectionResults).values(result).returning();
+    return fraudResult;
+  }
+
+  async getFraudDetectionResult(documentId: string): Promise<FraudDetectionResult | undefined> {
+    const [result] = await db.select().from(fraudDetectionResults)
+      .where(eq(fraudDetectionResults.documentId, documentId))
+      .orderBy(desc(fraudDetectionResults.analyzedAt))
+      .limit(1);
+    return result || undefined;
+  }
+
+  async getFraudDetectionResults(documentId: string): Promise<FraudDetectionResult[]> {
+    return await db.select().from(fraudDetectionResults)
+      .where(eq(fraudDetectionResults.documentId, documentId))
+      .orderBy(desc(fraudDetectionResults.analyzedAt));
+  }
+
+  async deleteFraudDetectionResult(documentId: string): Promise<void> {
+    await db.delete(fraudDetectionResults)
+      .where(eq(fraudDetectionResults.documentId, documentId));
+  }
+
+  // Document Verification operations
+  async createDocumentVerification(verification: InsertDocumentVerification): Promise<DocumentVerification> {
+    const [newVerification] = await db.insert(documentVerifications).values(verification).returning();
+    return newVerification;
+  }
+
+  async getDocumentVerifications(documentId: string): Promise<DocumentVerification[]> {
+    return await db.select().from(documentVerifications)
+      .where(eq(documentVerifications.documentId, documentId))
+      .orderBy(desc(documentVerifications.reviewedAt));
+  }
+
+  async updateDocumentVerification(id: string, updates: Partial<DocumentVerification>): Promise<DocumentVerification> {
+    const [verification] = await db
+      .update(documentVerifications)
+      .set({ ...updates, reviewedAt: new Date() })
+      .where(eq(documentVerifications.id, id))
+      .returning();
+    return verification;
+  }
+
+  // Document Analysis Queue operations
+  async addToAnalysisQueue(queueItem: InsertDocumentAnalysisQueue): Promise<DocumentAnalysisQueue> {
+    const [newQueueItem] = await db.insert(documentAnalysisQueue).values(queueItem).returning();
+    return newQueueItem;
+  }
+
+  async getAnalysisQueue(): Promise<DocumentAnalysisQueue[]> {
+    return await db.select().from(documentAnalysisQueue)
+      .where(eq(documentAnalysisQueue.queueStatus, 'queued'))
+      .orderBy(desc(documentAnalysisQueue.priority), documentAnalysisQueue.createdAt);
+  }
+
+  async getAnalysisQueueItem(id: string): Promise<DocumentAnalysisQueue | undefined> {
+    const [item] = await db.select().from(documentAnalysisQueue)
+      .where(eq(documentAnalysisQueue.id, id));
+    return item || undefined;
+  }
+
+  async updateAnalysisQueueStatus(id: string, status: string, updates?: Partial<DocumentAnalysisQueue>): Promise<DocumentAnalysisQueue> {
+    const updateData = { queueStatus: status, updatedAt: new Date(), ...updates };
+    const [queueItem] = await db
+      .update(documentAnalysisQueue)
+      .set(updateData)
+      .where(eq(documentAnalysisQueue.id, id))
+      .returning();
+    return queueItem;
+  }
+
+  async updateQueuePriority(documentId: string, priority: number): Promise<void> {
+    await db
+      .update(documentAnalysisQueue)
+      .set({ priority, updatedAt: new Date() })
+      .where(eq(documentAnalysisQueue.documentId, documentId));
+  }
+
+  async getDocumentQueueHistory(documentId: string): Promise<DocumentAnalysisQueue[]> {
+    return await db.select().from(documentAnalysisQueue)
+      .where(eq(documentAnalysisQueue.documentId, documentId))
+      .orderBy(desc(documentAnalysisQueue.createdAt));
+  }
+
+  // Document Template operations
+  async createDocumentTemplate(template: InsertDocumentTemplate): Promise<DocumentTemplate> {
+    const [newTemplate] = await db.insert(documentTemplates).values(template).returning();
+    return newTemplate;
+  }
+
+  async getDocumentTemplates(): Promise<DocumentTemplate[]> {
+    return await db.select().from(documentTemplates)
+      .where(eq(documentTemplates.isActive, true))
+      .orderBy(documentTemplates.documentType, documentTemplates.createdAt);
+  }
+
+  async getDocumentTemplate(id: string): Promise<DocumentTemplate | undefined> {
+    const [template] = await db.select().from(documentTemplates)
+      .where(eq(documentTemplates.id, id));
+    return template || undefined;
+  }
+
+  async updateDocumentTemplate(id: string, updates: Partial<DocumentTemplate>): Promise<DocumentTemplate> {
+    const [template] = await db
+      .update(documentTemplates)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(documentTemplates.id, id))
+      .returning();
+    return template;
+  }
+
+  async deleteDocumentTemplate(id: string): Promise<void> {
+    await db
+      .update(documentTemplates)
+      .set({ isActive: false, updatedAt: new Date() })
+      .where(eq(documentTemplates.id, id));
+  }
+
+  // Document Statistics and Management
+  async getDocumentStatistics(): Promise<{
+    totalDocuments: number;
+    pendingAnalysis: number;
+    completedAnalysis: number;
+    failedAnalysis: number;
+    highRiskDocuments: number;
+    processingQueue: number;
+  }> {
+    const [totalDocs] = await db
+      .select({ count: sql<number>`cast(count(*) as integer)` })
+      .from(documents);
+
+    const [pendingDocs] = await db
+      .select({ count: sql<number>`cast(count(*) as integer)` })
+      .from(documents)
+      .where(eq(documents.analysisStatus, 'pending'));
+
+    const [completedDocs] = await db
+      .select({ count: sql<number>`cast(count(*) as integer)` })
+      .from(documents)
+      .where(eq(documents.analysisStatus, 'completed'));
+
+    const [failedDocs] = await db
+      .select({ count: sql<number>`cast(count(*) as integer)` })
+      .from(documents)
+      .where(eq(documents.analysisStatus, 'failed'));
+
+    const [highRiskDocs] = await db
+      .select({ count: sql<number>`cast(count(*) as integer)` })
+      .from(fraudDetectionResults)
+      .where(eq(fraudDetectionResults.riskLevel, 'high'));
+
+    const [queuedDocs] = await db
+      .select({ count: sql<number>`cast(count(*) as integer)` })
+      .from(documentAnalysisQueue)
+      .where(eq(documentAnalysisQueue.queueStatus, 'queued'));
+
+    return {
+      totalDocuments: totalDocs?.count || 0,
+      pendingAnalysis: pendingDocs?.count || 0,
+      completedAnalysis: completedDocs?.count || 0,
+      failedAnalysis: failedDocs?.count || 0,
+      highRiskDocuments: highRiskDocs?.count || 0,
+      processingQueue: queuedDocs?.count || 0,
+    };
+  }
+
+  async getDocumentsRequiringManualReview(): Promise<Document[]> {
+    // Get documents that have fraud detection results requiring manual review
+    return await db.select().from(documents)
+      .innerJoin(fraudDetectionResults, eq(documents.id, fraudDetectionResults.documentId))
+      .where(eq(fraudDetectionResults.requiresManualReview, true))
+      .orderBy(desc(documents.createdAt));
+  }
+
+  async searchDocuments(filters: DocumentSearch): Promise<{ documents: Document[]; totalCount: number }> {
+    let query = db.select().from(documents);
+    let countQuery = db.select({ count: sql<number>`cast(count(*) as integer)` }).from(documents);
+    
+    const conditions = [];
+    
+    if (filters.submissionId) {
+      conditions.push(eq(documents.submissionId, filters.submissionId));
+    }
+    if (filters.documentType) {
+      conditions.push(eq(documents.documentType, filters.documentType));
+    }
+    if (filters.analysisStatus) {
+      conditions.push(eq(documents.analysisStatus, filters.analysisStatus));
+    }
+    if (filters.dateFrom) {
+      conditions.push(gte(documents.createdAt, new Date(filters.dateFrom)));
+    }
+    if (filters.dateTo) {
+      conditions.push(lt(documents.createdAt, new Date(filters.dateTo)));
+    }
+
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions));
+      countQuery = countQuery.where(and(...conditions));
+    }
+
+    // Add risk level filter if specified (requires join with fraud detection results)
+    if (filters.riskLevel) {
+      query = query.innerJoin(fraudDetectionResults, eq(documents.id, fraudDetectionResults.documentId))
+        .where(eq(fraudDetectionResults.riskLevel, filters.riskLevel));
+      countQuery = countQuery.innerJoin(fraudDetectionResults, eq(documents.id, fraudDetectionResults.documentId))
+        .where(eq(fraudDetectionResults.riskLevel, filters.riskLevel));
+    }
+
+    // Get total count
+    const [countResult] = await countQuery;
+    const totalCount = countResult?.count || 0;
+
+    // Apply sorting
+    const sortColumn = filters.sortBy === 'analyzed_at' ? documents.updatedAt :
+                      filters.sortBy === 'fraud_score' ? documents.createdAt : // Default for fraud_score
+                      filters.sortBy === 'file_size' ? documents.fileSize :
+                      documents.createdAt;
+
+    query = filters.sortOrder === 'asc' ? 
+      query.orderBy(sortColumn) : 
+      query.orderBy(desc(sortColumn));
+
+    // Apply pagination
+    const documentsResult = await query
+      .limit(filters.limit || 20)
+      .offset(filters.offset || 0);
+
+    return {
+      documents: documentsResult,
+      totalCount,
+    };
+  }
+
+  async getDocumentsByRiskLevel(riskLevel: string): Promise<Document[]> {
+    return await db.select().from(documents)
+      .innerJoin(fraudDetectionResults, eq(documents.id, fraudDetectionResults.documentId))
+      .where(eq(fraudDetectionResults.riskLevel, riskLevel))
+      .orderBy(desc(documents.createdAt));
   }
 }
 
