@@ -1,6 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { bridgeMonitor } from "./services/bridge-monitor";
 
 const app = express();
 app.use(express.json());
@@ -39,6 +40,14 @@ app.use((req, res, next) => {
 (async () => {
   const server = await registerRoutes(app);
 
+  // Start bridge monitoring service
+  try {
+    await bridgeMonitor.startMonitoring();
+    log("Bridge monitoring service started successfully");
+  } catch (error) {
+    log("Failed to start bridge monitoring service:", error);
+  }
+
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
@@ -65,7 +74,17 @@ app.use((req, res, next) => {
     port,
     host: "0.0.0.0",
     reusePort: true,
-  }, () => {
+  }, async () => {
     log(`serving on port ${port}`);
   });
+
+  // Graceful shutdown handling
+  const gracefulShutdown = () => {
+    log('Shutting down gracefully...');
+    bridgeMonitor.stopMonitoring();
+    process.exit(0);
+  };
+
+  process.on('SIGTERM', gracefulShutdown);
+  process.on('SIGINT', gracefulShutdown);
 })();
