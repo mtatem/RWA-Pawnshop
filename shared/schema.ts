@@ -186,15 +186,45 @@ export const walletBindVerificationSchema = z.object({
   principalId: z.string().min(1, "Principal ID is required"),
   nonce: z.string().min(1, "Nonce is required"),
   walletType: z.enum(['plug', 'internetIdentity']),
-  // For Plug: signed challenge. For II: authenticated proof
-  proof: z.string().optional(),
-  signature: z.string().optional(),
+  // For Plug: signature + publicKey required. For II: delegation proof
+  proof: z.string().optional(), // For Internet Identity delegation
+  signature: z.string().optional(), // For Plug signature
+  publicKey: z.string().optional(), // Required for Plug verification
+}).superRefine((data, ctx) => {
+  if (data.walletType === 'plug') {
+    if (!data.signature) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Signature is required for Plug wallet verification",
+        path: ['signature']
+      });
+    }
+    if (!data.publicKey) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Public key is required for Plug wallet verification",
+        path: ['publicKey']
+      });
+    }
+  } else if (data.walletType === 'internetIdentity') {
+    if (!data.proof) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Delegation proof is required for Internet Identity verification",
+        path: ['proof']
+      });
+    }
+  }
 });
 
 // User update schema with validation (secure replacement for any type)
 export const userUpdateSchema = z.object({
-  principalId: z.string().min(1).optional(),
+  principalId: z.string().regex(/^[a-z0-9-]+$/, "Invalid principal ID format").min(1).optional(),
   walletAddress: z.string().min(1).optional(),
+  firstName: z.string().min(1).max(50).optional(),
+  lastName: z.string().min(1).max(50).optional(),
+  email: z.string().email().optional(),
+  profileImageUrl: z.string().url().optional(),
 }).strict(); // Prevents additional properties
 
 // Payment intent schemas
