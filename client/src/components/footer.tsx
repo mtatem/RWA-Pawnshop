@@ -11,7 +11,7 @@ export default function Footer() {
     support: [
       { label: "Help Center", href: "/help-center" },
       { label: "Contact Us", href: "/contact-us" },
-      { label: "Discord", href: "#" },
+      { label: "Whitepaper", href: "/whitepaper" },
       { label: "Twitter", href: "#" },
     ],
     legal: [

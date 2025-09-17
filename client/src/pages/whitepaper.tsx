@@ -9,8 +9,10 @@ export default function WhitepaperPage() {
     // Create a link to download the whitepaper
     const element = document.createElement('a');
     element.href = '/RWAPAWN_Whitepaper.md';
-    element.download = 'RWAPAWN_Whitepaper.pdf';
+    element.download = 'RWAPAWN_Whitepaper.md';
+    document.body.appendChild(element);
     element.click();
+    document.body.removeChild(element);
   };
 
   return (
