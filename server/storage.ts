@@ -70,10 +70,14 @@ export interface IStorage {
   getTransactionsByUser(userId: string): Promise<Transaction[]>;
   updateTransactionStatus(id: string, status: string, txHash?: string, blockHeight?: number): Promise<Transaction>;
 
-  // Bridge operations
+  // Bridge operations - Enhanced for Chain Fusion
   createBridgeTransaction(bridge: InsertBridgeTransaction): Promise<BridgeTransaction>;
-  getBridgeTransactionsByUser(userId: string): Promise<BridgeTransaction[]>;
-  updateBridgeTransactionStatus(id: string, status: string, destinationTxHash?: string): Promise<BridgeTransaction>;
+  getBridgeTransaction(id: string): Promise<BridgeTransaction | undefined>;
+  getBridgeTransactionsByUser(userId: string, limit?: number, offset?: number): Promise<BridgeTransaction[]>;
+  updateBridgeTransaction(id: string, updates: Partial<BridgeTransaction>): Promise<BridgeTransaction>;
+  updateBridgeTransactionStatus(id: string, status: string, updates?: Partial<BridgeTransaction>): Promise<BridgeTransaction>;
+  getBridgeTransactionsByStatus(status: string): Promise<BridgeTransaction[]>;
+  getBridgeTransactionsWithFilters(filters: any): Promise<BridgeTransaction[]>;
 
   // Pricing operations
   storePricingCache(cache: InsertAssetPricingCache): Promise<AssetPricingCache>;
@@ -307,20 +311,33 @@ export class DatabaseStorage implements IStorage {
     return transaction;
   }
 
-  // Bridge operations
+  // Bridge operations - Enhanced for Chain Fusion
   async createBridgeTransaction(bridge: InsertBridgeTransaction): Promise<BridgeTransaction> {
     const [bridgeTransaction] = await db.insert(bridgeTransactions).values(bridge).returning();
     return bridgeTransaction;
   }
 
-  async getBridgeTransactionsByUser(userId: string): Promise<BridgeTransaction[]> {
-    return await db.select().from(bridgeTransactions).where(eq(bridgeTransactions.userId, userId)).orderBy(desc(bridgeTransactions.createdAt));
+  async getBridgeTransaction(id: string): Promise<BridgeTransaction | undefined> {
+    const [bridge] = await db.select().from(bridgeTransactions).where(eq(bridgeTransactions.id, id));
+    return bridge || undefined;
   }
 
-  async updateBridgeTransactionStatus(id: string, status: string, destinationTxHash?: string): Promise<BridgeTransaction> {
-    const updateData: any = { status, updatedAt: new Date() };
-    if (destinationTxHash) {
-      updateData.destinationTxHash = destinationTxHash;
+  async getBridgeTransactionsByUser(userId: string, limit: number = 20, offset: number = 0): Promise<BridgeTransaction[]> {
+    return await db
+      .select()
+      .from(bridgeTransactions)
+      .where(eq(bridgeTransactions.userId, userId))
+      .orderBy(desc(bridgeTransactions.createdAt))
+      .limit(limit)
+      .offset(offset);
+  }
+
+  async updateBridgeTransaction(id: string, updates: Partial<BridgeTransaction>): Promise<BridgeTransaction> {
+    const updateData = { ...updates, updatedAt: new Date() };
+    
+    // Handle completion timestamp
+    if (updates.status === 'completed' && !updates.completedAt) {
+      updateData.completedAt = new Date();
     }
 
     const [bridge] = await db
@@ -329,6 +346,68 @@ export class DatabaseStorage implements IStorage {
       .where(eq(bridgeTransactions.id, id))
       .returning();
     return bridge;
+  }
+
+  async updateBridgeTransactionStatus(id: string, status: string, updates?: Partial<BridgeTransaction>): Promise<BridgeTransaction> {
+    const updateData: any = { status, updatedAt: new Date(), ...updates };
+    
+    // Handle completion timestamp
+    if (status === 'completed' && !updateData.completedAt) {
+      updateData.completedAt = new Date();
+    }
+
+    const [bridge] = await db
+      .update(bridgeTransactions)
+      .set(updateData)
+      .where(eq(bridgeTransactions.id, id))
+      .returning();
+    return bridge;
+  }
+
+  async getBridgeTransactionsByStatus(status: string): Promise<BridgeTransaction[]> {
+    return await db
+      .select()
+      .from(bridgeTransactions)
+      .where(eq(bridgeTransactions.status, status))
+      .orderBy(desc(bridgeTransactions.createdAt));
+  }
+
+  async getBridgeTransactionsWithFilters(filters: {
+    status?: string;
+    fromNetwork?: string;
+    toNetwork?: string;
+    fromToken?: string;
+    toToken?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<BridgeTransaction[]> {
+    let query = db.select().from(bridgeTransactions);
+    const conditions = [];
+
+    if (filters.status) {
+      conditions.push(eq(bridgeTransactions.status, filters.status));
+    }
+    if (filters.fromNetwork) {
+      conditions.push(eq(bridgeTransactions.fromNetwork, filters.fromNetwork));
+    }
+    if (filters.toNetwork) {
+      conditions.push(eq(bridgeTransactions.toNetwork, filters.toNetwork));
+    }
+    if (filters.fromToken) {
+      conditions.push(eq(bridgeTransactions.fromToken, filters.fromToken));
+    }
+    if (filters.toToken) {
+      conditions.push(eq(bridgeTransactions.toToken, filters.toToken));
+    }
+
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions));
+    }
+
+    return await query
+      .orderBy(desc(bridgeTransactions.createdAt))
+      .limit(filters.limit || 20)
+      .offset(filters.offset || 0);
   }
 
   // Pricing operations

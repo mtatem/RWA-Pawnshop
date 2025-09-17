@@ -15,7 +15,10 @@ import {
   walletBindVerificationSchema,
   userUpdateSchema,
   paymentIntentSchema,
-  assetPricingCache
+  assetPricingCache,
+  bridgeEstimationSchema,
+  bridgeInitiationSchema,
+  bridgeHistoryFilterSchema
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -30,6 +33,7 @@ const isValidAccountId = (accountId: string): boolean => {
 import { CryptoVerificationService } from "./crypto-utils";
 import { ICPLedgerService } from "./icp-ledger-service";
 import { pricingService } from "./services/pricing-service";
+import { chainFusionBridge } from "./services/chain-fusion-bridge";
 import { pricingQuerySchema } from "@shared/schema";
 import { db } from "./db";
 import { sql, eq } from "drizzle-orm";
@@ -760,39 +764,208 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Bridge routes
-  app.post("/api/bridge/transfer", isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub as string; // Derive userId from authenticated user
-      const bridgeData = insertBridgeTransactionSchema.parse({
-        ...req.body,
-        userId // Override any client-provided userId
+  // Comprehensive Chain Fusion Bridge Routes
+  
+  // PRODUCTION-READY: Rate limiting configuration for bridge endpoints - CRITICAL for security
+  const bridgeRateLimit = rateLimit({
+    windowMs: 60 * 1000, // 1 minute window
+    max: 10, // 10 requests per minute per IP for bridge operations (stricter than pricing)
+    message: { error: "Too many bridge requests, please try again later" },
+    standardHeaders: true,
+    legacyHeaders: false,
+    handler: (req, res) => {
+      console.warn(`Bridge rate limit exceeded for IP: ${req.ip}, endpoint: ${req.path}`);
+      res.status(429).json({
+        error: "Rate limit exceeded for bridge operations",
+        retryAfter: Math.ceil(60), // 1 minute
+        limit: 10,
+        endpoint: req.path
       });
-      const bridge = await storage.createBridgeTransaction(bridgeData);
-      
-      // Simulate bridge processing
-      setTimeout(async () => {
-        await storage.updateBridgeTransactionStatus(
-          bridge.id,
-          "completed",
-          `icp_${randomUUID()}`
-        );
-      }, 5000);
-      
-      res.json(bridge);
-    } catch (error) {
-      console.error("Error creating bridge transfer:", error);
-      res.status(400).json({ error: "Invalid bridge data" });
     }
   });
 
-  app.get("/api/bridge/user/:userId", isAuthenticated, checkOwnership, async (req, res) => {
+  // Apply rate limiting to ALL bridge endpoints for security
+  app.use("/api/bridge", bridgeRateLimit);
+
+  // Get bridge cost estimate and time
+  app.post("/api/bridge/estimate", isAuthenticated, async (req: any, res) => {
     try {
-      const bridges = await storage.getBridgeTransactionsByUser(req.params.userId);
+      const estimationData = bridgeEstimationSchema.parse(req.body);
+      const estimation = await chainFusionBridge.estimateBridge(estimationData);
+      res.json(estimation);
+    } catch (error) {
+      console.error("Error estimating bridge:", error);
+      res.status(400).json({ 
+        error: "Bridge estimation failed", 
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Create bridge intent with PRODUCTION-READY address validation
+  app.post("/api/bridge/initiate", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub as string;
+      const initiationData = bridgeInitiationSchema.parse(req.body);
+      
+      // CRITICAL SECURITY: Validate addresses with proper checksums
+      const fromAddressValidation = CryptoVerificationService.validateBridgeAddress(
+        initiationData.fromAddress,
+        initiationData.fromNetwork,
+        initiationData.fromNetwork === 'ethereum' ? 'address' : 'accountId'
+      );
+      
+      if (!fromAddressValidation.valid) {
+        return res.status(400).json({ 
+          error: "Invalid from address", 
+          details: fromAddressValidation.error 
+        });
+      }
+      
+      const toAddressValidation = CryptoVerificationService.validateBridgeAddress(
+        initiationData.toAddress,
+        initiationData.toNetwork,
+        initiationData.toNetwork === 'ethereum' ? 'address' : 'accountId'
+      );
+      
+      if (!toAddressValidation.valid) {
+        return res.status(400).json({ 
+          error: "Invalid to address", 
+          details: toAddressValidation.error 
+        });
+      }
+      
+      console.log(`Bridge initiation with validated addresses - From: ${initiationData.fromAddress} (${initiationData.fromNetwork}), To: ${initiationData.toAddress} (${initiationData.toNetwork})`);
+      
+      const bridge = await chainFusionBridge.initiateBridge(userId, initiationData);
+      res.json(bridge);
+    } catch (error) {
+      console.error("Error initiating bridge:", error);
+      res.status(400).json({ 
+        error: "Bridge initiation failed", 
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Get bridge transaction status
+  app.get("/api/bridge/status/:id", isAuthenticated, async (req, res) => {
+    try {
+      const bridgeId = req.params.id;
+      const bridge = await chainFusionBridge.getBridgeStatus(bridgeId);
+      
+      if (!bridge) {
+        return res.status(404).json({ error: "Bridge transaction not found" });
+      }
+      
+      // Verify user ownership of bridge transaction
+      const userId = req.user?.claims?.sub;
+      if (bridge.userId !== userId) {
+        return res.status(403).json({ error: "Access denied - not your bridge transaction" });
+      }
+      
+      res.json(bridge);
+    } catch (error) {
+      console.error("Error fetching bridge status:", error);
+      res.status(500).json({ error: "Failed to fetch bridge status" });
+    }
+  });
+
+  // Get user bridge history with filtering
+  app.get("/api/bridge/history", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub as string;
+      const filters = bridgeHistoryFilterSchema.parse({
+        status: req.query.status,
+        fromNetwork: req.query.fromNetwork,
+        toNetwork: req.query.toNetwork,
+        fromToken: req.query.fromToken,
+        toToken: req.query.toToken,
+        limit: req.query.limit ? parseInt(req.query.limit) : 20,
+        offset: req.query.offset ? parseInt(req.query.offset) : 0,
+      });
+      
+      const bridges = await chainFusionBridge.getBridgeHistory(userId, filters);
       res.json(bridges);
     } catch (error) {
-      console.error("Error fetching bridge transactions:", error);
-      res.status(500).json({ error: "Failed to fetch bridge transactions" });
+      console.error("Error fetching bridge history:", error);
+      res.status(500).json({ error: "Failed to fetch bridge history" });
+    }
+  });
+
+  // Cancel pending bridge transaction (if possible)
+  app.post("/api/bridge/cancel/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const bridgeId = req.params.id;
+      const userId = req.user.claims.sub as string;
+      
+      const bridge = await chainFusionBridge.getBridgeStatus(bridgeId);
+      if (!bridge) {
+        return res.status(404).json({ error: "Bridge transaction not found" });
+      }
+      
+      // Verify ownership
+      if (bridge.userId !== userId) {
+        return res.status(403).json({ error: "Access denied - not your bridge transaction" });
+      }
+      
+      // Only allow cancellation of pending transactions
+      if (bridge.status !== 'pending') {
+        return res.status(400).json({ error: "Can only cancel pending bridge transactions" });
+      }
+      
+      // Update status to failed (effectively cancelling)
+      const cancelledBridge = await storage.updateBridgeTransactionStatus(
+        bridgeId, 
+        'failed', 
+        { errorMessage: 'Cancelled by user' }
+      );
+      
+      res.json(cancelledBridge);
+    } catch (error) {
+      console.error("Error cancelling bridge:", error);
+      res.status(500).json({ error: "Failed to cancel bridge transaction" });
+    }
+  });
+
+  // Get supported bridge token pairs
+  app.get("/api/bridge/supported-pairs", async (req, res) => {
+    try {
+      const pairs = chainFusionBridge.getSupportedBridgePairs();
+      res.json(pairs);
+    } catch (error) {
+      console.error("Error fetching supported pairs:", error);
+      res.status(500).json({ error: "Failed to fetch supported bridge pairs" });
+    }
+  });
+
+  // Get supported tokens for a network
+  app.get("/api/bridge/supported-tokens/:network", async (req, res) => {
+    try {
+      const network = req.params.network as 'ethereum' | 'icp';
+      
+      if (!['ethereum', 'icp'].includes(network)) {
+        return res.status(400).json({ error: "Invalid network. Use 'ethereum' or 'icp'" });
+      }
+      
+      const tokens = chainFusionBridge.getSupportedTokens(network);
+      res.json({ network, tokens });
+    } catch (error) {
+      console.error("Error fetching supported tokens:", error);
+      res.status(500).json({ error: "Failed to fetch supported tokens" });
+    }
+  });
+
+  // Bridge transaction webhooks for status updates (for future integration)
+  app.post("/api/bridge/webhook", async (req, res) => {
+    try {
+      // Future: Handle bridge status updates from external services
+      // For now, just log the webhook data
+      console.log("Bridge webhook received:", req.body);
+      res.json({ status: "ok", message: "Webhook received" });
+    } catch (error) {
+      console.error("Error handling bridge webhook:", error);
+      res.status(500).json({ error: "Webhook processing failed" });
     }
   });
 

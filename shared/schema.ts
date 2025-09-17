@@ -110,22 +110,32 @@ export const transactions = pgTable("transactions", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-// Bridge transactions table
+// Bridge transactions table - Enhanced for Chain Fusion
 export const bridgeTransactions = pgTable("bridge_transactions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull().references(() => users.id),
-  sourceChain: text("source_chain").notNull(),
-  destinationChain: text("destination_chain").notNull().default("ICP"),
-  sourceAddress: text("source_address").notNull(),
-  destinationAddress: text("destination_address").notNull(),
-  contractAddress: text("contract_address"),
-  amount: numeric("amount", { precision: 12, scale: 2 }),
-  bridgeFee: numeric("bridge_fee", { precision: 12, scale: 2 }).notNull().default("0.5"),
-  status: text("status").notNull().default("pending"), // pending, processing, completed, failed
-  sourceTxHash: text("source_tx_hash"),
-  destinationTxHash: text("destination_tx_hash"),
+  fromNetwork: text("from_network").notNull(), // ethereum, icp
+  toNetwork: text("to_network").notNull(), // ethereum, icp
+  fromToken: text("from_token").notNull(), // ETH, USDC, ckETH, ckUSDC
+  toToken: text("to_token").notNull(), // ETH, USDC, ckETH, ckUSDC
+  amount: numeric("amount", { precision: 18, scale: 8 }).notNull(), // Higher precision for crypto
+  fromAddress: text("from_address").notNull(),
+  toAddress: text("to_address").notNull(),
+  status: text("status").notNull().default("pending"), // pending, processing, completed, failed, refunded
+  txHashFrom: text("tx_hash_from"), // Source network transaction hash
+  txHashTo: text("tx_hash_to"), // Destination network transaction hash
+  bridgeFee: numeric("bridge_fee", { precision: 18, scale: 8 }).notNull(),
+  estimatedTime: integer("estimated_time").notNull(), // Estimated completion time in minutes
+  actualTime: integer("actual_time"), // Actual completion time in minutes
+  confirmationsFrom: integer("confirmations_from").default(0),
+  confirmationsTo: integer("confirmations_to").default(0),
+  requiredConfirmations: integer("required_confirmations").notNull().default(12),
+  bridgeData: jsonb("bridge_data"), // Additional Chain Fusion bridge data
+  errorMessage: text("error_message"),
+  refundTxHash: text("refund_tx_hash"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
 });
 
 // Insert schemas
@@ -175,6 +185,14 @@ export const insertBridgeTransactionSchema = createInsertSchema(bridgeTransactio
   id: true,
   createdAt: true,
   updatedAt: true,
+  completedAt: true,
+  confirmationsFrom: true,
+  confirmationsTo: true,
+  actualTime: true,
+  txHashFrom: true,
+  txHashTo: true,
+  errorMessage: true,
+  refundTxHash: true,
 });
 
 // Secure wallet binding schemas  
@@ -301,6 +319,169 @@ export const pricingResponseSchema = z.object({
   metadata: z.record(z.any()).optional(),
 });
 
+// Chain Fusion Bridge Schemas
+export const supportedNetworks = z.enum(['ethereum', 'icp']);
+export const supportedTokens = z.enum(['ETH', 'USDC', 'ckETH', 'ckUSDC']);
+export const bridgeStatus = z.enum(['pending', 'processing', 'completed', 'failed', 'refunded']);
+
+// Bridge estimation schema
+export const bridgeEstimationSchema = z.object({
+  fromNetwork: supportedNetworks,
+  toNetwork: supportedNetworks,
+  fromToken: supportedTokens,
+  toToken: supportedTokens,
+  amount: z.string().min(1, "Amount is required"),
+});
+
+// PRODUCTION-READY: Enhanced bridge initiation schema with proper address validation
+export const bridgeInitiationSchema = z.object({
+  fromNetwork: supportedNetworks,
+  toNetwork: supportedNetworks,
+  fromToken: supportedTokens,
+  toToken: supportedTokens,
+  amount: z.string().min(1, "Amount is required").regex(/^\d+(\.\d{1,18})?$/, "Invalid amount format"),
+  fromAddress: z.string().min(1, "From address is required").max(100, "From address too long"),
+  toAddress: z.string().min(1, "To address is required").max(100, "To address too long"),
+  slippageTolerance: z.number().min(0).max(5).default(1), // 1% default
+}).superRefine((data, ctx) => {
+  // Validate fromAddress format based on network
+  if (data.fromNetwork === 'ethereum') {
+    if (!/^0x[0-9a-fA-F]{40}$/.test(data.fromAddress) && !/^[0-9a-fA-F]{40}$/.test(data.fromAddress)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Invalid Ethereum address format (must be 40 hex characters with or without 0x prefix)",
+        path: ['fromAddress']
+      });
+    }
+  } else if (data.fromNetwork === 'icp') {
+    if (!/^[0-9a-fA-F]{64}$/.test(data.fromAddress)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Invalid ICP AccountIdentifier format (must be 64 hex characters)",
+        path: ['fromAddress']
+      });
+    }
+  }
+
+  // Validate toAddress format based on network
+  if (data.toNetwork === 'ethereum') {
+    if (!/^0x[0-9a-fA-F]{40}$/.test(data.toAddress) && !/^[0-9a-fA-F]{40}$/.test(data.toAddress)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Invalid Ethereum address format (must be 40 hex characters with or without 0x prefix)",
+        path: ['toAddress']
+      });
+    }
+  } else if (data.toNetwork === 'icp') {
+    if (!/^[0-9a-fA-F]{64}$/.test(data.toAddress)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Invalid ICP AccountIdentifier format (must be 64 hex characters)",
+        path: ['toAddress']
+      });
+    }
+  }
+
+  // Validate network/token combinations
+  if (data.fromNetwork === 'ethereum' && !['ETH', 'USDC'].includes(data.fromToken)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Invalid token for Ethereum network",
+      path: ['fromToken']
+    });
+  }
+
+  if (data.toNetwork === 'ethereum' && !['ETH', 'USDC'].includes(data.toToken)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Invalid token for Ethereum network",
+      path: ['toToken']
+    });
+  }
+
+  if (data.fromNetwork === 'icp' && !['ckETH', 'ckUSDC'].includes(data.fromToken)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Invalid token for ICP network",
+      path: ['fromToken']
+    });
+  }
+
+  if (data.toNetwork === 'icp' && !['ckETH', 'ckUSDC'].includes(data.toToken)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Invalid token for ICP network",
+      path: ['toToken']
+    });
+  }
+});
+
+// Bridge status update schema
+export const bridgeStatusUpdateSchema = z.object({
+  status: bridgeStatus,
+  txHashFrom: z.string().optional(),
+  txHashTo: z.string().optional(),
+  confirmationsFrom: z.number().optional(),
+  confirmationsTo: z.number().optional(),
+  errorMessage: z.string().optional(),
+  refundTxHash: z.string().optional(),
+  bridgeData: z.record(z.any()).optional(),
+});
+
+// Bridge history filter schema
+export const bridgeHistoryFilterSchema = z.object({
+  status: bridgeStatus.optional(),
+  fromNetwork: supportedNetworks.optional(),
+  toNetwork: supportedNetworks.optional(),
+  fromToken: supportedTokens.optional(),
+  toToken: supportedTokens.optional(),
+  limit: z.number().min(1).max(100).default(20),
+  offset: z.number().min(0).default(0),
+});
+
+// Bridge network configuration
+export const bridgeNetworkConfig = z.object({
+  ethereum: z.object({
+    chainId: z.number().default(1),
+    rpcUrl: z.string(),
+    blockConfirmations: z.number().default(12),
+    bridgeContract: z.string(),
+    tokens: z.record(z.object({
+      address: z.string(),
+      decimals: z.number(),
+      minAmount: z.string(),
+      maxAmount: z.string(),
+    })),
+  }),
+  icp: z.object({
+    network: z.string().default('mainnet'),
+    canisters: z.object({
+      ckETH: z.string(),
+      ckUSDC: z.string(),
+      bridge: z.string(),
+    }),
+    tokens: z.record(z.object({
+      canisterId: z.string(),
+      decimals: z.number(),
+      minAmount: z.string(),
+      maxAmount: z.string(),
+    })),
+  }),
+});
+
+// Bridge estimation response
+export const bridgeEstimationResponseSchema = z.object({
+  estimatedFee: z.string(),
+  estimatedTime: z.number(), // in minutes
+  minimumAmount: z.string(),
+  maximumAmount: z.string(),
+  exchangeRate: z.string(),
+  networkFee: z.string(),
+  bridgeFee: z.string(),
+  totalCost: z.string(),
+  receiveAmount: z.string(),
+});
+
 // Type exports
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -316,6 +497,17 @@ export type Transaction = typeof transactions.$inferSelect;
 export type InsertTransaction = z.infer<typeof insertTransactionSchema>;
 export type BridgeTransaction = typeof bridgeTransactions.$inferSelect;
 export type InsertBridgeTransaction = z.infer<typeof insertBridgeTransactionSchema>;
+
+// Bridge types
+export type SupportedNetwork = z.infer<typeof supportedNetworks>;
+export type SupportedToken = z.infer<typeof supportedTokens>;
+export type BridgeStatus = z.infer<typeof bridgeStatus>;
+export type BridgeEstimation = z.infer<typeof bridgeEstimationSchema>;
+export type BridgeInitiation = z.infer<typeof bridgeInitiationSchema>;
+export type BridgeStatusUpdate = z.infer<typeof bridgeStatusUpdateSchema>;
+export type BridgeHistoryFilter = z.infer<typeof bridgeHistoryFilterSchema>;
+export type BridgeNetworkConfig = z.infer<typeof bridgeNetworkConfig>;
+export type BridgeEstimationResponse = z.infer<typeof bridgeEstimationResponseSchema>;
 
 // Pricing types
 export type AssetPricingCache = typeof assetPricingCache.$inferSelect;
