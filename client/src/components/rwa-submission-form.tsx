@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Upload, FileText, Image, Tag, Wallet } from "lucide-react";
+import { Upload, FileText, Image, Tag, Wallet, DollarSign, TrendingUp } from "lucide-react";
+import { PricingDisplay } from "./pricing-display";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,6 +35,11 @@ export default function RwaSubmissionForm() {
     physicalDocs: null as File | null,
   });
 
+  // Pricing state
+  const [pricingData, setPricingData] = useState<any>(null);
+  const [showPricingHelp, setShowPricingHelp] = useState(false);
+  const [assetSpecifications, setAssetSpecifications] = useState<Record<string, any>>({});
+
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { user, isAuthenticated } = useAuth();
@@ -56,6 +62,106 @@ export default function RwaSubmissionForm() {
       form.setValue('walletAddress', wallet.principalId);
     }
   }, [wallet?.principalId, form]);
+
+  // Generate pricing query based on form data
+  const generatePricingQuery = () => {
+    const category = form.watch('category');
+    const assetName = form.watch('assetName')?.toLowerCase() || '';
+    
+    if (!category) return null;
+
+    // Map form categories to pricing categories
+    const categoryMapping = {
+      'jewelry': 'jewelry',
+      'art-collectibles': 'collectibles',
+      'electronics': 'electronics',
+      'luxury-goods': 'watches', // Assume luxury goods are primarily watches
+      'vehicles': 'collectibles' // Treat vehicles as collectibles for now
+    };
+
+    const pricingCategory = categoryMapping[category as keyof typeof categoryMapping];
+    if (!pricingCategory) return null;
+
+    // Build query with specifications based on category
+    const query: any = {
+      category: pricingCategory,
+      specifications: { ...assetSpecifications }
+    };
+
+    // Add category-specific logic
+    if (pricingCategory === 'jewelry') {
+      // Try to extract metal type from asset name
+      if (assetName.includes('gold')) {
+        query.specifications.metal = 'gold';
+        query.specifications.purity = assetSpecifications.purity || '14k';
+      } else if (assetName.includes('silver')) {
+        query.specifications.metal = 'silver';
+        query.specifications.purity = assetSpecifications.purity || 'sterling';
+      }
+      query.specifications.weight = assetSpecifications.weight || 10; // Default 10g
+      
+      // Determine item type from asset name
+      if (assetName.includes('ring')) query.itemType = 'ring';
+      else if (assetName.includes('necklace')) query.itemType = 'necklace';
+      else if (assetName.includes('earring')) query.itemType = 'earrings';
+      else if (assetName.includes('bracelet')) query.itemType = 'bracelet';
+      else if (assetName.includes('watch')) query.itemType = 'watch';
+      else query.itemType = 'ring'; // Default
+    } else if (pricingCategory === 'electronics') {
+      // Try to extract brand and type from asset name
+      const brands = ['apple', 'samsung', 'google', 'dell', 'hp', 'lenovo', 'sony'];
+      const foundBrand = brands.find(brand => assetName.includes(brand));
+      if (foundBrand) query.specifications.brand = foundBrand;
+      
+      // Determine device type
+      if (assetName.includes('iphone') || assetName.includes('phone')) {
+        query.itemType = 'smartphone';
+      } else if (assetName.includes('laptop') || assetName.includes('macbook')) {
+        query.itemType = 'laptop';
+      } else if (assetName.includes('ipad') || assetName.includes('tablet')) {
+        query.itemType = 'tablet';
+      } else if (assetName.includes('tv')) {
+        query.itemType = 'tv';
+      } else {
+        query.itemType = 'electronics'; // Generic
+      }
+      
+      query.specifications.age_years = assetSpecifications.age_years || 1;
+      query.specifications.condition = assetSpecifications.condition || 'good';
+    } else if (pricingCategory === 'watches') {
+      // Extract watch brand from asset name
+      const watchBrands = ['rolex', 'omega', 'tag heuer', 'seiko', 'casio', 'citizen'];
+      const foundBrand = watchBrands.find(brand => assetName.includes(brand));
+      if (foundBrand) query.specifications.brand = foundBrand;
+      
+      query.specifications.year = assetSpecifications.year || new Date().getFullYear() - 1;
+      query.specifications.condition = assetSpecifications.condition || 'good';
+    }
+
+    return query;
+  };
+
+  // Handle pricing data update
+  const handlePricingUpdate = (pricing: any) => {
+    setPricingData(pricing);
+    
+    // Optionally auto-update estimated value if user hasn't manually set it
+    const currentEstimatedValue = form.watch('estimatedValue');
+    if (!currentEstimatedValue && pricing?.median) {
+      const suggestedValue = Math.round(pricing.median * 0.8); // 80% of market value for loan
+      form.setValue('estimatedValue', suggestedValue.toString());
+      
+      toast({
+        title: "Pricing Estimate Updated",
+        description: `Suggested value: $${suggestedValue.toLocaleString()} (80% of market estimate)`,
+      });
+    }
+  };
+
+  // Update asset specifications
+  const updateSpecification = (key: string, value: any) => {
+    setAssetSpecifications(prev => ({ ...prev, [key]: value }));
+  };
 
   const submitMutation = useMutation({
     mutationFn: async (data: FormData) => {
@@ -182,17 +288,199 @@ export default function RwaSubmissionForm() {
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    <SelectItem value="jewelry">Jewelry</SelectItem>
-                    <SelectItem value="art-collectibles">Art & Collectibles</SelectItem>
-                    <SelectItem value="electronics">Electronics</SelectItem>
-                    <SelectItem value="luxury-goods">Luxury Goods</SelectItem>
-                    <SelectItem value="vehicles">Vehicles</SelectItem>
+                    <SelectItem value="jewelry">💎 Jewelry</SelectItem>
+                    <SelectItem value="art-collectibles">🎨 Art & Collectibles</SelectItem>
+                    <SelectItem value="electronics">📱 Electronics</SelectItem>
+                    <SelectItem value="luxury-goods">⌚ Luxury Goods</SelectItem>
+                    <SelectItem value="vehicles">🚗 Vehicles</SelectItem>
                   </SelectContent>
                 </Select>
                 <FormMessage />
               </FormItem>
             )}
           />
+
+          {/* Asset Specifications Section - Dynamic based on category */}
+          {form.watch('category') && (
+            <Card className="p-4 bg-muted/20 border-dashed" data-testid="card-asset-specifications">
+              <h4 className="text-sm font-semibold mb-3 flex items-center">
+                <Tag className="mr-2 h-4 w-4" />
+                Asset Specifications
+              </h4>
+              
+              {form.watch('category') === 'jewelry' && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="weight">Weight (grams)</Label>
+                    <Input
+                      id="weight"
+                      type="number"
+                      placeholder="10"
+                      value={assetSpecifications.weight || ''}
+                      onChange={(e) => updateSpecification('weight', e.target.value)}
+                      data-testid="input-spec-weight"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="purity">Purity</Label>
+                    <Select
+                      value={assetSpecifications.purity || ''}
+                      onValueChange={(value) => updateSpecification('purity', value)}
+                    >
+                      <SelectTrigger data-testid="select-spec-purity">
+                        <SelectValue placeholder="Select purity" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="10k">10k Gold</SelectItem>
+                        <SelectItem value="14k">14k Gold</SelectItem>
+                        <SelectItem value="18k">18k Gold</SelectItem>
+                        <SelectItem value="24k">24k Gold</SelectItem>
+                        <SelectItem value="sterling">Sterling Silver</SelectItem>
+                        <SelectItem value="950">950 Platinum</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
+              
+              {form.watch('category') === 'electronics' && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="brand">Brand</Label>
+                    <Input
+                      id="brand"
+                      placeholder="Apple, Samsung, etc."
+                      value={assetSpecifications.brand || ''}
+                      onChange={(e) => updateSpecification('brand', e.target.value)}
+                      data-testid="input-spec-brand"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="age">Age (years)</Label>
+                    <Input
+                      id="age"
+                      type="number"
+                      placeholder="1"
+                      value={assetSpecifications.age_years || ''}
+                      onChange={(e) => updateSpecification('age_years', e.target.value)}
+                      data-testid="input-spec-age"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="condition">Condition</Label>
+                    <Select
+                      value={assetSpecifications.condition || ''}
+                      onValueChange={(value) => updateSpecification('condition', value)}
+                    >
+                      <SelectTrigger data-testid="select-spec-condition">
+                        <SelectValue placeholder="Select condition" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="excellent">Excellent</SelectItem>
+                        <SelectItem value="good">Good</SelectItem>
+                        <SelectItem value="fair">Fair</SelectItem>
+                        <SelectItem value="poor">Poor</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
+              
+              {form.watch('category') === 'luxury-goods' && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="watchBrand">Brand</Label>
+                    <Input
+                      id="watchBrand"
+                      placeholder="Rolex, Omega, etc."
+                      value={assetSpecifications.brand || ''}
+                      onChange={(e) => updateSpecification('brand', e.target.value)}
+                      data-testid="input-spec-watch-brand"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="watchYear">Year</Label>
+                    <Input
+                      id="watchYear"
+                      type="number"
+                      placeholder="2020"
+                      value={assetSpecifications.year || ''}
+                      onChange={(e) => updateSpecification('year', e.target.value)}
+                      data-testid="input-spec-watch-year"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="watchCondition">Condition</Label>
+                    <Select
+                      value={assetSpecifications.condition || ''}
+                      onValueChange={(value) => updateSpecification('condition', value)}
+                    >
+                      <SelectTrigger data-testid="select-spec-watch-condition">
+                        <SelectValue placeholder="Select condition" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="excellent">Excellent</SelectItem>
+                        <SelectItem value="good">Good</SelectItem>
+                        <SelectItem value="fair">Fair</SelectItem>
+                        <SelectItem value="poor">Poor</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
+            </Card>
+          )}
+
+          {/* Real-time Pricing Display */}
+          {generatePricingQuery() && (
+            <Card className="p-4 bg-gradient-to-r from-blue-50 to-green-50 dark:from-blue-950 dark:to-green-950 border-blue-200 dark:border-blue-800">
+              <h4 className="text-sm font-semibold mb-3 flex items-center">
+                <TrendingUp className="mr-2 h-4 w-4 text-green-600" />
+                Live Market Pricing
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowPricingHelp(!showPricingHelp)}
+                  className="ml-auto"
+                  data-testid="button-pricing-help"
+                >
+                  ?
+                </Button>
+              </h4>
+              
+              {showPricingHelp && (
+                <div className="text-xs text-muted-foreground mb-3 p-2 bg-muted/50 rounded">
+                  This estimate is based on current market data and asset specifications. 
+                  The suggested loan value is typically 70-80% of market value.
+                </div>
+              )}
+              
+              <PricingDisplay
+                query={generatePricingQuery()!}
+                onPriceUpdate={handlePricingUpdate}
+                compact={false}
+                className="mb-0"
+              />
+              
+              {pricingData && (
+                <div className="mt-3 text-sm text-muted-foreground">
+                  <div className="flex items-center justify-between">
+                    <span>Suggested Loan Value (80%):</span>
+                    <span className="font-semibold text-green-600" data-testid="text-suggested-loan-value">
+                      ${Math.round(pricingData.median * 0.8).toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between mt-1">
+                    <span>Market Confidence:</span>
+                    <span className={`font-semibold ${pricingData.confidence >= 0.8 ? 'text-green-600' : pricingData.confidence >= 0.6 ? 'text-yellow-600' : 'text-red-600'}`}>
+                      {Math.round(pricingData.confidence * 100)}%
+                    </span>
+                  </div>
+                </div>
+              )}
+            </Card>
+          )}
 
           <FormField
             control={form.control}
