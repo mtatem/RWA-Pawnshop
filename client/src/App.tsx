@@ -14,6 +14,7 @@ import RiskDisclosure from "@/pages/risk-disclosure";
 import Compliance from "@/pages/compliance";
 import HelpCenter from "@/pages/help-center";
 import ContactUs from "@/pages/contact-us";
+import Whitepaper from "@/pages/whitepaper";
 import Dashboard from "@/pages/dashboard";
 import Marketplace from "@/pages/marketplace";
 import Bridge from "@/pages/bridge";
@@ -34,6 +35,7 @@ function Router() {
       <Route path="/compliance" component={Compliance} />
       <Route path="/help-center" component={HelpCenter} />
       <Route path="/contact-us" component={ContactUs} />
+      <Route path="/whitepaper" component={Whitepaper} />
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/marketplace" component={Marketplace} />
       <Route path="/bridge" component={Bridge} />
