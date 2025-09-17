@@ -267,7 +267,7 @@ This Privacy Policy is effective as of January 1, 2025, and was last updated on 
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-black">
       <Navigation />
       
       <div className="container mx-auto px-4 py-16">
