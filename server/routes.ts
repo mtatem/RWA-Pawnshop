@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import rateLimit from 'express-rate-limit';
+import multer from 'multer';
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { 
@@ -18,7 +19,10 @@ import {
   assetPricingCache,
   bridgeEstimationSchema,
   bridgeInitiationSchema,
-  bridgeHistoryFilterSchema
+  bridgeHistoryFilterSchema,
+  insertDocumentSchema,
+  documentUploadSchema,
+  documentAnalysisRequestSchema
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -34,6 +38,7 @@ import { CryptoVerificationService } from "./crypto-utils";
 import { ICPLedgerService } from "./icp-ledger-service";
 import { pricingService } from "./services/pricing-service";
 import { chainFusionBridge } from "./services/chain-fusion-bridge";
+import documentAnalysisService from "./services/document-analysis";
 import { pricingQuerySchema } from "@shared/schema";
 import { db } from "./db";
 import { sql, eq } from "drizzle-orm";
@@ -123,6 +128,31 @@ const checkOwnership = async (req: any, res: any, next: any) => {
     res.status(500).json({ message: "Ownership check failed" });
   }
 };
+
+// Multer configuration for document uploads
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 50 * 1024 * 1024, // 50MB limit
+    files: 1, // Single file upload
+    fields: 10, // Limit form fields to prevent abuse
+  },
+  fileFilter: (req, file, cb) => {
+    // Accept only images and PDFs
+    const allowedMimeTypes = [
+      'image/jpeg',
+      'image/png', 
+      'image/webp',
+      'application/pdf'
+    ];
+    
+    if (allowedMimeTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error(`Unsupported file type: ${file.mimetype}. Only JPEG, PNG, WebP images and PDFs are allowed.`));
+    }
+  }
+});
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware setup
@@ -1600,6 +1630,268 @@ export async function registerRoutes(app: Express): Promise<Server> {
         timestamp: new Date().toISOString(),
         error: "Health check failed"
       });
+    }
+  });
+
+  // Document Analysis API Endpoints
+  
+  // Upload document and start analysis
+  app.post("/api/documents/upload", isAuthenticated, upload.single('file'), async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      // Check if file was uploaded
+      if (!req.file) {
+        return res.status(400).json({ error: "No file provided. Please select a document to upload." });
+      }
+      
+      // Validate upload data from form fields
+      const uploadData = documentUploadSchema.parse(req.body);
+      
+      // Check if submission exists and user owns it
+      const submission = await storage.getRwaSubmission(uploadData.submissionId);
+      if (!submission) {
+        return res.status(404).json({ error: "Submission not found" });
+      }
+      
+      if (submission.userId !== userId) {
+        return res.status(403).json({ error: "Access denied - not submission owner" });
+      }
+      
+      // Map multer file to DocumentAnalysisService interface
+      const uploadedFile = {
+        buffer: req.file.buffer,
+        originalname: req.file.originalname,
+        mimetype: req.file.mimetype,
+        size: req.file.size,
+        fieldname: req.file.fieldname,
+        encoding: req.file.encoding
+      };
+      
+      console.log(`Document upload started: ${uploadedFile.originalname} (${uploadedFile.mimetype}, ${(uploadedFile.size / 1024).toFixed(2)} KB) for user ${userId}`);
+      
+      // Upload and analyze document
+      const document = await documentAnalysisService.uploadAndAnalyze(uploadedFile, uploadData, userId);
+      
+      res.json({
+        document,
+        message: "Document uploaded successfully. Analysis started.",
+        uploadInfo: {
+          filename: uploadedFile.originalname,
+          size: uploadedFile.size,
+          type: uploadedFile.mimetype
+        }
+      });
+    } catch (error) {
+      console.error("Document upload error:", error);
+      
+      // Handle multer-specific errors
+      if (error instanceof multer.MulterError) {
+        if (error.code === 'LIMIT_FILE_SIZE') {
+          return res.status(400).json({ error: "File too large. Maximum size allowed is 50MB." });
+        } else if (error.code === 'LIMIT_FILE_COUNT') {
+          return res.status(400).json({ error: "Too many files. Only one file allowed per upload." });
+        } else {
+          return res.status(400).json({ error: `Upload error: ${error.message}` });
+        }
+      }
+      
+      // Handle file filter errors
+      if (error.message?.includes('Unsupported file type')) {
+        return res.status(400).json({ error: error.message });
+      }
+      
+      res.status(500).json({ error: "Document upload failed. Please try again." });
+    }
+  });
+  
+  // Get document analysis results
+  app.get("/api/documents/:id/analysis", isAuthenticated, async (req: any, res) => {
+    try {
+      const documentId = req.params.id;
+      const userId = req.user.claims.sub;
+      
+      // Get document and verify ownership
+      const document = await storage.getDocument(documentId);
+      if (!document) {
+        return res.status(404).json({ error: "Document not found" });
+      }
+      
+      // Check if user owns the document or is admin
+      const user = await storage.getUser(userId);
+      const canAccess = document.userId === userId || user?.isAdmin;
+      
+      if (!canAccess) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      // Get analysis results
+      const analysisResult = await documentAnalysisService.getAnalysisResult(documentId);
+      const fraudResult = await documentAnalysisService.getFraudDetectionResult(documentId);
+      
+      res.json({
+        document,
+        analysis: analysisResult,
+        fraudDetection: fraudResult
+      });
+    } catch (error) {
+      console.error("Document analysis retrieval error:", error);
+      res.status(500).json({ error: "Failed to get analysis results" });
+    }
+  });
+  
+  // Trigger document re-analysis
+  app.post("/api/documents/:id/reanalyze", isAuthenticated, async (req: any, res) => {
+    try {
+      const documentId = req.params.id;
+      const userId = req.user.claims.sub;
+      
+      // Validate analysis options
+      const analysisRequest = documentAnalysisRequestSchema.parse({
+        documentId,
+        ...req.body
+      });
+      
+      // Get document and verify ownership
+      const document = await storage.getDocument(documentId);
+      if (!document) {
+        return res.status(404).json({ error: "Document not found" });
+      }
+      
+      // Check if user owns the document or is admin
+      const user = await storage.getUser(userId);
+      const canReanalyze = document.userId === userId || user?.isAdmin;
+      
+      if (!canReanalyze) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      // Start re-analysis
+      const analysisResult = await documentAnalysisService.reanalyzeDocument(
+        documentId, 
+        analysisRequest.analysisOptions
+      );
+      
+      res.json({
+        message: "Re-analysis started successfully",
+        analysis: analysisResult
+      });
+    } catch (error) {
+      console.error("Document re-analysis error:", error);
+      res.status(500).json({ error: "Re-analysis failed" });
+    }
+  });
+  
+  // Get user's documents for a submission
+  app.get("/api/submissions/:id/documents", isAuthenticated, async (req: any, res) => {
+    try {
+      const submissionId = req.params.id;
+      const userId = req.user.claims.sub;
+      
+      // Check if user owns the submission
+      const submission = await storage.getRwaSubmission(submissionId);
+      if (!submission) {
+        return res.status(404).json({ error: "Submission not found" });
+      }
+      
+      if (submission.userId !== userId) {
+        return res.status(403).json({ error: "Access denied - not submission owner" });
+      }
+      
+      // Get documents for submission
+      const documents = await storage.getDocumentsBySubmission(submissionId);
+      
+      res.json(documents);
+    } catch (error) {
+      console.error("Documents retrieval error:", error);
+      res.status(500).json({ error: "Failed to get documents" });
+    }
+  });
+  
+  // Admin endpoints
+  
+  // Get pending documents analysis queue
+  app.get("/api/admin/documents/queue", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const queue = await documentAnalysisService.getAnalysisQueue();
+      
+      res.json({
+        queue,
+        totalPending: queue.filter(item => item.status === 'pending').length,
+        totalProcessing: queue.filter(item => item.status === 'processing').length,
+        totalFailed: queue.filter(item => item.status === 'failed').length
+      });
+    } catch (error) {
+      console.error("Analysis queue retrieval error:", error);
+      res.status(500).json({ error: "Failed to get analysis queue" });
+    }
+  });
+  
+  // Process queued document (admin trigger)
+  app.post("/api/admin/documents/queue/:queueId/process", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const queueId = req.params.queueId;
+      
+      await documentAnalysisService.processQueuedDocument(queueId);
+      
+      res.json({ message: "Document processing started successfully" });
+    } catch (error) {
+      console.error("Queue processing error:", error);
+      res.status(500).json({ error: "Failed to process queued document" });
+    }
+  });
+  
+  // Batch analyze documents
+  app.post("/api/admin/documents/batch-analyze", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { documentIds, analysisOptions } = req.body;
+      
+      if (!documentIds || !Array.isArray(documentIds)) {
+        return res.status(400).json({ error: "Document IDs array is required" });
+      }
+      
+      const result = await documentAnalysisService.batchAnalyze(documentIds, analysisOptions);
+      
+      res.json({
+        message: "Batch analysis initiated",
+        ...result
+      });
+    } catch (error) {
+      console.error("Batch analysis error:", error);
+      res.status(500).json({ error: "Batch analysis failed" });
+    }
+  });
+  
+  // Get analysis statistics (admin)
+  app.get("/api/admin/documents/stats", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      // Get document analysis statistics from database
+      const stats = await db.select({
+        total_documents: sql<number>`count(*)::int`,
+        pending_analysis: sql<number>`count(case when analysis_status = 'pending' then 1 end)::int`,
+        processing_analysis: sql<number>`count(case when analysis_status = 'processing' then 1 end)::int`,
+        completed_analysis: sql<number>`count(case when analysis_status = 'completed' then 1 end)::int`,
+        failed_analysis: sql<number>`count(case when analysis_status = 'failed' then 1 end)::int`,
+        avg_processing_time: sql<number>`avg(case when analysis_status = 'completed' then extract(epoch from (updated_at - created_at)) end)::int`
+      }).from(db.documents);
+      
+      // Get fraud detection statistics
+      const fraudStats = await db.select({
+        total_analyzed: sql<number>`count(*)::int`,
+        high_risk: sql<number>`count(case when risk_level = 'high' then 1 end)::int`,
+        critical_risk: sql<number>`count(case when risk_level = 'critical' then 1 end)::int`,
+        requires_review: sql<number>`count(case when requires_manual_review = true then 1 end)::int`,
+        avg_fraud_score: sql<number>`avg(overall_fraud_score)::numeric`
+      }).from(db.fraudDetectionResults);
+      
+      res.json({
+        documents: stats[0] || {},
+        fraud_detection: fraudStats[0] || {},
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Analysis stats error:", error);
+      res.status(500).json({ error: "Failed to get analysis statistics" });
     }
   });
 

@@ -4,6 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Upload, FileText, Image, Tag, Wallet, DollarSign, TrendingUp } from "lucide-react";
 import { PricingDisplay } from "./pricing-display";
+import DocumentUpload from "./document-upload";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,12 +29,24 @@ const formSchema = insertRwaSubmissionSchema.extend({
 
 type FormData = z.infer<typeof formSchema>;
 
+type DocumentType = 'coa' | 'nft_certificate' | 'insurance' | 'appraisal' | 'photo' | 'video' | 'other';
+
+interface UploadedDocument {
+  id: string;
+  originalFileName: string;
+  documentType: DocumentType;
+  fileSize: number;
+  analysisStatus: 'pending' | 'processing' | 'completed' | 'failed';
+  uploadProgress?: number;
+  storageUrl?: string;
+  thumbnailUrl?: string;
+  error?: string;
+}
+
 export default function RwaSubmissionForm() {
-  const [files, setFiles] = useState({
-    coa: null as File | null,
-    nft: null as File | null,
-    physicalDocs: null as File | null,
-  });
+  // Document upload state
+  const [uploadedDocuments, setUploadedDocuments] = useState<UploadedDocument[]>([]);
+  const [submissionId, setSubmissionId] = useState<string | null>(null);
 
   // Pricing state
   const [pricingData, setPricingData] = useState<any>(null);
@@ -178,35 +191,35 @@ export default function RwaSubmissionForm() {
         throw new Error('Insufficient ICP balance. You need at least 2 ICP to cover the pawning fee.');
       }
 
-      // In production, you would upload files first and get URLs
+      // Create submission first (without documents)
       const submissionData = {
         ...data,
         estimatedValue: parseFloat(data.estimatedValue).toFixed(2),
-        coaUrl: files.coa ? `uploads/coa_${Date.now()}.pdf` : null,
-        nftUrl: files.nft ? `uploads/nft_${Date.now()}.json` : null,
-        physicalDocsUrl: files.physicalDocs ? `uploads/docs_${Date.now()}.pdf` : null,
-        walletAddress: wallet.principalId, // Use connected wallet's principal ID
+        walletAddress: wallet.principalId,
+        userId: user.id,
+        status: "pending",
       };
 
-      const response = await apiRequest("POST", "/api/rwa-submissions", submissionData);
-      return response.json();
+      const response = await apiRequest("/api/rwa-submissions", {
+        method: "POST",
+        body: JSON.stringify(submissionData),
+      });
+
+      return response;
     },
     onSuccess: (data) => {
+      setSubmissionId(data.id);
       toast({
-        title: "Submission Successful",
-        description: `Your RWA submission has been created. Fee of 2 ICP has been charged.`,
+        title: "Submission Created Successfully",
+        description: "Please upload the required documents to complete your submission.",
       });
-      form.reset();
-      setFiles({ coa: null, nft: null, physicalDocs: null });
-      if (wallet?.principalId) {
-        form.setValue('walletAddress', wallet.principalId);
-      }
+      
       queryClient.invalidateQueries({ queryKey: ["/api/rwa-submissions"] });
     },
-    onError: (error) => {
+    onError: (error: any) => {
       toast({
         title: "Submission Failed",
-        description: error.message,
+        description: error.message || "Failed to create submission",
         variant: "destructive",
       });
     },
@@ -558,31 +571,29 @@ export default function RwaSubmissionForm() {
             )}
           />
 
-          {/* Required Documents */}
-          <div className="space-y-4">
-            <h4 className="font-medium">Required Documents (All 3 Required)</h4>
-
-            <FileUploadArea
-              type="coa"
-              icon={Tag}
-              title="Tag of Authenticity (COA)"
-              description="Click to upload or drag and drop"
-            />
-
-            <FileUploadArea
-              type="nft"
-              icon={Image}
-              title="NFT Representation"
-              description="Upload NFT metadata or provide contract address"
-            />
-
-            <FileUploadArea
-              type="physicalDocs"
-              icon={FileText}
-              title="Physical Asset Documentation"
-              description="Photos, receipts, appraisals, etc."
-            />
-          </div>
+          {/* Document Upload Section */}
+          {submissionId ? (
+            <div className="space-y-4">
+              <h4 className="font-medium">Required Documents</h4>
+              <DocumentUpload
+                submissionId={submissionId}
+                requiredDocuments={['coa', 'nft_certificate', 'photo']}
+                onDocumentsChange={setUploadedDocuments}
+                maxFiles={5}
+                maxFileSize={50 * 1024 * 1024} // 50MB
+              />
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <h4 className="font-medium">Document Upload</h4>
+              <Card className="bg-muted/50 p-6 text-center">
+                <FileText className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+                <p className="text-muted-foreground">
+                  Complete the asset information above, then submit to enable document upload
+                </p>
+              </Card>
+            </div>
+          )}
 
           {/* Fee Information */}
           <Card className="bg-muted p-4">

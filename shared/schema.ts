@@ -195,6 +195,67 @@ export const insertBridgeTransactionSchema = createInsertSchema(bridgeTransactio
   refundTxHash: true,
 });
 
+// Document Analysis API Validation Schemas
+export const documentUploadSchema = z.object({
+  submissionId: z.string().min(1, "Submission ID is required"),
+  documentType: z.enum(['coa', 'nft_certificate', 'insurance', 'appraisal', 'photo', 'video', 'other']),
+  priority: z.coerce.number().min(1).max(3).default(1),
+  metadata: z.record(z.any()).optional(),
+});
+
+export const documentAnalysisRequestSchema = z.object({
+  documentId: z.string().min(1, "Document ID is required"),
+  provider: z.enum(['textract', 'azure_document_intelligence', 'tesseract']).default('textract'),
+  analysisOptions: z.object({
+    extractText: z.boolean().default(true),
+    extractTables: z.boolean().default(true),
+    extractForms: z.boolean().default(true),
+    detectFraud: z.boolean().default(true),
+  }).optional(),
+});
+
+export const documentVerificationSchema = z.object({
+  documentId: z.string().min(1, "Document ID is required"),
+  verificationStatus: z.enum(['verified', 'rejected', 'needs_more_info']),
+  verificationNotes: z.string().optional(),
+  overrideReason: z.string().optional(),
+  finalDecision: z.enum(['accept', 'reject', 'request_resubmission']),
+  additionalDocumentsRequired: z.array(z.string()).optional(),
+});
+
+export const fraudDetectionConfigSchema = z.object({
+  enableImageAnalysis: z.boolean().default(true),
+  enableTextAnalysis: z.boolean().default(true),
+  enableMetadataAnalysis: z.boolean().default(true),
+  fraudThreshold: z.number().min(0).max(1).default(0.7),
+  requireManualReviewThreshold: z.number().min(0).max(1).default(0.5),
+});
+
+export const batchDocumentAnalysisSchema = z.object({
+  documentIds: z.array(z.string()).min(1, "At least one document ID is required"),
+  priority: z.number().min(1).max(3).default(1),
+  analysisOptions: z.object({
+    extractText: z.boolean().default(true),
+    extractTables: z.boolean().default(true),
+    extractForms: z.boolean().default(true),
+    detectFraud: z.boolean().default(true),
+  }).optional(),
+});
+
+// Document search and filter schemas
+export const documentSearchSchema = z.object({
+  submissionId: z.string().optional(),
+  documentType: z.enum(['coa', 'nft_certificate', 'insurance', 'appraisal', 'photo', 'video', 'other']).optional(),
+  analysisStatus: z.enum(['pending', 'processing', 'completed', 'failed', 'manual_review']).optional(),
+  riskLevel: z.enum(['low', 'medium', 'high', 'critical']).optional(),
+  dateFrom: z.string().optional(),
+  dateTo: z.string().optional(),
+  limit: z.number().min(1).max(100).default(20),
+  offset: z.number().min(0).default(0),
+  sortBy: z.enum(['created_at', 'analyzed_at', 'fraud_score', 'file_size']).default('created_at'),
+  sortOrder: z.enum(['asc', 'desc']).default('desc'),
+});
+
 // Secure wallet binding schemas  
 export const walletBindIntentSchema = z.object({
   walletType: z.enum(['plug', 'internetIdentity']),
@@ -268,6 +329,183 @@ export const assetPricingCache = pgTable("asset_pricing_cache", {
   lastUpdated: timestamp("last_updated").defaultNow(),
   ttlSeconds: integer("ttl_seconds").notNull().default(300), // Time to live in seconds
   createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Document Analysis System Tables
+
+// Documents table - Core document metadata and storage
+export const documents = pgTable("documents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  submissionId: varchar("submission_id").notNull().references(() => rwaSubmissions.id),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  documentType: text("document_type").notNull(), // coa, nft_certificate, insurance, appraisal, photo, video, other
+  originalFileName: text("original_file_name").notNull(),
+  storageUrl: text("storage_url").notNull(), // Object storage URL
+  thumbnailUrl: text("thumbnail_url"), // Generated thumbnail for quick preview
+  fileSize: integer("file_size").notNull(), // Size in bytes
+  mimeType: text("mime_type").notNull(), // image/jpeg, application/pdf, etc.
+  checksum: text("checksum").notNull(), // SHA-256 checksum for integrity
+  analysisStatus: text("analysis_status").notNull().default("pending"), // pending, processing, completed, failed, manual_review
+  priority: integer("priority").notNull().default(1), // 1=normal, 2=high, 3=urgent
+  metadata: jsonb("metadata"), // Additional file metadata
+  uploadedBy: varchar("uploaded_by").notNull().references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_documents_submission_id").on(table.submissionId),
+  index("idx_documents_analysis_status").on(table.analysisStatus),
+  index("idx_documents_created_at").on(table.createdAt),
+]);
+
+// Document Analysis Results - OCR and extracted data
+export const documentAnalysisResults = pgTable("document_analysis_results", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  documentId: varchar("document_id").notNull().references(() => documents.id),
+  analysisProvider: text("analysis_provider").notNull(), // textract, azure_document_intelligence, tesseract
+  analysisJobId: text("analysis_job_id"), // External service job ID for tracking
+  ocrText: text("ocr_text"), // Full extracted text
+  extractedData: jsonb("extracted_data"), // Structured data extraction
+  boundingBoxes: jsonb("bounding_boxes"), // Text location coordinates
+  tables: jsonb("tables"), // Extracted table data
+  forms: jsonb("forms"), // Form field/value pairs
+  confidence: numeric("confidence", { precision: 4, scale: 3 }), // Overall confidence score (0-1)
+  processingTime: integer("processing_time"), // Processing time in milliseconds
+  errorMessage: text("error_message"), // Error details if analysis failed
+  rawResponse: jsonb("raw_response"), // Raw API response for debugging
+  analyzedAt: timestamp("analyzed_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_analysis_results_document_id").on(table.documentId),
+  index("idx_analysis_results_analyzed_at").on(table.analyzedAt),
+]);
+
+// Fraud Detection Results - Authenticity and fraud scoring
+export const fraudDetectionResults = pgTable("fraud_detection_results", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  documentId: varchar("document_id").notNull().references(() => documents.id),
+  overallFraudScore: numeric("overall_fraud_score", { precision: 4, scale: 3 }).notNull(), // 0-1, higher = more suspicious
+  riskLevel: text("risk_level").notNull(), // low, medium, high, critical
+  detectedIssues: jsonb("detected_issues"), // Array of detected fraud indicators
+  authenticityScore: numeric("authenticity_score", { precision: 4, scale: 3 }), // Document authenticity (0-1)
+  tamperingDetected: boolean("tampering_detected").default(false),
+  metadataAnalysis: jsonb("metadata_analysis"), // File metadata examination results
+  patternMatches: jsonb("pattern_matches"), // Known fraud pattern matches
+  crossReferenceChecks: jsonb("cross_reference_checks"), // Results from database/external checks
+  mlModelVersion: text("ml_model_version"), // Version of fraud detection model used
+  confidence: numeric("confidence", { precision: 4, scale: 3 }), // Confidence in fraud assessment
+  requiresManualReview: boolean("requires_manual_review").default(false),
+  reviewNotes: text("review_notes"), // Notes for manual reviewers
+  analyzedAt: timestamp("analyzed_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_fraud_results_document_id").on(table.documentId),
+  index("idx_fraud_results_risk_level").on(table.riskLevel),
+  index("idx_fraud_results_manual_review").on(table.requiresManualReview),
+]);
+
+// Document Verification Actions - Admin review and decisions
+export const documentVerifications = pgTable("document_verifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  documentId: varchar("document_id").notNull().references(() => documents.id),
+  reviewedBy: varchar("reviewed_by").notNull().references(() => users.id),
+  verificationStatus: text("verification_status").notNull(), // verified, rejected, needs_more_info
+  verificationNotes: text("verification_notes"),
+  overrideReason: text("override_reason"), // Reason for overriding automated decision
+  originalFraudScore: numeric("original_fraud_score", { precision: 4, scale: 3 }),
+  finalDecision: text("final_decision").notNull(), // accept, reject, request_resubmission
+  additionalDocumentsRequired: text("additional_documents_required").array(),
+  reviewDurationSeconds: integer("review_duration_seconds"), // Time spent on review
+  reviewedAt: timestamp("reviewed_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_document_verifications_document_id").on(table.documentId),
+  index("idx_document_verifications_reviewed_by").on(table.reviewedBy),
+  index("idx_document_verifications_status").on(table.verificationStatus),
+]);
+
+// Document Analysis Queue - Processing queue management
+export const documentAnalysisQueue = pgTable("document_analysis_queue", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  documentId: varchar("document_id").notNull().references(() => documents.id),
+  queueStatus: text("queue_status").notNull().default("queued"), // queued, processing, completed, failed, retrying
+  priority: integer("priority").notNull().default(1), // Higher number = higher priority
+  attempts: integer("attempts").notNull().default(0),
+  maxAttempts: integer("max_attempts").notNull().default(3),
+  lastError: text("last_error"),
+  nextRetryAt: timestamp("next_retry_at"),
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  processingNode: text("processing_node"), // Which server/worker is processing
+  estimatedProcessingTime: integer("estimated_processing_time"), // Seconds
+  actualProcessingTime: integer("actual_processing_time"), // Seconds
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_analysis_queue_status").on(table.queueStatus),
+  index("idx_analysis_queue_priority").on(table.priority),
+  index("idx_analysis_queue_next_retry").on(table.nextRetryAt),
+]);
+
+// Document Templates - Known authentic document patterns
+export const documentTemplates = pgTable("document_templates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  templateName: text("template_name").notNull(),
+  documentType: text("document_type").notNull(),
+  issuerName: text("issuer_name").notNull(), // Organization that issues this document
+  templateVersion: text("template_version").notNull(),
+  expectedFields: jsonb("expected_fields"), // Fields that should be present
+  validationRules: jsonb("validation_rules"), // Rules for field validation
+  layoutSignature: text("layout_signature"), // Hash of expected layout
+  securityFeatures: jsonb("security_features"), // Expected security features
+  sampleImages: text("sample_images").array(), // Reference authentic samples
+  isActive: boolean("is_active").default(true),
+  confidence: numeric("confidence", { precision: 4, scale: 3 }), // Template reliability score
+  createdBy: varchar("created_by").notNull().references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_document_templates_type").on(table.documentType),
+  index("idx_document_templates_issuer").on(table.issuerName),
+  index("idx_document_templates_active").on(table.isActive),
+]);
+
+// Document Analysis Insert Schemas
+export const insertDocumentSchema = createInsertSchema(documents).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertDocumentAnalysisResultSchema = createInsertSchema(documentAnalysisResults).omit({
+  id: true,
+  analyzedAt: true,
+  createdAt: true,
+});
+
+export const insertFraudDetectionResultSchema = createInsertSchema(fraudDetectionResults).omit({
+  id: true,
+  analyzedAt: true,
+  createdAt: true,
+});
+
+export const insertDocumentVerificationSchema = createInsertSchema(documentVerifications).omit({
+  id: true,
+  reviewedAt: true,
+  createdAt: true,
+});
+
+export const insertDocumentAnalysisQueueSchema = createInsertSchema(documentAnalysisQueue).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  startedAt: true,
+  completedAt: true,
+});
+
+export const insertDocumentTemplateSchema = createInsertSchema(documentTemplates).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
 });
 
 // Pricing estimates linked to RWA submissions for audit trail
@@ -516,3 +754,25 @@ export type PricingEstimate = typeof pricingEstimates.$inferSelect;
 export type InsertPricingEstimate = z.infer<typeof insertPricingEstimateSchema>;
 export type PricingQuery = z.infer<typeof pricingQuerySchema>;
 export type PricingResponse = z.infer<typeof pricingResponseSchema>;
+
+// Document Analysis types
+export type Document = typeof documents.$inferSelect;
+export type InsertDocument = z.infer<typeof insertDocumentSchema>;
+export type DocumentAnalysisResult = typeof documentAnalysisResults.$inferSelect;
+export type InsertDocumentAnalysisResult = z.infer<typeof insertDocumentAnalysisResultSchema>;
+export type FraudDetectionResult = typeof fraudDetectionResults.$inferSelect;
+export type InsertFraudDetectionResult = z.infer<typeof insertFraudDetectionResultSchema>;
+export type DocumentVerification = typeof documentVerifications.$inferSelect;
+export type InsertDocumentVerification = z.infer<typeof insertDocumentVerificationSchema>;
+export type DocumentAnalysisQueue = typeof documentAnalysisQueue.$inferSelect;
+export type InsertDocumentAnalysisQueue = z.infer<typeof insertDocumentAnalysisQueueSchema>;
+export type DocumentTemplate = typeof documentTemplates.$inferSelect;
+export type InsertDocumentTemplate = z.infer<typeof insertDocumentTemplateSchema>;
+
+// Document Analysis API types
+export type DocumentUpload = z.infer<typeof documentUploadSchema>;
+export type DocumentAnalysisRequest = z.infer<typeof documentAnalysisRequestSchema>;
+export type DocumentVerificationRequest = z.infer<typeof documentVerificationSchema>;
+export type FraudDetectionConfig = z.infer<typeof fraudDetectionConfigSchema>;
+export type BatchDocumentAnalysis = z.infer<typeof batchDocumentAnalysisSchema>;
+export type DocumentSearch = z.infer<typeof documentSearchSchema>;
