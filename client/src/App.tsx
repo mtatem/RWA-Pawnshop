@@ -8,6 +8,10 @@ import HowItWorks from "@/pages/how-it-works";
 import Security from "@/pages/security";
 import Fees from "@/pages/fees";
 import ApiDocs from "@/pages/api-docs";
+import TermsOfService from "@/pages/terms-of-service";
+import PrivacyPolicy from "@/pages/privacy-policy";
+import RiskDisclosure from "@/pages/risk-disclosure";
+import Compliance from "@/pages/compliance";
 import Dashboard from "@/pages/dashboard";
 import Marketplace from "@/pages/marketplace";
 import Bridge from "@/pages/bridge";
@@ -22,6 +26,10 @@ function Router() {
       <Route path="/security" component={Security} />
       <Route path="/fees" component={Fees} />
       <Route path="/api-docs" component={ApiDocs} />
+      <Route path="/terms-of-service" component={TermsOfService} />
+      <Route path="/privacy-policy" component={PrivacyPolicy} />
+      <Route path="/risk-disclosure" component={RiskDisclosure} />
+      <Route path="/compliance" component={Compliance} />
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/marketplace" component={Marketplace} />
       <Route path="/bridge" component={Bridge} />

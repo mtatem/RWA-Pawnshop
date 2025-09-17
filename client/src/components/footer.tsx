@@ -15,10 +15,10 @@ export default function Footer() {
       { label: "Twitter", href: "#" },
     ],
     legal: [
-      { label: "Terms of Service", href: "#" },
-      { label: "Privacy Policy", href: "#" },
-      { label: "Risk Disclosure", href: "#" },
-      { label: "Compliance", href: "#" },
+      { label: "Terms of Service", href: "/terms-of-service" },
+      { label: "Privacy Policy", href: "/privacy-policy" },
+      { label: "Risk Disclosure", href: "/risk-disclosure" },
+      { label: "Compliance", href: "/compliance" },
     ],
   };
 
