@@ -3,6 +3,29 @@ import { pgTable, text, varchar, timestamp, numeric, integer, boolean, jsonb, in
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+// Import validation utilities
+// Note: For production, these would be imported from a shared validation module
+const sanitizeText = (input: string, maxLength: number = 1000): string => {
+  return input.trim().replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '').substring(0, maxLength);
+};
+
+const isValidPrincipalId = (principal: string): boolean => {
+  if (!principal || typeof principal !== 'string') return false;
+  const cleanPrincipal = principal.replace(/-/g, '');
+  if (cleanPrincipal.length < 5 || cleanPrincipal.length > 63) return false;
+  return /^[a-z2-7]+$/i.test(cleanPrincipal);
+};
+
+const isValidEthereumAddress = (address: string): boolean => {
+  if (!address || typeof address !== 'string') return false;
+  const cleanAddress = address.toLowerCase().replace('0x', '');
+  return /^[0-9a-f]{40}$/.test(cleanAddress);
+};
+
+const isValidAccountId = (accountId: string): boolean => {
+  return /^[0-9a-fA-F]{64}$/.test(accountId);
+};
+
 // Session storage table (required for Replit Auth)
 export const sessions = pgTable(
   "sessions",
@@ -138,11 +161,50 @@ export const bridgeTransactions = pgTable("bridge_transactions", {
   completedAt: timestamp("completed_at"),
 });
 
-// Insert schemas
+// Enhanced insert schemas with comprehensive validation
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
+}).extend({
+  walletAddress: z.string()
+    .min(1, 'Wallet address is required')
+    .max(100, 'Wallet address too long')
+    .refine(
+      (val) => isValidEthereumAddress(val) || isValidPrincipalId(val) || isValidAccountId(val),
+      'Invalid wallet address format (must be valid Ethereum address, ICP Principal ID, or Account ID)'
+    )
+    .optional(),
+  principalId: z.string()
+    .refine((val) => !val || isValidPrincipalId(val), 'Invalid ICP Principal ID format')
+    .optional(),
+  email: z.string()
+    .email('Invalid email format')
+    .max(320, 'Email address too long') // RFC 5321 limit
+    .transform(val => val.toLowerCase().trim())
+    .optional(),
+  firstName: z.string()
+    .min(1, 'First name is required')
+    .max(50, 'First name too long')
+    .transform(val => sanitizeText(val, 50))
+    .refine(val => val.length > 0, 'First name cannot be empty after sanitization')
+    .optional(),
+  lastName: z.string()
+    .min(1, 'Last name is required')
+    .max(50, 'Last name too long')
+    .transform(val => sanitizeText(val, 50))
+    .refine(val => val.length > 0, 'Last name cannot be empty after sanitization')
+    .optional(),
+  profileImageUrl: z.string()
+    .url('Invalid URL format')
+    .max(2048, 'URL too long')
+    .refine((val) => {
+      try {
+        const url = new URL(val);
+        return ['http:', 'https:'].includes(url.protocol);
+      } catch { return false; }
+    }, 'Only HTTP and HTTPS URLs are allowed')
+    .optional(),
 });
 
 export const insertRwaSubmissionSchema = createInsertSchema(rwaSubmissions).omit({
@@ -152,6 +214,52 @@ export const insertRwaSubmissionSchema = createInsertSchema(rwaSubmissions).omit
   status: true,
   reviewedBy: true,
   reviewedAt: true,
+}).extend({
+  userId: z.string()
+    .min(1, 'User ID is required')
+    .max(50, 'User ID too long')
+    .regex(/^[a-zA-Z0-9-_]+$/, 'Invalid User ID format'),
+  assetName: z.string()
+    .min(1, 'Asset name is required')
+    .max(200, 'Asset name too long')
+    .transform(val => sanitizeText(val, 200))
+    .refine(val => val.length > 0, 'Asset name cannot be empty after sanitization'),
+  category: z.enum(['jewelry', 'art-collectibles', 'electronics', 'luxury-goods', 'vehicles', 'watches', 'collectibles'], {
+    errorMap: () => ({ message: 'Invalid asset category' })
+  }),
+  estimatedValue: z.union([z.string(), z.number()])
+    .transform(val => typeof val === 'string' ? parseFloat(val) : val)
+    .refine(val => !isNaN(val), 'Estimated value must be a valid number')
+    .refine(val => val > 0, 'Estimated value must be greater than zero')
+    .refine(val => val <= 10000000, 'Estimated value cannot exceed $10,000,000')
+    .refine(val => val >= 10, 'Estimated value must be at least $10')
+    .refine(val => {
+      const decimalPlaces = val.toString().split('.')[1]?.length || 0;
+      return decimalPlaces <= 2;
+    }, 'Estimated value can have at most 2 decimal places'),
+  description: z.string()
+    .max(5000, 'Description too long')
+    .transform(val => sanitizeText(val || '', 5000))
+    .optional(),
+  walletAddress: z.string()
+    .min(1, 'Wallet address is required')
+    .max(100, 'Wallet address too long')
+    .refine(
+      (val) => isValidEthereumAddress(val) || isValidPrincipalId(val) || isValidAccountId(val),
+      'Invalid wallet address format (must be valid Ethereum address, ICP Principal ID, or Account ID)'
+    ),
+  coaUrl: z.string()
+    .url('Invalid COA URL format')
+    .max(2048, 'COA URL too long')
+    .optional(),
+  nftUrl: z.string()
+    .url('Invalid NFT URL format')
+    .max(2048, 'NFT URL too long')
+    .optional(),
+  physicalDocsUrl: z.string()
+    .url('Invalid physical docs URL format')
+    .max(2048, 'Physical docs URL too long')
+    .optional(),
 });
 
 export const insertPawnLoanSchema = createInsertSchema(pawnLoans).omit({
@@ -160,6 +268,42 @@ export const insertPawnLoanSchema = createInsertSchema(pawnLoans).omit({
   updatedAt: true,
   startDate: true,
   redeemedAt: true,
+}).extend({
+  submissionId: z.string()
+    .min(1, 'Submission ID is required')
+    .max(50, 'Submission ID too long')
+    .regex(/^[a-zA-Z0-9-_]+$/, 'Invalid submission ID format'),
+  userId: z.string()
+    .min(1, 'User ID is required')
+    .max(50, 'User ID too long')
+    .regex(/^[a-zA-Z0-9-_]+$/, 'Invalid user ID format'),
+  loanAmount: z.union([z.string(), z.number()])
+    .transform(val => typeof val === 'string' ? parseFloat(val) : val)
+    .refine(val => !isNaN(val), 'Loan amount must be a valid number')
+    .refine(val => val > 0, 'Loan amount must be greater than zero')
+    .refine(val => val <= 5000000, 'Loan amount cannot exceed $5,000,000')
+    .refine(val => val >= 10, 'Loan amount must be at least $10')
+    .refine(val => {
+      const decimalPlaces = val.toString().split('.')[1]?.length || 0;
+      return decimalPlaces <= 2;
+    }, 'Loan amount can have at most 2 decimal places'),
+  assetValue: z.union([z.string(), z.number()])
+    .transform(val => typeof val === 'string' ? parseFloat(val) : val)
+    .refine(val => !isNaN(val), 'Asset value must be a valid number')
+    .refine(val => val > 0, 'Asset value must be greater than zero')
+    .refine(val => val <= 10000000, 'Asset value cannot exceed $10,000,000')
+    .refine(val => val >= 10, 'Asset value must be at least $10'),
+  feeAmount: z.union([z.string(), z.number()])
+    .transform(val => typeof val === 'string' ? parseFloat(val) : val)
+    .refine(val => !isNaN(val), 'Fee amount must be a valid number')
+    .refine(val => val >= 0, 'Fee amount cannot be negative')
+    .refine(val => val <= 1000, 'Fee amount cannot exceed $1,000')
+    .default(2.00),
+  expiryDate: z.union([z.string(), z.date()])
+    .transform(val => typeof val === 'string' ? new Date(val) : val)
+    .refine(val => !isNaN(val.getTime()), 'Invalid expiry date')
+    .refine(val => val > new Date(), 'Expiry date must be in the future')
+    .refine(val => val <= new Date(Date.now() + 90 * 24 * 60 * 60 * 1000), 'Expiry date cannot be more than 90 days in the future'),
 });
 
 export const insertMarketplaceAssetSchema = createInsertSchema(marketplaceAssets).omit({
@@ -256,19 +400,37 @@ export const documentSearchSchema = z.object({
   sortOrder: z.enum(['asc', 'desc']).default('desc'),
 });
 
-// Secure wallet binding schemas  
+// Enhanced secure wallet binding schemas  
 export const walletBindIntentSchema = z.object({
-  walletType: z.enum(['plug', 'internetIdentity']),
+  walletType: z.enum(['plug', 'internetIdentity'], {
+    errorMap: () => ({ message: 'Wallet type must be either "plug" or "internetIdentity"' })
+  }),
 });
 
 export const walletBindVerificationSchema = z.object({
-  principalId: z.string().min(1, "Principal ID is required"),
-  nonce: z.string().min(1, "Nonce is required"),
-  walletType: z.enum(['plug', 'internetIdentity']),
+  principalId: z.string()
+    .min(1, "Principal ID is required")
+    .max(100, "Principal ID too long")
+    .refine(val => isValidPrincipalId(val), "Invalid ICP Principal ID format"),
+  nonce: z.string()
+    .min(32, "Nonce too short (must be at least 32 characters)")
+    .max(128, "Nonce too long")
+    .regex(/^[a-zA-Z0-9]+$/, "Nonce must contain only alphanumeric characters"),
+  walletType: z.enum(['plug', 'internetIdentity'], {
+    errorMap: () => ({ message: 'Wallet type must be either "plug" or "internetIdentity"' })
+  }),
   // For Plug: signature + publicKey required. For II: delegation proof
-  proof: z.string().optional(), // For Internet Identity delegation
-  signature: z.string().optional(), // For Plug signature
-  publicKey: z.string().optional(), // Required for Plug verification
+  proof: z.string()
+    .max(10000, "Proof data too large")
+    .optional(), // For Internet Identity delegation
+  signature: z.string()
+    .max(1000, "Signature too long")
+    .regex(/^[0-9a-fA-F]*$/, "Signature must be hexadecimal")
+    .optional(), // For Plug signature
+  publicKey: z.string()
+    .max(200, "Public key too long")
+    .regex(/^[0-9a-fA-F]*$/, "Public key must be hexadecimal")
+    .optional(), // Required for Plug verification
 }).superRefine((data, ctx) => {
   if (data.walletType === 'plug') {
     if (!data.signature) {
@@ -285,6 +447,22 @@ export const walletBindVerificationSchema = z.object({
         path: ['publicKey']
       });
     }
+    // Validate signature length for Plug (64-128 hex chars typically)
+    if (data.signature && (data.signature.length < 64 || data.signature.length > 256)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Invalid signature length for Plug wallet",
+        path: ['signature']
+      });
+    }
+    // Validate public key length for Plug
+    if (data.publicKey && (data.publicKey.length < 64 || data.publicKey.length > 132)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Invalid public key length for Plug wallet",
+        path: ['publicKey']
+      });
+    }
   } else if (data.walletType === 'internetIdentity') {
     if (!data.proof) {
       ctx.addIssue({
@@ -293,24 +471,101 @@ export const walletBindVerificationSchema = z.object({
         path: ['proof']
       });
     }
+    // Validate proof structure for Internet Identity
+    if (data.proof && data.proof.length < 100) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Delegation proof appears to be incomplete",
+        path: ['proof']
+      });
+    }
   }
 });
 
-// User update schema with validation (secure replacement for any type)
+// Enhanced user update schema with comprehensive validation
 export const userUpdateSchema = z.object({
-  principalId: z.string().regex(/^[a-z0-9-]+$/, "Invalid principal ID format").min(1).optional(),
-  walletAddress: z.string().min(1).optional(),
-  firstName: z.string().min(1).max(50).optional(),
-  lastName: z.string().min(1).max(50).optional(),
-  email: z.string().email().optional(),
-  profileImageUrl: z.string().url().optional(),
+  principalId: z.string()
+    .refine(val => !val || isValidPrincipalId(val), "Invalid ICP Principal ID format")
+    .optional(),
+  walletAddress: z.string()
+    .max(100, "Wallet address too long")
+    .refine(
+      val => !val || isValidEthereumAddress(val) || isValidPrincipalId(val) || isValidAccountId(val),
+      "Invalid wallet address format (must be valid Ethereum address, ICP Principal ID, or Account ID)"
+    )
+    .optional(),
+  firstName: z.string()
+    .min(1, "First name cannot be empty")
+    .max(50, "First name too long")
+    .transform(val => sanitizeText(val, 50))
+    .refine(val => val.length > 0, "First name cannot be empty after sanitization")
+    .refine(val => /^[a-zA-Z\s'-]+$/.test(val), "First name can only contain letters, spaces, hyphens, and apostrophes")
+    .optional(),
+  lastName: z.string()
+    .min(1, "Last name cannot be empty")
+    .max(50, "Last name too long")
+    .transform(val => sanitizeText(val, 50))
+    .refine(val => val.length > 0, "Last name cannot be empty after sanitization")
+    .refine(val => /^[a-zA-Z\s'-]+$/.test(val), "Last name can only contain letters, spaces, hyphens, and apostrophes")
+    .optional(),
+  email: z.string()
+    .email("Invalid email format")
+    .max(320, "Email address too long") // RFC 5321 limit
+    .transform(val => val.toLowerCase().trim())
+    .refine(val => {
+      // Additional email validation - check for common problematic domains
+      const suspiciousDomains = ['tempmail.', 'guerrillamail.', '10minutemail.'];
+      return !suspiciousDomains.some(domain => val.includes(domain));
+    }, "Temporary email addresses are not allowed")
+    .optional(),
+  profileImageUrl: z.string()
+    .url("Invalid URL format")
+    .max(2048, "Profile image URL too long")
+    .refine(val => {
+      try {
+        const url = new URL(val);
+        return ['http:', 'https:'].includes(url.protocol);
+      } catch { return false; }
+    }, "Only HTTP and HTTPS URLs are allowed")
+    .refine(val => {
+      // Check for common image domains and file extensions
+      const imageExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif'];
+      const url = val.toLowerCase();
+      return imageExtensions.some(ext => url.includes(ext)) || 
+             url.includes('imgur.com') || url.includes('cloudflare.com') || 
+             url.includes('amazonaws.com');
+    }, "URL must point to a valid image file or trusted image hosting service")
+    .optional(),
 }).strict(); // Prevents additional properties
 
-// Payment intent schemas
+// Enhanced payment intent schemas with comprehensive validation
 export const paymentIntentSchema = z.object({
-  type: z.enum(['fee_payment', 'redemption_payment', 'bid_payment']),
-  amount: z.string().regex(/^\d+(\.\d{1,8})?$/, "Invalid amount format"),
-  metadata: z.record(z.any()).optional(),
+  type: z.enum(['fee_payment', 'redemption_payment', 'bid_payment'], {
+    errorMap: () => ({ message: 'Payment type must be fee_payment, redemption_payment, or bid_payment' })
+  }),
+  amount: z.string()
+    .min(1, "Amount is required")
+    .regex(/^\d+(\.\d{1,8})?$/, "Amount must be a positive number with at most 8 decimal places")
+    .refine(val => {
+      const num = parseFloat(val);
+      return num > 0;
+    }, "Amount must be greater than zero")
+    .refine(val => {
+      const num = parseFloat(val);
+      return num <= 1000000; // 1 million max
+    }, "Amount cannot exceed 1,000,000")
+    .refine(val => {
+      const num = parseFloat(val);
+      return num >= 0.00001; // Minimum 0.00001 (1e-5)
+    }, "Amount must be at least 0.00001"),
+  metadata: z.record(
+    z.union([
+      z.string().max(1000, "Metadata string values too long"),
+      z.number(),
+      z.boolean(),
+      z.null()
+    ])
+  ).optional(),
 });
 
 // Asset pricing cache table for efficient lookups
