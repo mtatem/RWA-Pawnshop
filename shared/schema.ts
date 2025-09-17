@@ -177,6 +177,33 @@ export const insertBridgeTransactionSchema = createInsertSchema(bridgeTransactio
   updatedAt: true,
 });
 
+// Secure wallet binding schemas  
+export const walletBindIntentSchema = z.object({
+  walletType: z.enum(['plug', 'internetIdentity']),
+});
+
+export const walletBindVerificationSchema = z.object({
+  principalId: z.string().min(1, "Principal ID is required"),
+  nonce: z.string().min(1, "Nonce is required"),
+  walletType: z.enum(['plug', 'internetIdentity']),
+  // For Plug: signed challenge. For II: authenticated proof
+  proof: z.string().optional(),
+  signature: z.string().optional(),
+});
+
+// User update schema with validation (secure replacement for any type)
+export const userUpdateSchema = z.object({
+  principalId: z.string().min(1).optional(),
+  walletAddress: z.string().min(1).optional(),
+}).strict(); // Prevents additional properties
+
+// Payment intent schemas
+export const paymentIntentSchema = z.object({
+  type: z.enum(['fee_payment', 'redemption_payment', 'bid_payment']),
+  amount: z.string().regex(/^\d+(\.\d{1,8})?$/, "Invalid amount format"),
+  metadata: z.record(z.any()).optional(),
+});
+
 // Type exports
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
