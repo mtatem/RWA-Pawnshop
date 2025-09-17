@@ -720,6 +720,262 @@ export const bridgeEstimationResponseSchema = z.object({
   receiveAmount: z.string(),
 });
 
+// Admin Management Tables - Enhanced admin dashboard functionality
+
+// Admin Actions - Audit trail of admin decisions and actions
+export const adminActions = pgTable("admin_actions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  adminId: varchar("admin_id").notNull().references(() => users.id),
+  actionType: text("action_type").notNull(), // approve_submission, reject_submission, approve_asset, flag_user, etc.
+  targetType: text("target_type").notNull(), // submission, user, document, transaction, asset
+  targetId: varchar("target_id").notNull(), // ID of the target entity
+  actionDetails: jsonb("action_details"), // Details of the action taken
+  reasonCode: text("reason_code"), // Standardized reason for the action
+  adminNotes: text("admin_notes"), // Free-form admin notes
+  previousState: jsonb("previous_state"), // State before the action
+  newState: jsonb("new_state"), // State after the action
+  ipAddress: text("ip_address"), // Admin's IP address for security
+  userAgent: text("user_agent"), // Browser/client information
+  sessionId: text("session_id"), // Admin session ID
+  severity: text("severity").notNull().default("normal"), // low, normal, high, critical
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_admin_actions_admin_id").on(table.adminId),
+  index("idx_admin_actions_action_type").on(table.actionType),
+  index("idx_admin_actions_target_type").on(table.targetType),
+  index("idx_admin_actions_created_at").on(table.createdAt),
+  index("idx_admin_actions_severity").on(table.severity),
+]);
+
+// Fraud Alerts - Real-time fraud detection alerts and investigations
+export const fraudAlerts = pgTable("fraud_alerts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  alertType: text("alert_type").notNull(), // document_fraud, user_behavior, transaction_anomaly, duplicate_submission
+  severity: text("severity").notNull(), // low, medium, high, critical
+  status: text("status").notNull().default("open"), // open, investigating, resolved, false_positive
+  targetType: text("target_type").notNull(), // user, document, submission, transaction
+  targetId: varchar("target_id").notNull(),
+  userId: varchar("user_id").references(() => users.id), // User associated with the alert
+  riskScore: numeric("risk_score", { precision: 4, scale: 3 }).notNull(), // 0-1 risk score
+  alertData: jsonb("alert_data").notNull(), // Specific alert details and evidence
+  detectionMethod: text("detection_method").notNull(), // ml_model, rule_based, manual_review, cross_reference
+  modelVersion: text("model_version"), // Version of ML model that triggered alert
+  evidence: jsonb("evidence"), // Supporting evidence for the alert
+  falsePositiveRisk: numeric("false_positive_risk", { precision: 4, scale: 3 }), // Confidence in alert accuracy
+  assignedTo: varchar("assigned_to").references(() => users.id), // Admin investigating the alert
+  investigationNotes: text("investigation_notes"), // Investigation progress and notes
+  resolution: text("resolution"), // Final resolution of the alert
+  resolvedBy: varchar("resolved_by").references(() => users.id),
+  resolvedAt: timestamp("resolved_at"),
+  notificationsSent: boolean("notifications_sent").default(false),
+  escalated: boolean("escalated").default(false),
+  escalatedAt: timestamp("escalated_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_fraud_alerts_status").on(table.status),
+  index("idx_fraud_alerts_severity").on(table.severity),
+  index("idx_fraud_alerts_target_type").on(table.targetType),
+  index("idx_fraud_alerts_user_id").on(table.userId),
+  index("idx_fraud_alerts_risk_score").on(table.riskScore),
+  index("idx_fraud_alerts_created_at").on(table.createdAt),
+  index("idx_fraud_alerts_assigned_to").on(table.assignedTo),
+]);
+
+// Asset Reviews - Manual asset verification workflow
+export const assetReviews = pgTable("asset_reviews", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  submissionId: varchar("submission_id").notNull().references(() => rwaSubmissions.id),
+  reviewType: text("review_type").notNull(), // initial_review, appeal_review, fraud_investigation, valuation_dispute
+  status: text("status").notNull().default("pending"), // pending, in_progress, completed, escalated
+  priority: integer("priority").notNull().default(1), // 1=normal, 2=high, 3=urgent
+  assignedTo: varchar("assigned_to").references(() => users.id),
+  reviewCriteria: jsonb("review_criteria"), // Specific criteria to review
+  valuationAnalysis: jsonb("valuation_analysis"), // Detailed valuation breakdown
+  authenticityAssessment: jsonb("authenticity_assessment"), // Authenticity verification results
+  conditionReport: jsonb("condition_report"), // Physical condition assessment
+  marketAnalysis: jsonb("market_analysis"), // Market value analysis and comparables
+  riskAssessment: jsonb("risk_assessment"), // Risk factors and mitigation
+  adminDecision: text("admin_decision"), // approve, reject, request_more_info, escalate
+  decisionReasoning: text("decision_reasoning"), // Detailed reasoning for decision
+  estimatedValue: numeric("estimated_value", { precision: 12, scale: 2 }), // Admin's valuation
+  confidenceLevel: numeric("confidence_level", { precision: 3, scale: 2 }), // 0-1 confidence in assessment
+  recommendedActions: text("recommended_actions").array(), // Follow-up actions needed
+  externalAppraisals: jsonb("external_appraisals"), // Third-party appraisal data
+  inspectionScheduled: boolean("inspection_scheduled").default(false),
+  inspectionCompleted: boolean("inspection_completed").default(false),
+  inspectionNotes: text("inspection_notes"),
+  reviewDurationMinutes: integer("review_duration_minutes"), // Time spent on review
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  escalatedAt: timestamp("escalated_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_asset_reviews_submission_id").on(table.submissionId),
+  index("idx_asset_reviews_status").on(table.status),
+  index("idx_asset_reviews_priority").on(table.priority),
+  index("idx_asset_reviews_assigned_to").on(table.assignedTo),
+  index("idx_asset_reviews_created_at").on(table.createdAt),
+]);
+
+// User Flags - Flagged user accounts and security concerns
+export const userFlags = pgTable("user_flags", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  flagType: text("flag_type").notNull(), // suspicious_activity, multiple_accounts, fraud_attempt, policy_violation
+  severity: text("severity").notNull(), // low, medium, high, critical
+  status: text("status").notNull().default("active"), // active, resolved, escalated, false_positive
+  flagReason: text("flag_reason").notNull(), // Detailed reason for flagging
+  evidence: jsonb("evidence"), // Supporting evidence
+  automaticFlag: boolean("automatic_flag").default(false), // Whether flag was auto-generated
+  detectionMethod: text("detection_method"), // How the flag was detected
+  riskScore: numeric("risk_score", { precision: 4, scale: 3 }), // 0-1 risk assessment
+  restrictions: jsonb("restrictions"), // Account restrictions applied
+  investigationNotes: text("investigation_notes"), // Investigation progress
+  flaggedBy: varchar("flagged_by").references(() => users.id), // Admin who flagged (if manual)
+  reviewedBy: varchar("reviewed_by").references(() => users.id), // Admin who reviewed
+  relatedFlags: text("related_flags").array(), // Related flag IDs
+  notificationsSent: boolean("notifications_sent").default(false),
+  userNotified: boolean("user_notified").default(false),
+  resolutionAction: text("resolution_action"), // Action taken to resolve
+  resolvedAt: timestamp("resolved_at"),
+  expiresAt: timestamp("expires_at"), // For temporary flags
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_user_flags_user_id").on(table.userId),
+  index("idx_user_flags_flag_type").on(table.flagType),
+  index("idx_user_flags_status").on(table.status),
+  index("idx_user_flags_severity").on(table.severity),
+  index("idx_user_flags_created_at").on(table.createdAt),
+  index("idx_user_flags_expires_at").on(table.expiresAt),
+]);
+
+// Performance Metrics - Platform performance tracking and analytics
+export const performanceMetrics = pgTable("performance_metrics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  metricType: text("metric_type").notNull(), // system, business, security, user_experience
+  metricName: text("metric_name").notNull(), // loan_approval_rate, document_processing_time, fraud_detection_accuracy
+  category: text("category").notNull(), // loans, documents, users, transactions, bridge, security
+  value: numeric("value", { precision: 15, scale: 4 }).notNull(), // Metric value
+  unit: text("unit"), // percentage, seconds, count, dollars, etc.
+  dimension: jsonb("dimension"), // Additional dimensions (user_type, asset_category, etc.)
+  aggregationPeriod: text("aggregation_period").notNull(), // real_time, hourly, daily, weekly, monthly
+  calculationMethod: text("calculation_method"), // How the metric was calculated
+  dataSource: text("data_source"), // Source of the data
+  accuracy: numeric("accuracy", { precision: 4, scale: 3 }), // Confidence in metric accuracy
+  contextData: jsonb("context_data"), // Additional context for the metric
+  threshold: jsonb("threshold"), // Alert thresholds for the metric
+  trend: text("trend"), // up, down, stable, volatile
+  comparisonPeriod: text("comparison_period"), // Previous period for comparison
+  comparisonValue: numeric("comparison_value", { precision: 15, scale: 4 }), // Previous period value
+  changePercentage: numeric("change_percentage", { precision: 6, scale: 3 }), // Percentage change
+  alertsTriggered: boolean("alerts_triggered").default(false),
+  periodStart: timestamp("period_start").notNull(),
+  periodEnd: timestamp("period_end").notNull(),
+  calculatedAt: timestamp("calculated_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_performance_metrics_metric_type").on(table.metricType),
+  index("idx_performance_metrics_metric_name").on(table.metricName),
+  index("idx_performance_metrics_category").on(table.category),
+  index("idx_performance_metrics_period_start").on(table.periodStart),
+  index("idx_performance_metrics_calculated_at").on(table.calculatedAt),
+  index("idx_performance_metrics_aggregation_period").on(table.aggregationPeriod),
+]);
+
+// Admin Management Insert Schemas
+export const insertAdminActionSchema = createInsertSchema(adminActions).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertFraudAlertSchema = createInsertSchema(fraudAlerts).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  resolvedAt: true,
+  escalatedAt: true,
+});
+
+export const insertAssetReviewSchema = createInsertSchema(assetReviews).omit({
+  id: true,
+  startedAt: true,
+  completedAt: true,
+  escalatedAt: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertUserFlagSchema = createInsertSchema(userFlags).omit({
+  id: true,
+  resolvedAt: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertPerformanceMetricSchema = createInsertSchema(performanceMetrics).omit({
+  id: true,
+  calculatedAt: true,
+  createdAt: true,
+});
+
+// Admin API Validation Schemas
+export const adminActionCreateSchema = z.object({
+  actionType: z.enum(['approve_submission', 'reject_submission', 'approve_asset', 'reject_asset', 'flag_user', 'unflag_user', 'restrict_user', 'unrestrict_user', 'escalate_case', 'resolve_alert']),
+  targetType: z.enum(['submission', 'user', 'document', 'transaction', 'asset', 'alert']),
+  targetId: z.string().min(1, "Target ID is required"),
+  actionDetails: z.record(z.any()).optional(),
+  reasonCode: z.string().optional(),
+  adminNotes: z.string().optional(),
+  severity: z.enum(['low', 'normal', 'high', 'critical']).default('normal'),
+});
+
+export const fraudAlertUpdateSchema = z.object({
+  status: z.enum(['open', 'investigating', 'resolved', 'false_positive']),
+  assignedTo: z.string().optional(),
+  investigationNotes: z.string().optional(),
+  resolution: z.string().optional(),
+  escalated: z.boolean().optional(),
+});
+
+export const assetReviewUpdateSchema = z.object({
+  status: z.enum(['pending', 'in_progress', 'completed', 'escalated']),
+  priority: z.number().min(1).max(3).optional(),
+  assignedTo: z.string().optional(),
+  adminDecision: z.enum(['approve', 'reject', 'request_more_info', 'escalate']).optional(),
+  decisionReasoning: z.string().optional(),
+  estimatedValue: z.string().optional(),
+  confidenceLevel: z.number().min(0).max(1).optional(),
+  inspectionScheduled: z.boolean().optional(),
+  inspectionCompleted: z.boolean().optional(),
+  inspectionNotes: z.string().optional(),
+});
+
+export const userFlagCreateSchema = z.object({
+  userId: z.string().min(1, "User ID is required"),
+  flagType: z.enum(['suspicious_activity', 'multiple_accounts', 'fraud_attempt', 'policy_violation']),
+  severity: z.enum(['low', 'medium', 'high', 'critical']),
+  flagReason: z.string().min(1, "Flag reason is required"),
+  evidence: z.record(z.any()).optional(),
+  restrictions: z.record(z.any()).optional(),
+  expiresAt: z.string().optional(),
+});
+
+export const adminDashboardFiltersSchema = z.object({
+  dateFrom: z.string().optional(),
+  dateTo: z.string().optional(),
+  category: z.string().optional(),
+  status: z.string().optional(),
+  severity: z.string().optional(),
+  assignedTo: z.string().optional(),
+  limit: z.number().min(1).max(100).default(20),
+  offset: z.number().min(0).default(0),
+  sortBy: z.string().default('created_at'),
+  sortOrder: z.enum(['asc', 'desc']).default('desc'),
+});
+
 // Type exports
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -776,3 +1032,22 @@ export type DocumentVerificationRequest = z.infer<typeof documentVerificationSch
 export type FraudDetectionConfig = z.infer<typeof fraudDetectionConfigSchema>;
 export type BatchDocumentAnalysis = z.infer<typeof batchDocumentAnalysisSchema>;
 export type DocumentSearch = z.infer<typeof documentSearchSchema>;
+
+// Admin Management types
+export type AdminAction = typeof adminActions.$inferSelect;
+export type InsertAdminAction = z.infer<typeof insertAdminActionSchema>;
+export type FraudAlert = typeof fraudAlerts.$inferSelect;
+export type InsertFraudAlert = z.infer<typeof insertFraudAlertSchema>;
+export type AssetReview = typeof assetReviews.$inferSelect;
+export type InsertAssetReview = z.infer<typeof insertAssetReviewSchema>;
+export type UserFlag = typeof userFlags.$inferSelect;
+export type InsertUserFlag = z.infer<typeof insertUserFlagSchema>;
+export type PerformanceMetric = typeof performanceMetrics.$inferSelect;
+export type InsertPerformanceMetric = z.infer<typeof insertPerformanceMetricSchema>;
+
+// Admin API types
+export type AdminActionCreate = z.infer<typeof adminActionCreateSchema>;
+export type FraudAlertUpdate = z.infer<typeof fraudAlertUpdateSchema>;
+export type AssetReviewUpdate = z.infer<typeof assetReviewUpdateSchema>;
+export type UserFlagCreate = z.infer<typeof userFlagCreateSchema>;
+export type AdminDashboardFilters = z.infer<typeof adminDashboardFiltersSchema>;

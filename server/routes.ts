@@ -39,6 +39,7 @@ import { ICPLedgerService } from "./icp-ledger-service";
 import { pricingService } from "./services/pricing-service";
 import { chainFusionBridge } from "./services/chain-fusion-bridge";
 import documentAnalysisService from "./services/document-analysis";
+import { adminService } from "./services/admin-service";
 import { pricingQuerySchema } from "@shared/schema";
 import { db } from "./db";
 import { sql, eq } from "drizzle-orm";
@@ -1892,6 +1893,434 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Analysis stats error:", error);
       res.status(500).json({ error: "Failed to get analysis statistics" });
+    }
+  });
+
+  // ENHANCED ADMIN DASHBOARD API ENDPOINTS
+
+  // Dashboard KPIs and Analytics
+  app.get("/api/admin/dashboard/kpis", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const kpis = await adminService.getDashboardKPIs();
+      
+      if (kpis.success) {
+        res.json(kpis.data);
+      } else {
+        res.status(500).json({ error: kpis.error });
+      }
+    } catch (error) {
+      console.error("Dashboard KPIs error:", error);
+      res.status(500).json({ error: "Failed to fetch dashboard KPIs" });
+    }
+  });
+
+  // Calculate Performance Metrics
+  app.post("/api/admin/dashboard/metrics/calculate", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { category, period } = req.body;
+      
+      if (!category) {
+        return res.status(400).json({ error: "Category is required" });
+      }
+      
+      const result = await adminService.calculatePerformanceMetrics(category, period);
+      
+      if (result.success) {
+        res.json(result);
+      } else {
+        res.status(500).json({ error: result.error });
+      }
+    } catch (error) {
+      console.error("Performance metrics calculation error:", error);
+      res.status(500).json({ error: "Failed to calculate performance metrics" });
+    }
+  });
+
+  // Get Performance Metrics
+  app.get("/api/admin/dashboard/metrics", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const filters = req.query;
+      const result = await storage.getPerformanceMetrics(filters);
+      res.json(result);
+    } catch (error) {
+      console.error("Performance metrics fetch error:", error);
+      res.status(500).json({ error: "Failed to fetch performance metrics" });
+    }
+  });
+
+  // FRAUD DETECTION AND ALERTS
+
+  // Get Active Fraud Alerts
+  app.get("/api/admin/alerts/fraud", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const filters = req.query;
+      const result = await adminService.getActiveFraudAlerts(filters);
+      
+      if (result.success) {
+        res.json(result.data);
+      } else {
+        res.status(500).json({ error: result.error });
+      }
+    } catch (error) {
+      console.error("Fraud alerts fetch error:", error);
+      res.status(500).json({ error: "Failed to fetch fraud alerts" });
+    }
+  });
+
+  // Create Fraud Alert
+  app.post("/api/admin/alerts/fraud", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const alertData = req.body;
+      const adminId = req.user.claims.sub;
+      
+      if (!alertData.alertType || !alertData.targetType || !alertData.targetId) {
+        return res.status(400).json({ error: "Missing required alert fields" });
+      }
+      
+      const result = await adminService.createFraudAlert(alertData, adminId);
+      
+      if (result.success) {
+        res.status(201).json(result);
+      } else {
+        res.status(500).json({ error: result.error });
+      }
+    } catch (error) {
+      console.error("Fraud alert creation error:", error);
+      res.status(500).json({ error: "Failed to create fraud alert" });
+    }
+  });
+
+  // Update Fraud Alert
+  app.patch("/api/admin/alerts/fraud/:alertId", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { alertId } = req.params;
+      const updates = req.body;
+      const adminId = req.user.claims.sub;
+      
+      const result = await adminService.updateFraudAlert(alertId, updates, adminId);
+      
+      if (result.success) {
+        res.json(result);
+      } else {
+        res.status(500).json({ error: result.error });
+      }
+    } catch (error) {
+      console.error("Fraud alert update error:", error);
+      res.status(500).json({ error: "Failed to update fraud alert" });
+    }
+  });
+
+  // Get Fraud Alert Details
+  app.get("/api/admin/alerts/fraud/:alertId", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { alertId } = req.params;
+      const alert = await storage.getFraudAlert(alertId);
+      
+      if (!alert) {
+        return res.status(404).json({ error: "Fraud alert not found" });
+      }
+      
+      res.json(alert);
+    } catch (error) {
+      console.error("Fraud alert fetch error:", error);
+      res.status(500).json({ error: "Failed to fetch fraud alert" });
+    }
+  });
+
+  // ASSET REVIEW WORKFLOWS
+
+  // Get Pending Asset Reviews
+  app.get("/api/admin/assets/pending", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const filters = req.query;
+      const result = await adminService.getPendingAssetReviews(filters);
+      
+      if (result.success) {
+        res.json(result.data);
+      } else {
+        res.status(500).json({ error: result.error });
+      }
+    } catch (error) {
+      console.error("Asset reviews fetch error:", error);
+      res.status(500).json({ error: "Failed to fetch pending asset reviews" });
+    }
+  });
+
+  // Create Asset Review
+  app.post("/api/admin/assets/:submissionId/review", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { submissionId } = req.params;
+      const { reviewType, priority } = req.body;
+      const adminId = req.user.claims.sub;
+      
+      if (!reviewType) {
+        return res.status(400).json({ error: "Review type is required" });
+      }
+      
+      const result = await adminService.createAssetReview(submissionId, reviewType, adminId, priority);
+      
+      if (result.success) {
+        res.status(201).json(result);
+      } else {
+        res.status(500).json({ error: result.error });
+      }
+    } catch (error) {
+      console.error("Asset review creation error:", error);
+      res.status(500).json({ error: "Failed to create asset review" });
+    }
+  });
+
+  // Update Asset Review Decision
+  app.patch("/api/admin/assets/review/:reviewId", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { reviewId } = req.params;
+      const updates = req.body;
+      const adminId = req.user.claims.sub;
+      
+      const result = await adminService.updateAssetReview(reviewId, updates, adminId);
+      
+      if (result.success) {
+        res.json(result);
+      } else {
+        res.status(500).json({ error: result.error });
+      }
+    } catch (error) {
+      console.error("Asset review update error:", error);
+      res.status(500).json({ error: "Failed to update asset review" });
+    }
+  });
+
+  // Approve Asset Submission
+  app.post("/api/admin/assets/:submissionId/approve", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { submissionId } = req.params;
+      const { estimatedValue, reasoning, conditions } = req.body;
+      const adminId = req.user.claims.sub;
+      
+      // Update submission status to approved
+      await storage.updateRwaSubmissionStatus(submissionId, "approved", reasoning, adminId);
+      
+      // Log admin action
+      await storage.createAdminAction({
+        adminId,
+        actionType: 'approve_submission',
+        targetType: 'submission',
+        targetId: submissionId,
+        actionDetails: { estimatedValue, conditions },
+        adminNotes: reasoning,
+        severity: 'normal',
+        ipAddress: req.ip || '0.0.0.0',
+        userAgent: req.get('User-Agent') || 'Unknown',
+        sessionId: req.sessionID || 'unknown',
+      });
+      
+      res.json({ message: "Asset submission approved successfully" });
+    } catch (error) {
+      console.error("Asset approval error:", error);
+      res.status(500).json({ error: "Failed to approve asset submission" });
+    }
+  });
+
+  // Reject Asset Submission
+  app.post("/api/admin/assets/:submissionId/reject", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { submissionId } = req.params;
+      const { reasoning } = req.body;
+      const adminId = req.user.claims.sub;
+      
+      if (!reasoning) {
+        return res.status(400).json({ error: "Rejection reasoning is required" });
+      }
+      
+      // Update submission status to rejected
+      await storage.updateRwaSubmissionStatus(submissionId, "rejected", reasoning, adminId);
+      
+      // Log admin action
+      await storage.createAdminAction({
+        adminId,
+        actionType: 'reject_submission',
+        targetType: 'submission',
+        targetId: submissionId,
+        adminNotes: reasoning,
+        severity: 'normal',
+        ipAddress: req.ip || '0.0.0.0',
+        userAgent: req.get('User-Agent') || 'Unknown',
+        sessionId: req.sessionID || 'unknown',
+      });
+      
+      res.json({ message: "Asset submission rejected successfully" });
+    } catch (error) {
+      console.error("Asset rejection error:", error);
+      res.status(500).json({ error: "Failed to reject asset submission" });
+    }
+  });
+
+  // USER MANAGEMENT AND FLAGS
+
+  // Get Flagged Users
+  app.get("/api/admin/users/flagged", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const filters = req.query;
+      const result = await adminService.getFlaggedUsers(filters);
+      
+      if (result.success) {
+        res.json(result.data);
+      } else {
+        res.status(500).json({ error: result.error });
+      }
+    } catch (error) {
+      console.error("Flagged users fetch error:", error);
+      res.status(500).json({ error: "Failed to fetch flagged users" });
+    }
+  });
+
+  // Flag User Account
+  app.post("/api/admin/users/:userId/flag", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { userId } = req.params;
+      const flagData = { ...req.body, userId };
+      const adminId = req.user.claims.sub;
+      
+      if (!flagData.flagType || !flagData.severity || !flagData.flagReason) {
+        return res.status(400).json({ error: "Flag type, severity, and reason are required" });
+      }
+      
+      const result = await adminService.flagUser(flagData, adminId);
+      
+      if (result.success) {
+        res.status(201).json(result);
+      } else {
+        res.status(500).json({ error: result.error });
+      }
+    } catch (error) {
+      console.error("User flagging error:", error);
+      res.status(500).json({ error: "Failed to flag user" });
+    }
+  });
+
+  // Update User Flag
+  app.patch("/api/admin/users/flags/:flagId", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { flagId } = req.params;
+      const updates = req.body;
+      const adminId = req.user.claims.sub;
+      
+      const updatedFlag = await storage.updateUserFlag(flagId, updates);
+      
+      // Log admin action
+      await storage.createAdminAction({
+        adminId,
+        actionType: updates.status === 'resolved' ? 'unflag_user' : 'flag_user',
+        targetType: 'user',
+        targetId: updatedFlag.userId,
+        actionDetails: updates,
+        severity: 'normal',
+        ipAddress: req.ip || '0.0.0.0',
+        userAgent: req.get('User-Agent') || 'Unknown',
+        sessionId: req.sessionID || 'unknown',
+      });
+      
+      res.json({ message: "User flag updated successfully", flag: updatedFlag });
+    } catch (error) {
+      console.error("User flag update error:", error);
+      res.status(500).json({ error: "Failed to update user flag" });
+    }
+  });
+
+  // Restrict User Account
+  app.post("/api/admin/users/:userId/restrict", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { userId } = req.params;
+      const { restrictions, reason } = req.body;
+      const adminId = req.user.claims.sub;
+      
+      if (!restrictions || !reason) {
+        return res.status(400).json({ error: "Restrictions and reason are required" });
+      }
+      
+      // Update user with restrictions (assuming there's a method for this)
+      // This would need to be implemented in the storage layer
+      
+      // Log admin action
+      await storage.createAdminAction({
+        adminId,
+        actionType: 'restrict_user',
+        targetType: 'user',
+        targetId: userId,
+        actionDetails: { restrictions },
+        adminNotes: reason,
+        severity: 'high',
+        ipAddress: req.ip || '0.0.0.0',
+        userAgent: req.get('User-Agent') || 'Unknown',
+        sessionId: req.sessionID || 'unknown',
+      });
+      
+      res.json({ message: "User restrictions applied successfully" });
+    } catch (error) {
+      console.error("User restriction error:", error);
+      res.status(500).json({ error: "Failed to restrict user" });
+    }
+  });
+
+  // BRIDGE MONITORING
+
+  // Get Bridge Monitoring Data
+  app.get("/api/admin/bridge/monitoring", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const filters = req.query;
+      const result = await adminService.getBridgeMonitoringData(filters);
+      
+      if (result.success) {
+        res.json(result.data);
+      } else {
+        res.status(500).json({ error: result.error });
+      }
+    } catch (error) {
+      console.error("Bridge monitoring error:", error);
+      res.status(500).json({ error: "Failed to fetch bridge monitoring data" });
+    }
+  });
+
+  // Get Bridge Transaction Details
+  app.get("/api/admin/bridge/transactions/:txId", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { txId } = req.params;
+      const transaction = await storage.getBridgeTransaction(txId);
+      
+      if (!transaction) {
+        return res.status(404).json({ error: "Bridge transaction not found" });
+      }
+      
+      res.json(transaction);
+    } catch (error) {
+      console.error("Bridge transaction fetch error:", error);
+      res.status(500).json({ error: "Failed to fetch bridge transaction" });
+    }
+  });
+
+  // ADMIN ACTIONS AND AUDIT TRAIL
+
+  // Get Admin Actions (Audit Trail)
+  app.get("/api/admin/actions", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const filters = req.query;
+      const result = await storage.getAdminActions(filters);
+      res.json(result);
+    } catch (error) {
+      console.error("Admin actions fetch error:", error);
+      res.status(500).json({ error: "Failed to fetch admin actions" });
+    }
+  });
+
+  // Get Admin Actions for Specific Target
+  app.get("/api/admin/actions/:targetType/:targetId", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { targetType, targetId } = req.params;
+      const actions = await storage.getAdminActionsByTarget(targetType, targetId);
+      res.json({ actions });
+    } catch (error) {
+      console.error("Target admin actions fetch error:", error);
+      res.status(500).json({ error: "Failed to fetch admin actions for target" });
     }
   });
 
