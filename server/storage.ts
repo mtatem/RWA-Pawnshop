@@ -14,6 +14,11 @@ import {
   documentVerifications,
   documentAnalysisQueue,
   documentTemplates,
+  adminActions,
+  fraudAlerts,
+  assetReviews,
+  userFlags,
+  performanceMetrics,
   type User,
   type InsertUser,
   type RwaSubmission,
@@ -45,6 +50,17 @@ import {
   type DocumentTemplate,
   type InsertDocumentTemplate,
   type DocumentSearch,
+  type AdminAction,
+  type InsertAdminAction,
+  type FraudAlert,
+  type InsertFraudAlert,
+  type AssetReview,
+  type InsertAssetReview,
+  type UserFlag,
+  type InsertUserFlag,
+  type PerformanceMetric,
+  type InsertPerformanceMetric,
+  type AdminDashboardFilters,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, lt, gte, sql } from "drizzle-orm";
@@ -167,6 +183,80 @@ export interface IStorage {
   getDocumentsRequiringManualReview(): Promise<Document[]>;
   searchDocuments(filters: DocumentSearch): Promise<{ documents: Document[]; totalCount: number }>;
   getDocumentsByRiskLevel(riskLevel: string): Promise<Document[]>;
+
+  // Admin Action operations
+  createAdminAction(action: InsertAdminAction): Promise<AdminAction>;
+  getAdminActions(filters: AdminDashboardFilters): Promise<{ actions: AdminAction[]; totalCount: number }>;
+  getAdminActionsByType(actionType: string): Promise<AdminAction[]>;
+  getAdminActionsByTarget(targetType: string, targetId: string): Promise<AdminAction[]>;
+
+  // Fraud Alert operations
+  createFraudAlert(alert: InsertFraudAlert): Promise<FraudAlert>;
+  getFraudAlert(id: string): Promise<FraudAlert | undefined>;
+  getFraudAlerts(filters: AdminDashboardFilters): Promise<{ alerts: FraudAlert[]; totalCount: number }>;
+  updateFraudAlert(id: string, updates: Partial<FraudAlert>): Promise<FraudAlert>;
+  getFraudAlertsByUser(userId: string): Promise<FraudAlert[]>;
+  getFraudAlertsByStatus(status: string): Promise<FraudAlert[]>;
+  getFraudAlertsByRiskScore(minScore: number): Promise<FraudAlert[]>;
+
+  // Asset Review operations
+  createAssetReview(review: InsertAssetReview): Promise<AssetReview>;
+  getAssetReview(id: string): Promise<AssetReview | undefined>;
+  getAssetReviews(filters: AdminDashboardFilters): Promise<{ reviews: AssetReview[]; totalCount: number }>;
+  updateAssetReview(id: string, updates: Partial<AssetReview>): Promise<AssetReview>;
+  getAssetReviewsBySubmission(submissionId: string): Promise<AssetReview[]>;
+  getAssetReviewsByStatus(status: string): Promise<AssetReview[]>;
+  getAssetReviewsByAssignee(assignedTo: string): Promise<AssetReview[]>;
+
+  // User Flag operations
+  createUserFlag(flag: InsertUserFlag): Promise<UserFlag>;
+  getUserFlag(id: string): Promise<UserFlag | undefined>;
+  getUserFlags(filters: AdminDashboardFilters): Promise<{ flags: UserFlag[]; totalCount: number }>;
+  updateUserFlag(id: string, updates: Partial<UserFlag>): Promise<UserFlag>;
+  getUserFlagsByUser(userId: string): Promise<UserFlag[]>;
+  getUserFlagsByStatus(status: string): Promise<UserFlag[]>;
+  getActiveUserFlags(): Promise<UserFlag[]>;
+
+  // Performance Metrics operations
+  createPerformanceMetric(metric: InsertPerformanceMetric): Promise<PerformanceMetric>;
+  getPerformanceMetrics(filters: AdminDashboardFilters): Promise<{ metrics: PerformanceMetric[]; totalCount: number }>;
+  getPerformanceMetricsByType(metricType: string): Promise<PerformanceMetric[]>;
+  getPerformanceMetricsByCategory(category: string): Promise<PerformanceMetric[]>;
+  getLatestPerformanceMetrics(limit?: number): Promise<PerformanceMetric[]>;
+
+  // Enhanced Admin Statistics
+  getEnhancedAdminStats(): Promise<{
+    overview: {
+      pendingApprovals: number;
+      activeLoans: number;
+      expiringSoon: number;
+      totalRevenue: string;
+      monthlyGrowth: string;
+      userCount: number;
+      avgLoanValue: string;
+    };
+    security: {
+      openFraudAlerts: number;
+      criticalAlerts: number;
+      flaggedUsers: number;
+      suspiciousDocuments: number;
+      fraudPrevented: string;
+    };
+    operations: {
+      pendingDocuments: number;
+      processingDocuments: number;
+      completedToday: number;
+      avgProcessingTime: number;
+      manualReviewRequired: number;
+    };
+    bridge: {
+      activeTransactions: number;
+      completedToday: number;
+      failedTransactions: number;
+      totalVolume: string;
+      avgProcessingTime: number;
+    };
+  }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -915,6 +1005,530 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(fraudDetectionResults, eq(documents.id, fraudDetectionResults.documentId))
       .where(eq(fraudDetectionResults.riskLevel, riskLevel))
       .orderBy(desc(documents.createdAt));
+  }
+
+  // Admin Action operations
+  async createAdminAction(action: InsertAdminAction): Promise<AdminAction> {
+    const [newAction] = await db.insert(adminActions).values(action).returning();
+    return newAction;
+  }
+
+  async getAdminActions(filters: AdminDashboardFilters): Promise<{ actions: AdminAction[]; totalCount: number }> {
+    let query = db.select().from(adminActions);
+    let countQuery = db.select({ count: sql<number>`cast(count(*) as integer)` }).from(adminActions);
+    
+    const conditions = [];
+    
+    if (filters.dateFrom) {
+      conditions.push(gte(adminActions.createdAt, new Date(filters.dateFrom)));
+    }
+    if (filters.dateTo) {
+      conditions.push(lt(adminActions.createdAt, new Date(filters.dateTo)));
+    }
+    if (filters.severity) {
+      conditions.push(eq(adminActions.severity, filters.severity));
+    }
+
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions));
+      countQuery = countQuery.where(and(...conditions));
+    }
+
+    const [countResult] = await countQuery;
+    const totalCount = countResult?.count || 0;
+
+    const actions = await query
+      .orderBy(desc(adminActions.createdAt))
+      .limit(filters.limit || 20)
+      .offset(filters.offset || 0);
+
+    return { actions, totalCount };
+  }
+
+  async getAdminActionsByType(actionType: string): Promise<AdminAction[]> {
+    return await db.select().from(adminActions)
+      .where(eq(adminActions.actionType, actionType))
+      .orderBy(desc(adminActions.createdAt));
+  }
+
+  async getAdminActionsByTarget(targetType: string, targetId: string): Promise<AdminAction[]> {
+    return await db.select().from(adminActions)
+      .where(and(
+        eq(adminActions.targetType, targetType),
+        eq(adminActions.targetId, targetId)
+      ))
+      .orderBy(desc(adminActions.createdAt));
+  }
+
+  // Fraud Alert operations
+  async createFraudAlert(alert: InsertFraudAlert): Promise<FraudAlert> {
+    const [newAlert] = await db.insert(fraudAlerts).values(alert).returning();
+    return newAlert;
+  }
+
+  async getFraudAlert(id: string): Promise<FraudAlert | undefined> {
+    const [alert] = await db.select().from(fraudAlerts).where(eq(fraudAlerts.id, id));
+    return alert || undefined;
+  }
+
+  async getFraudAlerts(filters: AdminDashboardFilters): Promise<{ alerts: FraudAlert[]; totalCount: number }> {
+    let query = db.select().from(fraudAlerts);
+    let countQuery = db.select({ count: sql<number>`cast(count(*) as integer)` }).from(fraudAlerts);
+    
+    const conditions = [];
+    
+    if (filters.dateFrom) {
+      conditions.push(gte(fraudAlerts.createdAt, new Date(filters.dateFrom)));
+    }
+    if (filters.dateTo) {
+      conditions.push(lt(fraudAlerts.createdAt, new Date(filters.dateTo)));
+    }
+    if (filters.status) {
+      conditions.push(eq(fraudAlerts.status, filters.status));
+    }
+    if (filters.severity) {
+      conditions.push(eq(fraudAlerts.severity, filters.severity));
+    }
+    if (filters.assignedTo) {
+      conditions.push(eq(fraudAlerts.assignedTo, filters.assignedTo));
+    }
+
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions));
+      countQuery = countQuery.where(and(...conditions));
+    }
+
+    const [countResult] = await countQuery;
+    const totalCount = countResult?.count || 0;
+
+    const alerts = await query
+      .orderBy(desc(fraudAlerts.createdAt))
+      .limit(filters.limit || 20)
+      .offset(filters.offset || 0);
+
+    return { alerts, totalCount };
+  }
+
+  async updateFraudAlert(id: string, updates: Partial<FraudAlert>): Promise<FraudAlert> {
+    const updateData = { ...updates, updatedAt: new Date() };
+    
+    if (updates.status === 'resolved' && !updates.resolvedAt) {
+      updateData.resolvedAt = new Date();
+    }
+
+    const [alert] = await db
+      .update(fraudAlerts)
+      .set(updateData)
+      .where(eq(fraudAlerts.id, id))
+      .returning();
+    return alert;
+  }
+
+  async getFraudAlertsByUser(userId: string): Promise<FraudAlert[]> {
+    return await db.select().from(fraudAlerts)
+      .where(eq(fraudAlerts.userId, userId))
+      .orderBy(desc(fraudAlerts.createdAt));
+  }
+
+  async getFraudAlertsByStatus(status: string): Promise<FraudAlert[]> {
+    return await db.select().from(fraudAlerts)
+      .where(eq(fraudAlerts.status, status))
+      .orderBy(desc(fraudAlerts.createdAt));
+  }
+
+  async getFraudAlertsByRiskScore(minScore: number): Promise<FraudAlert[]> {
+    return await db.select().from(fraudAlerts)
+      .where(gte(fraudAlerts.riskScore, minScore.toString()))
+      .orderBy(desc(fraudAlerts.riskScore), desc(fraudAlerts.createdAt));
+  }
+
+  // Asset Review operations
+  async createAssetReview(review: InsertAssetReview): Promise<AssetReview> {
+    const [newReview] = await db.insert(assetReviews).values(review).returning();
+    return newReview;
+  }
+
+  async getAssetReview(id: string): Promise<AssetReview | undefined> {
+    const [review] = await db.select().from(assetReviews).where(eq(assetReviews.id, id));
+    return review || undefined;
+  }
+
+  async getAssetReviews(filters: AdminDashboardFilters): Promise<{ reviews: AssetReview[]; totalCount: number }> {
+    let query = db.select().from(assetReviews);
+    let countQuery = db.select({ count: sql<number>`cast(count(*) as integer)` }).from(assetReviews);
+    
+    const conditions = [];
+    
+    if (filters.dateFrom) {
+      conditions.push(gte(assetReviews.createdAt, new Date(filters.dateFrom)));
+    }
+    if (filters.dateTo) {
+      conditions.push(lt(assetReviews.createdAt, new Date(filters.dateTo)));
+    }
+    if (filters.status) {
+      conditions.push(eq(assetReviews.status, filters.status));
+    }
+    if (filters.assignedTo) {
+      conditions.push(eq(assetReviews.assignedTo, filters.assignedTo));
+    }
+
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions));
+      countQuery = countQuery.where(and(...conditions));
+    }
+
+    const [countResult] = await countQuery;
+    const totalCount = countResult?.count || 0;
+
+    const reviews = await query
+      .orderBy(desc(assetReviews.createdAt))
+      .limit(filters.limit || 20)
+      .offset(filters.offset || 0);
+
+    return { reviews, totalCount };
+  }
+
+  async updateAssetReview(id: string, updates: Partial<AssetReview>): Promise<AssetReview> {
+    const updateData = { ...updates, updatedAt: new Date() };
+    
+    if (updates.status === 'completed' && !updates.completedAt) {
+      updateData.completedAt = new Date();
+    }
+    if (updates.status === 'in_progress' && !updates.startedAt) {
+      updateData.startedAt = new Date();
+    }
+
+    const [review] = await db
+      .update(assetReviews)
+      .set(updateData)
+      .where(eq(assetReviews.id, id))
+      .returning();
+    return review;
+  }
+
+  async getAssetReviewsBySubmission(submissionId: string): Promise<AssetReview[]> {
+    return await db.select().from(assetReviews)
+      .where(eq(assetReviews.submissionId, submissionId))
+      .orderBy(desc(assetReviews.createdAt));
+  }
+
+  async getAssetReviewsByStatus(status: string): Promise<AssetReview[]> {
+    return await db.select().from(assetReviews)
+      .where(eq(assetReviews.status, status))
+      .orderBy(desc(assetReviews.createdAt));
+  }
+
+  async getAssetReviewsByAssignee(assignedTo: string): Promise<AssetReview[]> {
+    return await db.select().from(assetReviews)
+      .where(eq(assetReviews.assignedTo, assignedTo))
+      .orderBy(desc(assetReviews.createdAt));
+  }
+
+  // User Flag operations
+  async createUserFlag(flag: InsertUserFlag): Promise<UserFlag> {
+    const [newFlag] = await db.insert(userFlags).values(flag).returning();
+    return newFlag;
+  }
+
+  async getUserFlag(id: string): Promise<UserFlag | undefined> {
+    const [flag] = await db.select().from(userFlags).where(eq(userFlags.id, id));
+    return flag || undefined;
+  }
+
+  async getUserFlags(filters: AdminDashboardFilters): Promise<{ flags: UserFlag[]; totalCount: number }> {
+    let query = db.select().from(userFlags);
+    let countQuery = db.select({ count: sql<number>`cast(count(*) as integer)` }).from(userFlags);
+    
+    const conditions = [];
+    
+    if (filters.dateFrom) {
+      conditions.push(gte(userFlags.createdAt, new Date(filters.dateFrom)));
+    }
+    if (filters.dateTo) {
+      conditions.push(lt(userFlags.createdAt, new Date(filters.dateTo)));
+    }
+    if (filters.status) {
+      conditions.push(eq(userFlags.status, filters.status));
+    }
+    if (filters.severity) {
+      conditions.push(eq(userFlags.severity, filters.severity));
+    }
+
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions));
+      countQuery = countQuery.where(and(...conditions));
+    }
+
+    const [countResult] = await countQuery;
+    const totalCount = countResult?.count || 0;
+
+    const flags = await query
+      .orderBy(desc(userFlags.createdAt))
+      .limit(filters.limit || 20)
+      .offset(filters.offset || 0);
+
+    return { flags, totalCount };
+  }
+
+  async updateUserFlag(id: string, updates: Partial<UserFlag>): Promise<UserFlag> {
+    const updateData = { ...updates, updatedAt: new Date() };
+    
+    if (updates.status === 'resolved' && !updates.resolvedAt) {
+      updateData.resolvedAt = new Date();
+    }
+
+    const [flag] = await db
+      .update(userFlags)
+      .set(updateData)
+      .where(eq(userFlags.id, id))
+      .returning();
+    return flag;
+  }
+
+  async getUserFlagsByUser(userId: string): Promise<UserFlag[]> {
+    return await db.select().from(userFlags)
+      .where(eq(userFlags.userId, userId))
+      .orderBy(desc(userFlags.createdAt));
+  }
+
+  async getUserFlagsByStatus(status: string): Promise<UserFlag[]> {
+    return await db.select().from(userFlags)
+      .where(eq(userFlags.status, status))
+      .orderBy(desc(userFlags.createdAt));
+  }
+
+  async getActiveUserFlags(): Promise<UserFlag[]> {
+    return await db.select().from(userFlags)
+      .where(eq(userFlags.status, 'active'))
+      .orderBy(desc(userFlags.createdAt));
+  }
+
+  // Performance Metrics operations
+  async createPerformanceMetric(metric: InsertPerformanceMetric): Promise<PerformanceMetric> {
+    const [newMetric] = await db.insert(performanceMetrics).values(metric).returning();
+    return newMetric;
+  }
+
+  async getPerformanceMetrics(filters: AdminDashboardFilters): Promise<{ metrics: PerformanceMetric[]; totalCount: number }> {
+    let query = db.select().from(performanceMetrics);
+    let countQuery = db.select({ count: sql<number>`cast(count(*) as integer)` }).from(performanceMetrics);
+    
+    const conditions = [];
+    
+    if (filters.dateFrom) {
+      conditions.push(gte(performanceMetrics.periodStart, new Date(filters.dateFrom)));
+    }
+    if (filters.dateTo) {
+      conditions.push(lt(performanceMetrics.periodEnd, new Date(filters.dateTo)));
+    }
+    if (filters.category) {
+      conditions.push(eq(performanceMetrics.category, filters.category));
+    }
+
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions));
+      countQuery = countQuery.where(and(...conditions));
+    }
+
+    const [countResult] = await countQuery;
+    const totalCount = countResult?.count || 0;
+
+    const metrics = await query
+      .orderBy(desc(performanceMetrics.calculatedAt))
+      .limit(filters.limit || 20)
+      .offset(filters.offset || 0);
+
+    return { metrics, totalCount };
+  }
+
+  async getPerformanceMetricsByType(metricType: string): Promise<PerformanceMetric[]> {
+    return await db.select().from(performanceMetrics)
+      .where(eq(performanceMetrics.metricType, metricType))
+      .orderBy(desc(performanceMetrics.calculatedAt));
+  }
+
+  async getPerformanceMetricsByCategory(category: string): Promise<PerformanceMetric[]> {
+    return await db.select().from(performanceMetrics)
+      .where(eq(performanceMetrics.category, category))
+      .orderBy(desc(performanceMetrics.calculatedAt));
+  }
+
+  async getLatestPerformanceMetrics(limit: number = 50): Promise<PerformanceMetric[]> {
+    return await db.select().from(performanceMetrics)
+      .orderBy(desc(performanceMetrics.calculatedAt))
+      .limit(limit);
+  }
+
+  // Enhanced Admin Statistics
+  async getEnhancedAdminStats(): Promise<{
+    overview: {
+      pendingApprovals: number;
+      activeLoans: number;
+      expiringSoon: number;
+      totalRevenue: string;
+      monthlyGrowth: string;
+      userCount: number;
+      avgLoanValue: string;
+    };
+    security: {
+      openFraudAlerts: number;
+      criticalAlerts: number;
+      flaggedUsers: number;
+      suspiciousDocuments: number;
+      fraudPrevented: string;
+    };
+    operations: {
+      pendingDocuments: number;
+      processingDocuments: number;
+      completedToday: number;
+      avgProcessingTime: number;
+      manualReviewRequired: number;
+    };
+    bridge: {
+      activeTransactions: number;
+      completedToday: number;
+      failedTransactions: number;
+      totalVolume: string;
+      avgProcessingTime: number;
+    };
+  }> {
+    // Overview metrics
+    const [pendingApprovalsResult] = await db
+      .select({ count: sql<number>`cast(count(*) as integer)` })
+      .from(rwaSubmissions)
+      .where(eq(rwaSubmissions.status, "pending"));
+
+    const [activeLoansResult] = await db
+      .select({ count: sql<number>`cast(count(*) as integer)` })
+      .from(pawnLoans)
+      .where(eq(pawnLoans.status, "active"));
+
+    const expiringCutoff = new Date();
+    expiringCutoff.setDate(expiringCutoff.getDate() + 7);
+    const [expiringSoonResult] = await db
+      .select({ count: sql<number>`cast(count(*) as integer)` })
+      .from(pawnLoans)
+      .where(and(
+        eq(pawnLoans.status, "active"),
+        lt(pawnLoans.expiryDate, expiringCutoff)
+      ));
+
+    const [totalRevenueResult] = await db
+      .select({ total: sql<string>`cast(coalesce(sum(fee_amount), 0) as text)` })
+      .from(pawnLoans);
+
+    const [userCountResult] = await db
+      .select({ count: sql<number>`cast(count(*) as integer)` })
+      .from(users);
+
+    const [avgLoanValueResult] = await db
+      .select({ avg: sql<string>`cast(coalesce(avg(loan_amount), 0) as text)` })
+      .from(pawnLoans)
+      .where(eq(pawnLoans.status, "active"));
+
+    // Security metrics
+    const [openFraudAlertsResult] = await db
+      .select({ count: sql<number>`cast(count(*) as integer)` })
+      .from(fraudAlerts)
+      .where(eq(fraudAlerts.status, "open"));
+
+    const [criticalAlertsResult] = await db
+      .select({ count: sql<number>`cast(count(*) as integer)` })
+      .from(fraudAlerts)
+      .where(eq(fraudAlerts.severity, "critical"));
+
+    const [flaggedUsersResult] = await db
+      .select({ count: sql<number>`cast(count(*) as integer)` })
+      .from(userFlags)
+      .where(eq(userFlags.status, "active"));
+
+    const [suspiciousDocumentsResult] = await db
+      .select({ count: sql<number>`cast(count(*) as integer)` })
+      .from(fraudDetectionResults)
+      .where(eq(fraudDetectionResults.riskLevel, "high"));
+
+    // Operations metrics
+    const [pendingDocumentsResult] = await db
+      .select({ count: sql<number>`cast(count(*) as integer)` })
+      .from(documents)
+      .where(eq(documents.analysisStatus, "pending"));
+
+    const [processingDocumentsResult] = await db
+      .select({ count: sql<number>`cast(count(*) as integer)` })
+      .from(documents)
+      .where(eq(documents.analysisStatus, "processing"));
+
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const [completedTodayResult] = await db
+      .select({ count: sql<number>`cast(count(*) as integer)` })
+      .from(documents)
+      .where(and(
+        eq(documents.analysisStatus, "completed"),
+        gte(documents.updatedAt, todayStart)
+      ));
+
+    const [manualReviewRequiredResult] = await db
+      .select({ count: sql<number>`cast(count(*) as integer)` })
+      .from(fraudDetectionResults)
+      .where(eq(fraudDetectionResults.requiresManualReview, true));
+
+    // Bridge metrics
+    const [activeBridgeResult] = await db
+      .select({ count: sql<number>`cast(count(*) as integer)` })
+      .from(bridgeTransactions)
+      .where(eq(bridgeTransactions.status, "processing"));
+
+    const [completedBridgeTodayResult] = await db
+      .select({ count: sql<number>`cast(count(*) as integer)` })
+      .from(bridgeTransactions)
+      .where(and(
+        eq(bridgeTransactions.status, "completed"),
+        gte(bridgeTransactions.completedAt, todayStart)
+      ));
+
+    const [failedBridgeResult] = await db
+      .select({ count: sql<number>`cast(count(*) as integer)` })
+      .from(bridgeTransactions)
+      .where(eq(bridgeTransactions.status, "failed"));
+
+    const [totalVolumeResult] = await db
+      .select({ total: sql<string>`cast(coalesce(sum(amount), 0) as text)` })
+      .from(bridgeTransactions)
+      .where(eq(bridgeTransactions.status, "completed"));
+
+    return {
+      overview: {
+        pendingApprovals: pendingApprovalsResult?.count || 0,
+        activeLoans: activeLoansResult?.count || 0,
+        expiringSoon: expiringSoonResult?.count || 0,
+        totalRevenue: totalRevenueResult?.total || "0",
+        monthlyGrowth: "12.5", // TODO: Calculate actual monthly growth
+        userCount: userCountResult?.count || 0,
+        avgLoanValue: avgLoanValueResult?.avg || "0",
+      },
+      security: {
+        openFraudAlerts: openFraudAlertsResult?.count || 0,
+        criticalAlerts: criticalAlertsResult?.count || 0,
+        flaggedUsers: flaggedUsersResult?.count || 0,
+        suspiciousDocuments: suspiciousDocumentsResult?.count || 0,
+        fraudPrevented: "45000", // TODO: Calculate actual fraud prevented amount
+      },
+      operations: {
+        pendingDocuments: pendingDocumentsResult?.count || 0,
+        processingDocuments: processingDocumentsResult?.count || 0,
+        completedToday: completedTodayResult?.count || 0,
+        avgProcessingTime: 245, // TODO: Calculate actual average processing time
+        manualReviewRequired: manualReviewRequiredResult?.count || 0,
+      },
+      bridge: {
+        activeTransactions: activeBridgeResult?.count || 0,
+        completedToday: completedBridgeTodayResult?.count || 0,
+        failedTransactions: failedBridgeResult?.count || 0,
+        totalVolume: totalVolumeResult?.total || "0",
+        avgProcessingTime: 420, // TODO: Calculate actual average processing time
+      },
+    };
   }
 }
 
