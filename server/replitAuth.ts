@@ -140,18 +140,36 @@ export async function setupAuth(app: Express) {
 
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
   const user = req.user as any;
+  
+  // Development bypass for debugging
+  if (process.env.NODE_ENV === 'development' && process.env.DEV_AUTH_BYPASS === 'true') {
+    console.log('DEV_AUTH_BYPASS enabled - allowing request');
+    return next();
+  }
 
-  if (!req.isAuthenticated() || !user.expires_at) {
+  console.log('isAuthenticated check:', {
+    hasUser: !!user,
+    isAuthenticated: req.isAuthenticated(),
+    expiresAt: user?.expires_at,
+    now: Math.floor(Date.now() / 1000),
+    userClaims: user?.claims?.sub
+  });
+
+  if (!req.isAuthenticated() || !user?.expires_at) {
+    console.log('Authentication failed: no session or expires_at');
     return res.status(401).json({ message: "Unauthorized" });
   }
 
   const now = Math.floor(Date.now() / 1000);
   if (now <= user.expires_at) {
+    console.log('Token still valid, proceeding');
     return next();
   }
 
+  console.log('Token expired, attempting refresh');
   const refreshToken = user.refresh_token;
   if (!refreshToken) {
+    console.log('No refresh token available');
     res.status(401).json({ message: "Unauthorized" });
     return;
   }
@@ -160,8 +178,10 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
     const config = await getOidcConfig();
     const tokenResponse = await client.refreshTokenGrant(config, refreshToken);
     updateUserSession(user, tokenResponse);
+    console.log('Token refreshed successfully');
     return next();
   } catch (error) {
+    console.log('Token refresh failed:', error);
     res.status(401).json({ message: "Unauthorized" });
     return;
   }
