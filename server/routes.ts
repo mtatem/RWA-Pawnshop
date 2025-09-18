@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import rateLimit from 'express-rate-limit';
 import multer from 'multer';
+import Stripe from "stripe";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { 
@@ -24,7 +25,8 @@ import {
   documentUploadSchema,
   documentAnalysisRequestSchema,
   documents,
-  fraudDetectionResults
+  fraudDetectionResults,
+  insertRwapawnPurchaseSchema
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -44,6 +46,19 @@ import {
   InputSanitizer 
 } from "./utils/validation";
 import { z } from "zod";
+
+// Initialize Stripe
+if (!process.env.STRIPE_SECRET_KEY) {
+  throw new Error('Missing required Stripe secret: STRIPE_SECRET_KEY');
+}
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+  apiVersion: "2023-10-16",
+});
+
+// RWAPAWN token configuration
+const RWAPAWN_EXCHANGE_RATE = 100; // $1 USD = 100 RWAPAWN tokens
+const MIN_PURCHASE_USD = 10; // $10 minimum
+const MAX_PURCHASE_USD = 10000; // $10,000 maximum
 
 // System wallet configuration - CRITICAL: These are AccountIdentifiers, not Principals
 const SYSTEM_ICP_ACCOUNT_ID = "1ef008c2d7e445954e12ec2033b202888723046fde489be3a250cacf01d65963";
@@ -75,6 +90,19 @@ const walletAddressParamSchema = z.object({
       const icpAccountValidation = AddressValidator.isValidAccountId(addr);
       return ethValidation.valid || icpPrincipalValidation || icpAccountValidation;
     }, 'Invalid wallet address format')
+});
+
+// RWAPAWN payment validation schemas
+const rwapawnPaymentIntentSchema = z.object({
+  amount: z.number()
+    .min(MIN_PURCHASE_USD, `Minimum purchase amount is $${MIN_PURCHASE_USD}`)
+    .max(MAX_PURCHASE_USD, `Maximum purchase amount is $${MAX_PURCHASE_USD}`)
+    .multipleOf(0.01, 'Amount must be in cents (2 decimal places)'),
+});
+
+const rwapawnPaymentConfirmSchema = z.object({
+  paymentIntentId: z.string().min(1, 'Payment intent ID is required'),
+  purchaseId: z.string().min(1, 'Purchase ID is required'),
 });
 import { CryptoVerificationService } from "./crypto-utils";
 import { ICPLedgerService } from "./icp-ledger-service";
@@ -835,6 +863,248 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     }
   });
+
+  // RWAPAWN Token Payment routes
+  app.post("/api/rwapawn/create-payment-intent", 
+    rateLimitConfigs.financial,
+    isAuthenticated,
+    validateRequest(rwapawnPaymentIntentSchema, 'body'),
+    async (req: any, res) => {
+      try {
+        const userId = req.user.claims.sub;
+        const { amount } = req.body; // USD amount, already validated
+        
+        // Calculate RWAPAWN token amount
+        const tokenAmount = amount * RWAPAWN_EXCHANGE_RATE;
+        
+        // Create purchase record in database
+        const purchase = await storage.createRwapawnPurchase({
+          userId,
+          amount: amount.toString(),
+          purchaseType: 'credit_card',
+          paymentReference: '', // Will be updated with Stripe payment intent ID
+          tokenAmount: tokenAmount.toString(),
+          exchangeRate: RWAPAWN_EXCHANGE_RATE.toString(),
+          status: 'pending'
+        });
+
+        // Create Stripe payment intent
+        const paymentIntent = await stripe.paymentIntents.create({
+          amount: Math.round(amount * 100), // Convert to cents
+          currency: 'usd',
+          metadata: {
+            userId,
+            purchaseId: purchase.id,
+            tokenAmount: tokenAmount.toString(),
+            exchangeRate: RWAPAWN_EXCHANGE_RATE.toString(),
+            type: 'rwapawn_purchase'
+          },
+          description: `Purchase ${tokenAmount} RWAPAWN tokens`,
+        });
+
+        // Update purchase record with payment intent ID
+        await storage.updateRwapawnPurchaseStatus(purchase.id, 'pending');
+        
+        // Update the purchase with the payment reference
+        await db
+          .update(rwapawnPurchases)
+          .set({ paymentReference: paymentIntent.id })
+          .where(eq(rwapawnPurchases.id, purchase.id));
+
+        console.log('RWAPAWN payment intent created:', {
+          userId,
+          purchaseId: purchase.id,
+          usdAmount: amount,
+          tokenAmount,
+          paymentIntentId: paymentIntent.id,
+          timestamp: new Date().toISOString()
+        });
+
+        res.json({
+          success: true,
+          clientSecret: paymentIntent.client_secret,
+          purchaseId: purchase.id,
+          tokenAmount,
+          exchangeRate: RWAPAWN_EXCHANGE_RATE,
+          usdAmount: amount
+        });
+      } catch (error) {
+        console.error('Error creating RWAPAWN payment intent:', {
+          userId: req.user?.claims?.sub,
+          error: error instanceof Error ? error.message : error,
+          stack: error instanceof Error ? error.stack : undefined,
+          timestamp: new Date().toISOString()
+        });
+        
+        res.status(500).json({
+          success: false,
+          error: 'Failed to create payment intent',
+          code: 'PAYMENT_INTENT_ERROR',
+          timestamp: new Date().toISOString()
+        });
+      }
+    }
+  );
+
+  app.post("/api/rwapawn/confirm-payment",
+    rateLimitConfigs.financial,
+    isAuthenticated,
+    validateRequest(rwapawnPaymentConfirmSchema, 'body'),
+    async (req: any, res) => {
+      try {
+        const userId = req.user.claims.sub;
+        const { paymentIntentId, purchaseId } = req.body;
+
+        // Verify the purchase belongs to the authenticated user
+        const purchase = await storage.getRwapawnPurchase(purchaseId);
+        if (!purchase || purchase.userId !== userId) {
+          return res.status(404).json({
+            success: false,
+            error: 'Purchase not found or access denied',
+            code: 'PURCHASE_NOT_FOUND'
+          });
+        }
+
+        // Retrieve payment intent from Stripe to confirm payment status
+        const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+        
+        if (paymentIntent.status === 'succeeded') {
+          // Update purchase status to completed
+          await storage.updateRwapawnPurchaseStatus(purchaseId, 'completed');
+          
+          // Add tokens to user's balance
+          const tokenAmount = parseFloat(purchase.tokenAmount);
+          const balance = await storage.addTokensToBalance(userId, tokenAmount);
+
+          console.log('RWAPAWN payment completed:', {
+            userId,
+            purchaseId,
+            paymentIntentId,
+            tokenAmount,
+            newBalance: balance.totalTokens,
+            timestamp: new Date().toISOString()
+          });
+
+          res.json({
+            success: true,
+            message: 'Payment completed successfully',
+            purchase: {
+              ...purchase,
+              status: 'completed'
+            },
+            tokensAdded: tokenAmount,
+            newBalance: balance
+          });
+        } else if (paymentIntent.status === 'requires_payment_method' || 
+                   paymentIntent.status === 'canceled') {
+          // Update purchase status to failed
+          await storage.updateRwapawnPurchaseStatus(purchaseId, 'failed');
+          
+          res.status(400).json({
+            success: false,
+            error: 'Payment failed or was canceled',
+            code: 'PAYMENT_FAILED',
+            paymentStatus: paymentIntent.status
+          });
+        } else {
+          // Payment still processing
+          res.json({
+            success: false,
+            message: 'Payment still processing',
+            code: 'PAYMENT_PROCESSING',
+            paymentStatus: paymentIntent.status
+          });
+        }
+      } catch (error) {
+        console.error('Error confirming RWAPAWN payment:', {
+          userId: req.user?.claims?.sub,
+          purchaseId: req.body?.purchaseId,
+          paymentIntentId: req.body?.paymentIntentId,
+          error: error instanceof Error ? error.message : error,
+          stack: error instanceof Error ? error.stack : undefined,
+          timestamp: new Date().toISOString()
+        });
+        
+        res.status(500).json({
+          success: false,
+          error: 'Failed to confirm payment',
+          code: 'PAYMENT_CONFIRMATION_ERROR',
+          timestamp: new Date().toISOString()
+        });
+      }
+    }
+  );
+
+  // Get user's RWAPAWN balance
+  app.get("/api/rwapawn/balance", 
+    rateLimitConfigs.api,
+    isAuthenticated,
+    async (req: any, res) => {
+      try {
+        const userId = req.user.claims.sub;
+        let balance = await storage.getRwapawnBalance(userId);
+        
+        if (!balance) {
+          // Create initial balance if it doesn't exist
+          balance = await storage.createRwapawnBalance({
+            userId,
+            availableTokens: 0,
+            stakedTokens: 0,
+            pendingTokens: 0,
+            totalTokens: 0
+          });
+        }
+
+        res.json({
+          success: true,
+          balance
+        });
+      } catch (error) {
+        console.error('Error fetching RWAPAWN balance:', {
+          userId: req.user?.claims?.sub,
+          error: error instanceof Error ? error.message : error,
+          timestamp: new Date().toISOString()
+        });
+        
+        res.status(500).json({
+          success: false,
+          error: 'Failed to fetch balance',
+          code: 'BALANCE_FETCH_ERROR',
+          timestamp: new Date().toISOString()
+        });
+      }
+    }
+  );
+
+  // Get user's RWAPAWN purchase history
+  app.get("/api/rwapawn/purchases", 
+    rateLimitConfigs.api,
+    isAuthenticated,
+    async (req: any, res) => {
+      try {
+        const userId = req.user.claims.sub;
+        const purchases = await storage.getRwapawnPurchasesByUser(userId);
+
+        res.json({
+          success: true,
+          purchases
+        });
+      } catch (error) {
+        console.error('Error fetching RWAPAWN purchases:', {
+          userId: req.user?.claims?.sub,
+          error: error instanceof Error ? error.message : error,
+          timestamp: new Date().toISOString()
+        });
+        
+        res.status(500).json({
+          success: false,
+          error: 'Failed to fetch purchase history',
+          code: 'PURCHASE_HISTORY_ERROR',
+          timestamp: new Date().toISOString()
+        });
+      }
+    }
+  );
 
   // RWA Submission routes
   app.post("/api/rwa-submissions", isAuthenticated, async (req: any, res) => {
