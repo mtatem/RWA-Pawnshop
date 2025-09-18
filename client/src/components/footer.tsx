@@ -1,4 +1,5 @@
 import { Coins } from "lucide-react";
+import logoImage from "@assets/rwa1_1758232271312.png";
 
 export default function Footer() {
   const footerLinks = {
@@ -28,9 +29,12 @@ export default function Footer() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
           {/* Brand */}
           <div className="sm:col-span-2 lg:col-span-1 mb-6 sm:mb-0">
-            <div className="flex items-center space-x-2 mb-3 sm:mb-4">
-              <Coins className="text-primary text-lg sm:text-xl" />
-              <span className="text-base sm:text-lg font-bold">ICP RWA Pawn</span>
+            <div className="mb-3 sm:mb-4">
+              <img 
+                src={logoImage} 
+                alt="RWA Pawnshop" 
+                className="h-10 w-auto sm:h-12 object-contain mb-3"
+              />
             </div>
             <p className="text-xs sm:text-sm text-muted-foreground">
               Decentralized pawning platform for real world assets on the Internet Computer Protocol.
