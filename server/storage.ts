@@ -277,7 +277,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const [user] = await db.insert(users).values(insertUser).returning();
+    const [user] = await db.insert(users).values([insertUser]).returning();
     return user;
   }
 
@@ -291,6 +291,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   async upsertUser(userData: any): Promise<User> {
+    // First, check if user exists to preserve admin status
+    const existingUser = await this.getUser(userData.id);
+    
     const [user] = await db
       .insert(users)
       .values({
@@ -307,16 +310,20 @@ export class DatabaseStorage implements IStorage {
           firstName: userData.firstName,
           lastName: userData.lastName,
           profileImageUrl: userData.profileImageUrl,
+          // Preserve existing admin status - CRITICAL for admin functionality
+          isAdmin: existingUser?.isAdmin ?? false,
           updatedAt: new Date(),
         },
       })
       .returning();
+    
+    console.log(`User ${userData.id} upserted - admin status: ${user.isAdmin}`);
     return user;
   }
 
   // RWA Submission operations
   async createRwaSubmission(submission: InsertRwaSubmission): Promise<RwaSubmission> {
-    const [rwaSubmission] = await db.insert(rwaSubmissions).values(submission).returning();
+    const [rwaSubmission] = await db.insert(rwaSubmissions).values([submission]).returning();
     return rwaSubmission;
   }
 
@@ -350,7 +357,7 @@ export class DatabaseStorage implements IStorage {
 
   // Pawn Loan operations
   async createPawnLoan(loan: InsertPawnLoan): Promise<PawnLoan> {
-    const [pawnLoan] = await db.insert(pawnLoans).values(loan).returning();
+    const [pawnLoan] = await db.insert(pawnLoans).values([loan]).returning();
     return pawnLoan;
   }
 
@@ -399,7 +406,7 @@ export class DatabaseStorage implements IStorage {
 
   // Marketplace operations
   async createMarketplaceAsset(asset: InsertMarketplaceAsset): Promise<MarketplaceAsset> {
-    const [marketplaceAsset] = await db.insert(marketplaceAssets).values(asset).returning();
+    const [marketplaceAsset] = await db.insert(marketplaceAssets).values([asset]).returning();
     return marketplaceAsset;
   }
 
@@ -427,7 +434,7 @@ export class DatabaseStorage implements IStorage {
 
   // Bid operations
   async createBid(bid: InsertBid): Promise<Bid> {
-    const [newBid] = await db.insert(bids).values(bid).returning();
+    const [newBid] = await db.insert(bids).values([bid]).returning();
     return newBid;
   }
 
@@ -447,7 +454,7 @@ export class DatabaseStorage implements IStorage {
 
   // Transaction operations
   async createTransaction(transaction: InsertTransaction): Promise<Transaction> {
-    const [newTransaction] = await db.insert(transactions).values(transaction).returning();
+    const [newTransaction] = await db.insert(transactions).values([transaction]).returning();
     return newTransaction;
   }
 
@@ -474,7 +481,7 @@ export class DatabaseStorage implements IStorage {
 
   // Bridge operations - Enhanced for Chain Fusion
   async createBridgeTransaction(bridge: InsertBridgeTransaction): Promise<BridgeTransaction> {
-    const [bridgeTransaction] = await db.insert(bridgeTransactions).values(bridge).returning();
+    const [bridgeTransaction] = await db.insert(bridgeTransactions).values([bridge]).returning();
     return bridgeTransaction;
   }
 
@@ -562,7 +569,7 @@ export class DatabaseStorage implements IStorage {
     }
 
     if (conditions.length > 0) {
-      query = query.where(and(...conditions));
+      query = query.where(and(...conditions)) as any;
     }
 
     return await query
@@ -612,7 +619,7 @@ export class DatabaseStorage implements IStorage {
     // Check if cache is still valid
     if (cached) {
       const now = Date.now();
-      const lastUpdated = new Date(cached.lastUpdated).getTime();
+      const lastUpdated = cached.lastUpdated ? new Date(cached.lastUpdated).getTime() : 0;
       const ttlMs = cached.ttlSeconds * 1000;
       
       if (now - lastUpdated > ttlMs) {
@@ -645,7 +652,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createPricingEstimate(estimate: InsertPricingEstimate): Promise<PricingEstimate> {
-    const [pricingEstimate] = await db.insert(pricingEstimates).values(estimate).returning();
+    const [pricingEstimate] = await db.insert(pricingEstimates).values([estimate]).returning();
     return pricingEstimate;
   }
 
@@ -705,7 +712,7 @@ export class DatabaseStorage implements IStorage {
 
   // Document Analysis operations
   async createDocument(document: InsertDocument): Promise<Document> {
-    const [newDocument] = await db.insert(documents).values(document).returning();
+    const [newDocument] = await db.insert(documents).values([document]).returning();
     return newDocument;
   }
 
@@ -740,7 +747,7 @@ export class DatabaseStorage implements IStorage {
 
   // Document Analysis Results operations
   async createDocumentAnalysisResult(result: InsertDocumentAnalysisResult): Promise<DocumentAnalysisResult> {
-    const [analysisResult] = await db.insert(documentAnalysisResults).values(result).returning();
+    const [analysisResult] = await db.insert(documentAnalysisResults).values([result]).returning();
     return analysisResult;
   }
 
@@ -765,7 +772,7 @@ export class DatabaseStorage implements IStorage {
 
   // Fraud Detection Results operations
   async createFraudDetectionResult(result: InsertFraudDetectionResult): Promise<FraudDetectionResult> {
-    const [fraudResult] = await db.insert(fraudDetectionResults).values(result).returning();
+    const [fraudResult] = await db.insert(fraudDetectionResults).values([result]).returning();
     return fraudResult;
   }
 
@@ -790,7 +797,7 @@ export class DatabaseStorage implements IStorage {
 
   // Document Verification operations
   async createDocumentVerification(verification: InsertDocumentVerification): Promise<DocumentVerification> {
-    const [newVerification] = await db.insert(documentVerifications).values(verification).returning();
+    const [newVerification] = await db.insert(documentVerifications).values([verification]).returning();
     return newVerification;
   }
 
@@ -811,7 +818,7 @@ export class DatabaseStorage implements IStorage {
 
   // Document Analysis Queue operations
   async addToAnalysisQueue(queueItem: InsertDocumentAnalysisQueue): Promise<DocumentAnalysisQueue> {
-    const [newQueueItem] = await db.insert(documentAnalysisQueue).values(queueItem).returning();
+    const [newQueueItem] = await db.insert(documentAnalysisQueue).values([queueItem]).returning();
     return newQueueItem;
   }
 
@@ -852,7 +859,7 @@ export class DatabaseStorage implements IStorage {
 
   // Document Template operations
   async createDocumentTemplate(template: InsertDocumentTemplate): Promise<DocumentTemplate> {
-    const [newTemplate] = await db.insert(documentTemplates).values(template).returning();
+    const [newTemplate] = await db.insert(documentTemplates).values([template]).returning();
     return newTemplate;
   }
 
@@ -937,7 +944,7 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(documents)
       .innerJoin(fraudDetectionResults, eq(documents.id, fraudDetectionResults.documentId))
       .where(eq(fraudDetectionResults.requiresManualReview, true))
-      .orderBy(desc(documents.createdAt));
+      .orderBy(desc(documents.createdAt)) as any;
   }
 
   async searchDocuments(filters: DocumentSearch): Promise<{ documents: Document[]; totalCount: number }> {
@@ -963,15 +970,15 @@ export class DatabaseStorage implements IStorage {
     }
 
     if (conditions.length > 0) {
-      query = query.where(and(...conditions));
-      countQuery = countQuery.where(and(...conditions));
+      query = query.where(and(...conditions)) as any;
+      countQuery = countQuery.where(and(...conditions)) as any;
     }
 
     // Add risk level filter if specified (requires join with fraud detection results)
     if (filters.riskLevel) {
-      query = query.innerJoin(fraudDetectionResults, eq(documents.id, fraudDetectionResults.documentId))
+      query = (query.innerJoin(fraudDetectionResults, eq(documents.id, fraudDetectionResults.documentId)) as any)
         .where(eq(fraudDetectionResults.riskLevel, filters.riskLevel));
-      countQuery = countQuery.innerJoin(fraudDetectionResults, eq(documents.id, fraudDetectionResults.documentId))
+      countQuery = (countQuery.innerJoin(fraudDetectionResults, eq(documents.id, fraudDetectionResults.documentId)) as any)
         .where(eq(fraudDetectionResults.riskLevel, filters.riskLevel));
     }
 
@@ -1009,7 +1016,7 @@ export class DatabaseStorage implements IStorage {
 
   // Admin Action operations
   async createAdminAction(action: InsertAdminAction): Promise<AdminAction> {
-    const [newAction] = await db.insert(adminActions).values(action).returning();
+    const [newAction] = await db.insert(adminActions).values([action]).returning();
     return newAction;
   }
 
@@ -1062,7 +1069,7 @@ export class DatabaseStorage implements IStorage {
 
   // Fraud Alert operations
   async createFraudAlert(alert: InsertFraudAlert): Promise<FraudAlert> {
-    const [newAlert] = await db.insert(fraudAlerts).values(alert).returning();
+    const [newAlert] = await db.insert(fraudAlerts).values([alert]).returning();
     return newAlert;
   }
 
@@ -1144,7 +1151,7 @@ export class DatabaseStorage implements IStorage {
 
   // Asset Review operations
   async createAssetReview(review: InsertAssetReview): Promise<AssetReview> {
-    const [newReview] = await db.insert(assetReviews).values(review).returning();
+    const [newReview] = await db.insert(assetReviews).values([review]).returning();
     return newReview;
   }
 
@@ -1226,7 +1233,7 @@ export class DatabaseStorage implements IStorage {
 
   // User Flag operations
   async createUserFlag(flag: InsertUserFlag): Promise<UserFlag> {
-    const [newFlag] = await db.insert(userFlags).values(flag).returning();
+    const [newFlag] = await db.insert(userFlags).values([flag]).returning();
     return newFlag;
   }
 
@@ -1305,7 +1312,7 @@ export class DatabaseStorage implements IStorage {
 
   // Performance Metrics operations
   async createPerformanceMetric(metric: InsertPerformanceMetric): Promise<PerformanceMetric> {
-    const [newMetric] = await db.insert(performanceMetrics).values(metric).returning();
+    const [newMetric] = await db.insert(performanceMetrics).values([metric]).returning();
     return newMetric;
   }
 
