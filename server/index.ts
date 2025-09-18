@@ -4,6 +4,13 @@ import { setupVite, serveStatic, log } from "./vite";
 import { bridgeMonitor } from "./services/bridge-monitor";
 import { errorHandler, notFoundHandler } from "./middleware/validation";
 
+// Development authentication bypass (commented out after successful testing)
+// Enable only when needed for debugging authentication issues
+// if (process.env.NODE_ENV === 'development') {
+//   process.env.DEV_AUTH_BYPASS = 'true';
+//   console.log('Development authentication bypass enabled for admin testing');
+// }
+
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
@@ -46,7 +53,7 @@ app.use((req, res, next) => {
     await bridgeMonitor.startMonitoring();
     log("Bridge monitoring service started successfully");
   } catch (error) {
-    log("Failed to start bridge monitoring service:", error);
+    log("Failed to start bridge monitoring service:", error instanceof Error ? error.message : String(error));
   }
 
   // Use comprehensive error handling middleware
