@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { Wallet, Coins, Menu, X, LogOut, User, Plug } from "lucide-react";
+import logoImage from "@assets/rwa1_1758232271312.png";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -88,12 +89,12 @@ export default function Navigation() {
         <div className="flex justify-between items-center h-16">
           {/* Logo - Mobile Responsive */}
           <Link href="/">
-            <div className="flex items-center space-x-1 sm:space-x-2 cursor-pointer" data-testid="logo">
-              <Coins className="text-primary text-xl sm:text-2xl" />
-              <span className="text-base sm:text-xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-                <span className="hidden sm:inline">RWA PAWN</span>
-                <span className="sm:hidden">RWA Pawn</span>
-              </span>
+            <div className="flex items-center cursor-pointer" data-testid="logo">
+              <img 
+                src={logoImage} 
+                alt="RWA Pawnshop" 
+                className="h-8 w-auto sm:h-10 object-contain"
+              />
             </div>
           </Link>
 
