@@ -47,6 +47,9 @@ export default function RwaSubmissionForm() {
   // Document upload state
   const [uploadedDocuments, setUploadedDocuments] = useState<UploadedDocument[]>([]);
   const [submissionId, setSubmissionId] = useState<string | null>(null);
+  
+  // File upload state (for compatibility with unused FileUploadArea component)
+  const [files, setFiles] = useState<Record<string, File | null>>({});
 
   // Pricing state
   const [pricingData, setPricingData] = useState<any>(null);
@@ -200,14 +203,12 @@ export default function RwaSubmissionForm() {
         status: "pending",
       };
 
-      const response = await apiRequest("/api/rwa-submissions", {
-        method: "POST",
-        body: JSON.stringify(submissionData),
-      });
-
-      return response;
+      const response = await apiRequest("POST", "/api/rwa-submissions", submissionData);
+      const responseData = await response.json();
+      
+      return responseData;
     },
-    onSuccess: (data) => {
+    onSuccess: (data: any) => {
       setSubmissionId(data.id);
       toast({
         title: "Submission Created Successfully",
@@ -225,8 +226,8 @@ export default function RwaSubmissionForm() {
     },
   });
 
-  const handleFileChange = (type: keyof typeof files, file: File | null) => {
-    setFiles(prev => ({ ...prev, [type]: file }));
+  const handleFileChange = (type: string, file: File | null) => {
+    setFiles((prev: Record<string, File | null>) => ({ ...prev, [type]: file }));
   };
 
   const FileUploadArea = ({ 
@@ -235,7 +236,7 @@ export default function RwaSubmissionForm() {
     title, 
     description 
   }: { 
-    type: keyof typeof files;
+    type: string;
     icon: any;
     title: string;
     description: string;
@@ -248,28 +249,28 @@ export default function RwaSubmissionForm() {
         type="file"
         onChange={(e) => handleFileChange(type, e.target.files?.[0] || null)}
         className="hidden"
-        id={`file-${type}`}
-        data-testid={`input-file-${type}`}
+        id={`file-${String(type)}`}
+        data-testid={`input-file-${String(type)}`}
       />
       <Label
-        htmlFor={`file-${type}`}
+        htmlFor={`file-${String(type)}`}
         className="cursor-pointer inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2"
       >
         <Upload className="mr-2 h-4 w-4" />
-        {files[type] ? files[type]!.name : "Choose File"}
+        {files[String(type)] ? files[String(type)]!.name : "Choose File"}
       </Label>
     </div>
   );
 
   return (
-    <Card className="bg-card border border-border p-8 glass-effect">
-      <h3 className="text-xl font-semibold mb-6 flex items-center">
-        <Upload className="mr-3 text-primary" />
+    <Card className="bg-card border border-border p-4 sm:p-6 lg:p-8 glass-effect">
+      <h3 className="text-lg sm:text-xl font-semibold mb-4 sm:mb-6 flex items-center">
+        <Upload className="mr-2 sm:mr-3 text-primary h-5 w-5 sm:h-6 sm:w-6" />
         Submit RWA for Pawning
       </h3>
 
       <Form {...form}>
-        <form onSubmit={form.handleSubmit((data) => submitMutation.mutate(data))} className="space-y-6">
+        <form onSubmit={form.handleSubmit((data) => submitMutation.mutate(data))} className="space-y-4 sm:space-y-6">
           <FormField
             control={form.control}
             name="assetName"
@@ -281,6 +282,7 @@ export default function RwaSubmissionForm() {
                     placeholder="Enter asset name"
                     {...field}
                     data-testid="input-asset-name"
+                    className="h-11 sm:h-10"
                   />
                 </FormControl>
                 <FormMessage />
@@ -296,7 +298,7 @@ export default function RwaSubmissionForm() {
                 <FormLabel>Asset Category</FormLabel>
                 <Select onValueChange={field.onChange} defaultValue={field.value}>
                   <FormControl>
-                    <SelectTrigger data-testid="select-category">
+                    <SelectTrigger data-testid="select-category" className="h-11 sm:h-10">
                       <SelectValue placeholder="Select category" />
                     </SelectTrigger>
                   </FormControl>
@@ -322,9 +324,9 @@ export default function RwaSubmissionForm() {
               </h4>
               
               {form.watch('category') === 'jewelry' && (
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                   <div>
-                    <Label htmlFor="weight">Weight (grams)</Label>
+                    <Label htmlFor="weight" className="text-sm">Weight (grams)</Label>
                     <Input
                       id="weight"
                       type="number"
@@ -332,15 +334,16 @@ export default function RwaSubmissionForm() {
                       value={assetSpecifications.weight || ''}
                       onChange={(e) => updateSpecification('weight', e.target.value)}
                       data-testid="input-spec-weight"
+                      className="h-11 sm:h-10"
                     />
                   </div>
                   <div>
-                    <Label htmlFor="purity">Purity</Label>
+                    <Label htmlFor="purity" className="text-sm">Purity</Label>
                     <Select
                       value={assetSpecifications.purity || ''}
                       onValueChange={(value) => updateSpecification('purity', value)}
                     >
-                      <SelectTrigger data-testid="select-spec-purity">
+                      <SelectTrigger data-testid="select-spec-purity" className="h-11 sm:h-10">
                         <SelectValue placeholder="Select purity" />
                       </SelectTrigger>
                       <SelectContent>
@@ -357,19 +360,20 @@ export default function RwaSubmissionForm() {
               )}
               
               {form.watch('category') === 'electronics' && (
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                   <div>
-                    <Label htmlFor="brand">Brand</Label>
+                    <Label htmlFor="brand" className="text-sm">Brand</Label>
                     <Input
                       id="brand"
                       placeholder="Apple, Samsung, etc."
                       value={assetSpecifications.brand || ''}
                       onChange={(e) => updateSpecification('brand', e.target.value)}
                       data-testid="input-spec-brand"
+                      className="h-11 sm:h-10"
                     />
                   </div>
                   <div>
-                    <Label htmlFor="age">Age (years)</Label>
+                    <Label htmlFor="age" className="text-sm">Age (years)</Label>
                     <Input
                       id="age"
                       type="number"
@@ -377,15 +381,16 @@ export default function RwaSubmissionForm() {
                       value={assetSpecifications.age_years || ''}
                       onChange={(e) => updateSpecification('age_years', e.target.value)}
                       data-testid="input-spec-age"
+                      className="h-11 sm:h-10"
                     />
                   </div>
-                  <div>
-                    <Label htmlFor="condition">Condition</Label>
+                  <div className="sm:col-span-2">
+                    <Label htmlFor="condition" className="text-sm">Condition</Label>
                     <Select
                       value={assetSpecifications.condition || ''}
                       onValueChange={(value) => updateSpecification('condition', value)}
                     >
-                      <SelectTrigger data-testid="select-spec-condition">
+                      <SelectTrigger data-testid="select-spec-condition" className="h-11 sm:h-10">
                         <SelectValue placeholder="Select condition" />
                       </SelectTrigger>
                       <SelectContent>
@@ -400,19 +405,20 @@ export default function RwaSubmissionForm() {
               )}
               
               {form.watch('category') === 'luxury-goods' && (
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                   <div>
-                    <Label htmlFor="watchBrand">Brand</Label>
+                    <Label htmlFor="watchBrand" className="text-sm">Brand</Label>
                     <Input
                       id="watchBrand"
                       placeholder="Rolex, Omega, etc."
                       value={assetSpecifications.brand || ''}
                       onChange={(e) => updateSpecification('brand', e.target.value)}
                       data-testid="input-spec-watch-brand"
+                      className="h-11 sm:h-10"
                     />
                   </div>
                   <div>
-                    <Label htmlFor="watchYear">Year</Label>
+                    <Label htmlFor="watchYear" className="text-sm">Year</Label>
                     <Input
                       id="watchYear"
                       type="number"
@@ -420,15 +426,16 @@ export default function RwaSubmissionForm() {
                       value={assetSpecifications.year || ''}
                       onChange={(e) => updateSpecification('year', e.target.value)}
                       data-testid="input-spec-watch-year"
+                      className="h-11 sm:h-10"
                     />
                   </div>
-                  <div>
-                    <Label htmlFor="watchCondition">Condition</Label>
+                  <div className="sm:col-span-2">
+                    <Label htmlFor="watchCondition" className="text-sm">Condition</Label>
                     <Select
                       value={assetSpecifications.condition || ''}
                       onValueChange={(value) => updateSpecification('condition', value)}
                     >
-                      <SelectTrigger data-testid="select-spec-watch-condition">
+                      <SelectTrigger data-testid="select-spec-watch-condition" className="h-11 sm:h-10">
                         <SelectValue placeholder="Select condition" />
                       </SelectTrigger>
                       <SelectContent>

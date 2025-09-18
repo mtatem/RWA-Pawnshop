@@ -123,38 +123,38 @@ export default function AssetMarketplace() {
 
   if (isLoading) {
     return (
-      <section className="py-16 px-4 sm:px-6 lg:px-8">
+      <section className="py-8 sm:py-12 lg:py-16 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto text-center">
-          <div>Loading marketplace assets...</div>
+          <div className="text-sm sm:text-base">Loading marketplace assets...</div>
         </div>
       </section>
     );
   }
 
   return (
-    <section className="py-16 px-4 sm:px-6 lg:px-8">
+    <section className="py-8 sm:py-12 lg:py-16 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
-        <div className="text-center mb-12">
-          <h2 className="text-3xl font-bold mb-4">Asset Marketplace</h2>
-          <p className="text-muted-foreground">Purchase unclaimed assets from expired pawn agreements</p>
+        <div className="text-center mb-8 sm:mb-12">
+          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-2 sm:mb-4">Asset Marketplace</h2>
+          <p className="text-sm sm:text-base text-muted-foreground px-4 sm:px-0">Purchase unclaimed assets from expired pawn agreements</p>
         </div>
 
-        {/* Filter Bar */}
-        <Card className="bg-card border border-border p-6 mb-8 glass-effect">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {/* Filter Bar - Mobile Optimized */}
+        <Card className="bg-card border border-border p-4 sm:p-6 mb-6 sm:mb-8 glass-effect">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             <Select
               value={filters.category}
               onValueChange={(value) => setFilters(prev => ({ ...prev, category: value }))}
             >
-              <SelectTrigger data-testid="filter-category">
+              <SelectTrigger data-testid="filter-category" className="h-11 sm:h-10">
                 <SelectValue placeholder="All Categories" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Categories</SelectItem>
-                <SelectItem value="jewelry">Jewelry</SelectItem>
-                <SelectItem value="art-collectibles">Art & Collectibles</SelectItem>
-                <SelectItem value="electronics">Electronics</SelectItem>
-                <SelectItem value="luxury-goods">Luxury Goods</SelectItem>
+                <SelectItem value="jewelry">💎 Jewelry</SelectItem>
+                <SelectItem value="art-collectibles">🎨 Art & Collectibles</SelectItem>
+                <SelectItem value="electronics">📱 Electronics</SelectItem>
+                <SelectItem value="luxury-goods">⌚ Luxury Goods</SelectItem>
               </SelectContent>
             </Select>
 
@@ -162,7 +162,7 @@ export default function AssetMarketplace() {
               value={filters.sortBy}
               onValueChange={(value) => setFilters(prev => ({ ...prev, sortBy: value }))}
             >
-              <SelectTrigger data-testid="filter-sort">
+              <SelectTrigger data-testid="filter-sort" className="h-11 sm:h-10">
                 <SelectValue placeholder="Sort By" />
               </SelectTrigger>
               <SelectContent>
@@ -179,6 +179,7 @@ export default function AssetMarketplace() {
               value={filters.minPrice}
               onChange={(e) => setFilters(prev => ({ ...prev, minPrice: e.target.value }))}
               data-testid="filter-min-price"
+              className="h-11 sm:h-10"
             />
 
             <Input
@@ -187,60 +188,61 @@ export default function AssetMarketplace() {
               value={filters.maxPrice}
               onChange={(e) => setFilters(prev => ({ ...prev, maxPrice: e.target.value }))}
               data-testid="filter-max-price"
+              className="h-11 sm:h-10"
             />
           </div>
         </Card>
 
-        {/* Asset Grid */}
+        {/* Asset Grid - Mobile Optimized */}
         {assets.length === 0 ? (
-          <div className="text-center py-16 text-muted-foreground">
-            <p>No assets available in the marketplace.</p>
-            <p className="text-sm mt-2">Check back later for new listings!</p>
+          <div className="text-center py-12 sm:py-16 text-muted-foreground">
+            <p className="text-sm sm:text-base">No assets available in the marketplace.</p>
+            <p className="text-xs sm:text-sm mt-2">Check back later for new listings!</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
             {assets.map((asset) => (
               <Card
                 key={asset.id}
-                className="bg-card border border-border overflow-hidden hover:border-primary transition-colors glass-effect"
+                className="bg-card border border-border overflow-hidden hover:border-primary transition-colors glass-effect h-fit"
                 data-testid={`asset-card-${asset.id}`}
               >
                 {asset.imageUrl && (
                   <img
                     src={asset.imageUrl}
                     alt={asset.assetName}
-                    className="w-full h-48 object-cover"
+                    className="w-full h-40 sm:h-48 object-cover"
                     data-testid={`asset-image-${asset.id}`}
                   />
                 )}
 
-                <div className="p-6">
-                  <div className="flex justify-between items-start mb-3">
-                    <div>
-                      <h3 className="font-semibold" data-testid={`asset-name-${asset.id}`}>
+                <div className="p-4 sm:p-6">
+                  <div className="flex flex-col xs:flex-row xs:justify-between xs:items-start mb-3 space-y-2 xs:space-y-0">
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-sm sm:text-base" data-testid={`asset-name-${asset.id}`}>
                         {asset.assetName}
                       </h3>
-                      <p className="text-sm text-muted-foreground">{asset.category}</p>
+                      <p className="text-xs sm:text-sm text-muted-foreground">{asset.category}</p>
                     </div>
-                    <Badge variant="destructive">Expired</Badge>
+                    <Badge variant="destructive" className="text-xs self-start xs:self-auto">Expired</Badge>
                   </div>
 
                   <div className="space-y-2 mb-4">
-                    <div className="flex justify-between text-sm">
+                    <div className="flex justify-between text-xs sm:text-sm">
                       <span className="text-muted-foreground">Original Value:</span>
-                      <span data-testid={`asset-original-value-${asset.id}`}>
+                      <span className="font-medium" data-testid={`asset-original-value-${asset.id}`}>
                         {formatPrice(asset.originalValue)}
                       </span>
                     </div>
-                    <div className="flex justify-between text-sm">
+                    <div className="flex justify-between text-xs sm:text-sm">
                       <span className="text-muted-foreground">
                         {asset.currentBid ? "Current Bid:" : "Starting Bid:"}
                       </span>
-                      <span className="font-medium" data-testid={`asset-current-bid-${asset.id}`}>
+                      <span className="font-medium text-primary" data-testid={`asset-current-bid-${asset.id}`}>
                         {formatPrice(asset.currentBid || asset.startingPrice)}
                       </span>
                     </div>
-                    <div className="flex justify-between text-sm">
+                    <div className="flex justify-between text-xs sm:text-sm">
                       <span className="text-muted-foreground">Days Expired:</span>
                       <span data-testid={`asset-days-expired-${asset.id}`}>
                         {asset.daysExpired} days
@@ -252,19 +254,19 @@ export default function AssetMarketplace() {
                     <DialogTrigger asChild>
                       <Button
                         onClick={() => handlePlaceBid(asset)}
-                        className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
+                        className="w-full h-11 sm:h-10 text-sm bg-primary hover:bg-primary/90 text-primary-foreground"
                         data-testid={`button-place-bid-${asset.id}`}
                       >
                         Place Bid
                       </Button>
                     </DialogTrigger>
-                    <DialogContent>
+                    <DialogContent className="sm:max-w-md">
                       <DialogHeader>
-                        <DialogTitle>Place Bid on {asset.assetName}</DialogTitle>
+                        <DialogTitle className="text-base sm:text-lg">Place Bid on {asset.assetName}</DialogTitle>
                       </DialogHeader>
                       <div className="space-y-4">
                         <div>
-                          <Label htmlFor="bidAmount">Bid Amount (ICP)</Label>
+                          <Label htmlFor="bidAmount" className="text-sm">Bid Amount (ICP)</Label>
                           <Input
                             id="bidAmount"
                             type="number"
@@ -272,8 +274,9 @@ export default function AssetMarketplace() {
                             value={bidAmount}
                             onChange={(e) => setBidAmount(e.target.value)}
                             data-testid="input-bid-amount"
+                            className="h-11 sm:h-10 mt-1"
                           />
-                          <p className="text-xs text-muted-foreground mt-1">
+                          <p className="text-xs text-muted-foreground mt-2">
                             Must be higher than current bid of{" "}
                             {formatPrice(asset.currentBid || asset.startingPrice)}
                           </p>
@@ -287,7 +290,7 @@ export default function AssetMarketplace() {
                             !wallet || 
                             (bidAmount && wallet ? wallet.balance < parseFloat(bidAmount) : false)
                           }
-                          className="w-full"
+                          className="w-full h-11 sm:h-10 text-sm"
                           data-testid="button-submit-bid"
                         >
                           {bidMutation.isPending

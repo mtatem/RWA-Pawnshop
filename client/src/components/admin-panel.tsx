@@ -120,56 +120,56 @@ export default function AdminPanel() {
   };
 
   return (
-    <section className="py-16 px-4 sm:px-6 lg:px-8 bg-muted/20">
+    <section className="py-8 sm:py-12 lg:py-16 px-4 sm:px-6 lg:px-8 bg-muted/20">
       <div className="max-w-7xl mx-auto">
-        <div className="text-center mb-12">
-          <h2 className="text-3xl font-bold mb-4">Admin Dashboard</h2>
-          <p className="text-muted-foreground">Manage RWA submissions and platform operations</p>
+        <div className="text-center mb-8 sm:mb-12">
+          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-2 sm:mb-4">Admin Dashboard</h2>
+          <p className="text-sm sm:text-base text-muted-foreground px-4 sm:px-0">Manage RWA submissions and platform operations</p>
         </div>
 
-        {/* Admin Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <Card className="bg-card border border-border p-6 glass-effect">
+        {/* Admin Stats - Mobile Optimized */}
+        <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
+          <Card className="bg-card border border-border p-4 sm:p-6 glass-effect hover:shadow-lg transition-shadow">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Pending Approvals</p>
-                <p className="text-2xl font-bold text-primary" data-testid="stat-pending-approvals">
+                <p className="text-xs sm:text-sm text-muted-foreground">Pending Approvals</p>
+                <p className="text-lg sm:text-2xl font-bold text-primary" data-testid="stat-pending-approvals">
                   {stats?.pendingApprovals || 0}
                 </p>
               </div>
-              <Clock className="text-2xl text-primary" />
+              <Clock className="text-lg sm:text-2xl text-primary" />
             </div>
           </Card>
 
-          <Card className="bg-card border border-border p-6 glass-effect">
+          <Card className="bg-card border border-border p-4 sm:p-6 glass-effect hover:shadow-lg transition-shadow">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Active Loans</p>
-                <p className="text-2xl font-bold text-secondary" data-testid="stat-active-loans">
+                <p className="text-xs sm:text-sm text-muted-foreground">Active Loans</p>
+                <p className="text-lg sm:text-2xl font-bold text-secondary" data-testid="stat-active-loans">
                   {stats?.activeLoans || 0}
                 </p>
               </div>
-              <Handshake className="text-2xl text-secondary" />
+              <Handshake className="text-lg sm:text-2xl text-secondary" />
             </div>
           </Card>
 
-          <Card className="bg-card border border-border p-6 glass-effect">
+          <Card className="bg-card border border-border p-4 sm:p-6 glass-effect hover:shadow-lg transition-shadow">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Expiring Soon</p>
-                <p className="text-2xl font-bold text-destructive" data-testid="stat-expiring-soon">
+                <p className="text-xs sm:text-sm text-muted-foreground">Expiring Soon</p>
+                <p className="text-lg sm:text-2xl font-bold text-destructive" data-testid="stat-expiring-soon">
                   {stats?.expiringSoon || 0}
                 </p>
               </div>
-              <TriangleAlert className="text-2xl text-destructive" />
+              <TriangleAlert className="text-lg sm:text-2xl text-destructive" />
             </div>
           </Card>
 
-          <Card className="bg-card border border-border p-6 glass-effect">
+          <Card className="bg-card border border-border p-4 sm:p-6 glass-effect hover:shadow-lg transition-shadow">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Total Revenue</p>
-                <p className="text-2xl font-bold text-accent" data-testid="stat-total-revenue">
+                <p className="text-xs sm:text-sm text-muted-foreground">Total Revenue</p>
+                <p className="text-lg sm:text-2xl font-bold text-accent" data-testid="stat-total-revenue">
                   {formatCurrency(stats?.totalRevenue || "0")}
                 </p>
               </div>

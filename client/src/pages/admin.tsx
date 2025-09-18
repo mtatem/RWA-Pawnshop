@@ -24,29 +24,32 @@ export default function Admin() {
         </div>
 
         <Tabs defaultValue="dashboard" className="w-full">
-          <TabsList className="grid w-full grid-cols-7 mb-8">
-            <TabsTrigger value="dashboard" data-testid="tab-dashboard" className="text-xs sm:text-sm">
-              Dashboard
-            </TabsTrigger>
-            <TabsTrigger value="fraud" data-testid="tab-fraud" className="text-xs sm:text-sm">
-              Fraud Alerts
-            </TabsTrigger>
-            <TabsTrigger value="assets" data-testid="tab-assets" className="text-xs sm:text-sm">
-              Asset Review
-            </TabsTrigger>
-            <TabsTrigger value="users" data-testid="tab-users" className="text-xs sm:text-sm">
-              User Management
-            </TabsTrigger>
-            <TabsTrigger value="bridge" data-testid="tab-bridge" className="text-xs sm:text-sm">
-              Bridge Monitor
-            </TabsTrigger>
-            <TabsTrigger value="submissions" data-testid="tab-submissions" className="text-xs sm:text-sm">
-              Submissions
-            </TabsTrigger>
-            <TabsTrigger value="documents" data-testid="tab-documents" className="text-xs sm:text-sm">
-              Documents
-            </TabsTrigger>
-          </TabsList>
+          {/* Mobile-first responsive tabs */}
+          <div className="overflow-x-auto mb-6 sm:mb-8">
+            <TabsList className="grid w-full grid-cols-7 lg:grid-cols-7 min-w-max">
+              <TabsTrigger value="dashboard" data-testid="tab-dashboard" className="text-xs px-2 sm:px-3 sm:text-sm whitespace-nowrap">
+                Dashboard
+              </TabsTrigger>
+              <TabsTrigger value="fraud" data-testid="tab-fraud" className="text-xs px-2 sm:px-3 sm:text-sm whitespace-nowrap">
+                Fraud
+              </TabsTrigger>
+              <TabsTrigger value="assets" data-testid="tab-assets" className="text-xs px-2 sm:px-3 sm:text-sm whitespace-nowrap">
+                Assets
+              </TabsTrigger>
+              <TabsTrigger value="users" data-testid="tab-users" className="text-xs px-2 sm:px-3 sm:text-sm whitespace-nowrap">
+                Users
+              </TabsTrigger>
+              <TabsTrigger value="bridge" data-testid="tab-bridge" className="text-xs px-2 sm:px-3 sm:text-sm whitespace-nowrap">
+                Bridge
+              </TabsTrigger>
+              <TabsTrigger value="submissions" data-testid="tab-submissions" className="text-xs px-2 sm:px-3 sm:text-sm whitespace-nowrap">
+                Submissions
+              </TabsTrigger>
+              <TabsTrigger value="documents" data-testid="tab-documents" className="text-xs px-2 sm:px-3 sm:text-sm whitespace-nowrap">
+                Documents
+              </TabsTrigger>
+            </TabsList>
+          </div>
           
           <TabsContent value="dashboard" className="space-y-4">
             <AdminDashboard />

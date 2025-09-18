@@ -18,28 +18,28 @@ export default function WhitepaperPage() {
   return (
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: '#000000' }}>
       {/* Header */}
-      <div className="container mx-auto px-4 py-16">
-        <div className="text-center mb-16">
-          <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-6" style={{ color: '#ffffff' }}>
+      <div className="container mx-auto px-4 py-8 sm:py-12 lg:py-16">
+        <div className="text-center mb-12 sm:mb-16">
+          <h1 className="text-2xl xs:text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight mb-4 sm:mb-6 px-2 sm:px-0" style={{ color: '#ffffff' }}>
             RWAPAWN Token Whitepaper
           </h1>
-          <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
+          <p className="text-base sm:text-lg lg:text-xl text-muted-foreground max-w-3xl mx-auto px-2 sm:px-0">
             Revolutionizing Real-World Asset Lending Through Blockchain Innovation. 
             Discover how RWAPAWN creates sustainable value through decentralized asset-backed lending.
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mt-8">
-            <Badge variant="secondary" className="px-4 py-2">
+          <div className="flex flex-col xs:flex-row gap-3 sm:gap-4 justify-center items-center mt-6 sm:mt-8">
+            <Badge variant="secondary" className="px-3 sm:px-4 py-2 text-xs sm:text-sm">
               Version 1.0 • September 2025
             </Badge>
-            <Button onClick={handleDownload} className="bg-blue-600 hover:bg-blue-700" data-testid="button-download-whitepaper">
+            <Button onClick={handleDownload} className="bg-blue-600 hover:bg-blue-700 h-11 sm:h-10 text-sm" data-testid="button-download-whitepaper">
               <Download className="w-4 h-4 mr-2" />
               Download PDF
             </Button>
           </div>
         </div>
 
-        {/* Quick Overview */}
-        <div className="grid md:grid-cols-3 gap-8 mb-16">
+        {/* Quick Overview - Mobile Optimized */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8 mb-12 sm:mb-16">
           <Card className="bg-zinc-900 border-zinc-800">
             <CardHeader className="pb-2">
               <CardTitle className="text-white flex items-center gap-2">
