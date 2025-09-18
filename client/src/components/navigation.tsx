@@ -80,12 +80,13 @@ export default function Navigation() {
     <nav className="sticky top-0 z-50 border-b border-border glass-effect">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
-          {/* Logo */}
+          {/* Logo - Mobile Responsive */}
           <Link href="/">
-            <div className="flex items-center space-x-2 cursor-pointer" data-testid="logo">
-              <Coins className="text-primary text-2xl" />
-              <span className="text-xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-                ICP RWA Pawn
+            <div className="flex items-center space-x-1 sm:space-x-2 cursor-pointer" data-testid="logo">
+              <Coins className="text-primary text-xl sm:text-2xl" />
+              <span className="text-base sm:text-xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+                <span className="hidden sm:inline">ICP RWA Pawn</span>
+                <span className="sm:hidden">RWA Pawn</span>
               </span>
             </div>
           </Link>
@@ -95,26 +96,28 @@ export default function Navigation() {
             <NavItems />
           </div>
 
-          {/* Authentication and Wallet */}
-          <div className="flex items-center space-x-4">
+          {/* Authentication and Wallet - Mobile Optimized */}
+          <div className="flex items-center space-x-2 sm:space-x-4">
             {/* Wallet Connection */}
             {isConnected && wallet ? (
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-1 sm:space-x-2">
                 <Button
                   variant="outline"
-                  className="text-sm font-mono"
+                  className="text-xs sm:text-sm font-mono px-2 sm:px-3 h-8 sm:h-9"
                   data-testid="button-wallet-info"
                 >
-                  <Wallet className="mr-2 h-4 w-4" />
-                  {wallet.balance.toFixed(4)} ICP
+                  <Wallet className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+                  <span className="hidden xs:inline">{wallet.balance.toFixed(4)} ICP</span>
+                  <span className="xs:hidden">{wallet.balance.toFixed(2)}</span>
                 </Button>
                 <Button
                   onClick={handleDisconnectWallet}
                   variant="outline"
                   size="icon"
+                  className="h-8 w-8 sm:h-9 sm:w-9"
                   data-testid="button-disconnect-wallet"
                 >
-                  <X className="h-4 w-4" />
+                  <X className="h-3 w-3 sm:h-4 sm:w-4" />
                 </Button>
               </div>
             ) : (
@@ -123,10 +126,12 @@ export default function Navigation() {
                   <Button
                     variant="outline"
                     disabled={isConnecting}
+                    className="text-xs sm:text-sm px-2 sm:px-3 h-8 sm:h-9"
                     data-testid="button-connect-wallet"
                   >
-                    <Wallet className="mr-2 h-4 w-4" />
-                    {isConnecting ? "Connecting..." : "Connect Wallet"}
+                    <Wallet className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+                    <span className="hidden sm:inline">{isConnecting ? "Connecting..." : "Connect Wallet"}</span>
+                    <span className="sm:hidden">Wallet</span>
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="sm:max-w-md">
@@ -163,38 +168,41 @@ export default function Navigation() {
               </Dialog>
             )}
 
-            {/* Authentication */}
+            {/* Authentication - Mobile Optimized */}
             {isLoading ? (
-              <Button disabled className="bg-primary hover:bg-primary/90 text-primary-foreground">
+              <Button disabled className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs sm:text-sm px-2 sm:px-3 h-8 sm:h-9">
                 Loading...
               </Button>
             ) : isAuthenticated ? (
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-1 sm:space-x-2">
                 <Button
                   variant="outline"
-                  className="text-sm"
+                  className="text-xs sm:text-sm px-2 sm:px-3 h-8 sm:h-9"
                   data-testid="button-user-profile"
                 >
-                  <User className="mr-2 h-4 w-4" />
-                  {user?.principalId?.slice(0, 8) + "..." || "User"}
+                  <User className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+                  <span className="hidden sm:inline">{user?.principalId?.slice(0, 8) + "..." || "User"}</span>
+                  <span className="sm:hidden">{user?.principalId?.slice(0, 4) + "..." || "User"}</span>
                 </Button>
                 <Button
                   onClick={handleLogout}
                   variant="outline"
                   size="icon"
+                  className="h-8 w-8 sm:h-9 sm:w-9"
                   data-testid="button-logout"
                 >
-                  <LogOut className="h-4 w-4" />
+                  <LogOut className="h-3 w-3 sm:h-4 sm:w-4" />
                 </Button>
               </div>
             ) : (
               <Button
                 onClick={handleLogin}
-                className="bg-primary hover:bg-primary/90 text-primary-foreground"
+                className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs sm:text-sm px-2 sm:px-3 h-8 sm:h-9"
                 data-testid="button-login"
               >
-                <User className="mr-2 h-4 w-4" />
-                Login
+                <User className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden xs:inline">Login</span>
+                <span className="xs:hidden">Login</span>
               </Button>
             )}
 

@@ -23,29 +23,29 @@ export default function Footer() {
   };
 
   return (
-    <footer className="border-t border-border py-12 px-4 sm:px-6 lg:px-8">
+    <footer className="border-t border-border py-8 sm:py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
           {/* Brand */}
-          <div>
-            <div className="flex items-center space-x-2 mb-4">
-              <Coins className="text-primary text-xl" />
-              <span className="text-lg font-bold">ICP RWA Pawn</span>
+          <div className="sm:col-span-2 lg:col-span-1 mb-6 sm:mb-0">
+            <div className="flex items-center space-x-2 mb-3 sm:mb-4">
+              <Coins className="text-primary text-lg sm:text-xl" />
+              <span className="text-base sm:text-lg font-bold">ICP RWA Pawn</span>
             </div>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-xs sm:text-sm text-muted-foreground">
               Decentralized pawning platform for real world assets on the Internet Computer Protocol.
             </p>
           </div>
 
           {/* Platform Links */}
           <div>
-            <h3 className="font-semibold mb-4">Platform</h3>
-            <ul className="space-y-2 text-sm text-muted-foreground">
+            <h3 className="font-semibold mb-3 sm:mb-4 text-sm sm:text-base">Platform</h3>
+            <ul className="space-y-2 text-xs sm:text-sm text-muted-foreground">
               {footerLinks.platform.map((link) => (
                 <li key={link.label}>
                   <a
                     href={link.href}
-                    className="hover:text-foreground transition-colors"
+                    className="hover:text-foreground transition-colors block py-1"
                     data-testid={`footer-link-${link.label.toLowerCase().replace(/\s+/g, '-')}`}
                   >
                     {link.label}
@@ -57,13 +57,13 @@ export default function Footer() {
 
           {/* Support Links */}
           <div>
-            <h3 className="font-semibold mb-4">Support</h3>
-            <ul className="space-y-2 text-sm text-muted-foreground">
+            <h3 className="font-semibold mb-3 sm:mb-4 text-sm sm:text-base">Support</h3>
+            <ul className="space-y-2 text-xs sm:text-sm text-muted-foreground">
               {footerLinks.support.map((link) => (
                 <li key={link.label}>
                   <a
                     href={link.href}
-                    className="hover:text-foreground transition-colors"
+                    className="hover:text-foreground transition-colors block py-1"
                     data-testid={`footer-link-${link.label.toLowerCase().replace(/\s+/g, '-')}`}
                   >
                     {link.label}
@@ -75,13 +75,13 @@ export default function Footer() {
 
           {/* Legal Links */}
           <div>
-            <h3 className="font-semibold mb-4">Legal</h3>
-            <ul className="space-y-2 text-sm text-muted-foreground">
+            <h3 className="font-semibold mb-3 sm:mb-4 text-sm sm:text-base">Legal</h3>
+            <ul className="space-y-2 text-xs sm:text-sm text-muted-foreground">
               {footerLinks.legal.map((link) => (
                 <li key={link.label}>
                   <a
                     href={link.href}
-                    className="hover:text-foreground transition-colors"
+                    className="hover:text-foreground transition-colors block py-1"
                     data-testid={`footer-link-${link.label.toLowerCase().replace(/\s+/g, '-')}`}
                   >
                     {link.label}

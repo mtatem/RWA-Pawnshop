@@ -89,9 +89,9 @@ export default function ActivePawns() {
   }
 
   return (
-    <Card className="bg-card border border-border p-8 glass-effect">
-      <h3 className="text-xl font-semibold mb-6 flex items-center">
-        <Clock className="mr-3 text-secondary" />
+    <Card className="bg-card border border-border p-4 sm:p-6 lg:p-8 glass-effect">
+      <h3 className="text-lg sm:text-xl font-semibold mb-4 sm:mb-6 flex items-center">
+        <Clock className="mr-2 sm:mr-3 text-secondary h-5 w-5 sm:h-6 sm:w-6" />
         Your Active Pawns
       </h3>
 
@@ -105,7 +105,7 @@ export default function ActivePawns() {
           <p className="text-sm mt-2">Submit an RWA to get started!</p>
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-3 sm:space-y-4">
           {pawns.map((pawn) => {
             const expiryDate = new Date(pawn.expiryDate);
             const now = new Date();
@@ -115,34 +115,35 @@ export default function ActivePawns() {
             return (
               <Card
                 key={pawn.id}
-                className="border border-border p-4 hover:border-primary transition-colors"
+                className="border border-border p-3 sm:p-4 hover:border-primary transition-colors"
                 data-testid={`pawn-card-${pawn.id}`}
               >
-                <div className="flex justify-between items-start mb-3">
-                  <div>
-                    <h4 className="font-medium" data-testid={`pawn-name-${pawn.id}`}>
+                <div className="flex flex-col xs:flex-row xs:justify-between xs:items-start mb-3 space-y-2 xs:space-y-0">
+                  <div className="flex-1">
+                    <h4 className="font-medium text-sm sm:text-base" data-testid={`pawn-name-${pawn.id}`}>
                       {pawn.assetName}
                     </h4>
-                    <p className="text-sm text-muted-foreground">{pawn.category}</p>
+                    <p className="text-xs sm:text-sm text-muted-foreground">{pawn.category}</p>
                   </div>
                   <Badge
                     variant={isExpiringSoon ? "destructive" : "secondary"}
                     data-testid={`pawn-status-${pawn.id}`}
+                    className="text-xs self-start xs:self-auto"
                   >
                     {isExpiringSoon ? "Expires Soon" : "Active"}
                   </Badge>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4 text-sm mb-4">
+                <div className="grid grid-cols-1 xs:grid-cols-2 gap-3 sm:gap-4 text-xs sm:text-sm mb-4">
                   <div>
-                    <span className="text-muted-foreground">Loan Amount:</span>
-                    <div className="font-medium" data-testid={`pawn-loan-${pawn.id}`}>
+                    <span className="text-muted-foreground block">Loan Amount:</span>
+                    <div className="font-medium text-sm sm:text-base" data-testid={`pawn-loan-${pawn.id}`}>
                       ${parseFloat(pawn.loanAmount).toLocaleString()}
                     </div>
                   </div>
                   <div>
-                    <span className="text-muted-foreground">Asset Value:</span>
-                    <div className="font-medium" data-testid={`pawn-value-${pawn.id}`}>
+                    <span className="text-muted-foreground block">Asset Value:</span>
+                    <div className="font-medium text-sm sm:text-base" data-testid={`pawn-value-${pawn.id}`}>
                       ${parseFloat(pawn.assetValue).toLocaleString()}
                     </div>
                   </div>
@@ -157,7 +158,7 @@ export default function ActivePawns() {
                 <Button
                   onClick={() => handleRedeemAsset(pawn.id, pawn.loanAmount)}
                   disabled={redeemMutation.isPending || !wallet || wallet.balance < parseFloat(pawn.loanAmount)}
-                  className={`w-full mt-4 ${
+                  className={`w-full mt-4 h-11 sm:h-10 text-sm ${
                     isExpiringSoon
                       ? "bg-destructive hover:bg-destructive/90 text-destructive-foreground"
                       : "bg-primary hover:bg-primary/90 text-primary-foreground"
