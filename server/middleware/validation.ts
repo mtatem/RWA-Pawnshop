@@ -417,10 +417,16 @@ export const rateLimitConfigs = {
 
 // Security headers middleware
 export const securityHeaders = (req: Request, res: Response, next: NextFunction) => {
-  // Content Security Policy
+  // Content Security Policy - Updated to allow Stripe.js and related domains
   res.setHeader(
     'Content-Security-Policy',
-    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' wss: https:;"
+    "default-src 'self'; " +
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com; " +
+    "style-src 'self' 'unsafe-inline'; " +
+    "img-src 'self' data: https: https://*.stripe.com; " +
+    "font-src 'self' data:; " +
+    "frame-src https://js.stripe.com; " +
+    "connect-src 'self' wss: https: https://api.stripe.com https://js.stripe.com https://m.stripe.com;"
   );
 
   // Other security headers
