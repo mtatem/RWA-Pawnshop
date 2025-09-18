@@ -8,7 +8,325 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { CreditCard, ArrowUpDown, Coins, TrendingUp, Clock, Shield } from "lucide-react";
+import { CreditCard, ArrowUpDown, Coins, TrendingUp, Clock, Shield, CheckCircle, AlertCircle, Loader } from "lucide-react";
+import { useState, useEffect } from "react";
+import { loadStripe } from "@stripe/stripe-js";
+import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
+import { useQuery } from "@tanstack/react-query";
+
+// Initialize Stripe
+const getStripePublicKey = () => {
+  const key = import.meta.env.VITE_STRIPE_PUBLIC_KEY;
+  if (!key) {
+    console.error('VITE_STRIPE_PUBLIC_KEY environment variable is not set');
+    return null;
+  }
+  return key;
+};
+
+const stripePromise = getStripePublicKey() ? loadStripe(getStripePublicKey()!) : null;
+
+// RWAPAWN configuration
+const RWAPAWN_EXCHANGE_RATE = 100; // $1 USD = 100 RWAPAWN tokens
+const MIN_PURCHASE_USD = 10;
+const MAX_PURCHASE_USD = 10000;
+
+// Payment form component
+function PaymentForm({ amount, onSuccess, onError }: { 
+  amount: number; 
+  onSuccess: (purchaseId: string, tokenAmount: number) => void;
+  onError: (error: string) => void;
+}) {
+  const stripe = useStripe();
+  const elements = useElements();
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [clientSecret, setClientSecret] = useState("");
+  const [purchaseId, setPurchaseId] = useState("");
+
+  useEffect(() => {
+    if (amount >= MIN_PURCHASE_USD && amount <= MAX_PURCHASE_USD) {
+      // Create payment intent
+      apiRequest("POST", "/api/rwapawn/create-payment-intent", { amount })
+        .then((data) => {
+          setClientSecret(data.clientSecret);
+          setPurchaseId(data.purchaseId);
+        })
+        .catch((error) => {
+          console.error("Error creating payment intent:", error);
+          onError("Failed to initialize payment. Please try again.");
+        });
+    }
+  }, [amount]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!stripe || !elements || !clientSecret) {
+      return;
+    }
+
+    setIsProcessing(true);
+
+    try {
+      const { error, paymentIntent } = await stripe.confirmPayment({
+        elements,
+        confirmParams: {
+          return_url: `${window.location.origin}/token?payment=success`,
+        },
+        redirect: 'if_required'
+      });
+
+      if (error) {
+        onError(error.message || "Payment failed. Please try again.");
+      } else if (paymentIntent?.status === 'succeeded') {
+        // Confirm payment on backend
+        try {
+          await apiRequest("POST", "/api/rwapawn/confirm-payment", {
+            paymentIntentId: paymentIntent.id,
+            purchaseId
+          });
+          
+          const tokenAmount = amount * RWAPAWN_EXCHANGE_RATE;
+          onSuccess(purchaseId, tokenAmount);
+        } catch (confirmError) {
+          console.error("Error confirming payment:", confirmError);
+          onError("Payment processed but confirmation failed. Please contact support.");
+        }
+      }
+    } catch (error) {
+      console.error("Payment error:", error);
+      onError("Payment failed. Please try again.");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  if (!clientSecret) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <Loader className="w-6 h-6 animate-spin mr-2" />
+        <span>Initializing payment...</span>
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <PaymentElement />
+      <Button 
+        type="submit" 
+        className="w-full" 
+        size="lg"
+        disabled={!stripe || !elements || isProcessing}
+        data-testid="button-complete-payment"
+      >
+        {isProcessing ? (
+          <>
+            <Loader className="w-4 h-4 animate-spin mr-2" />
+            Processing Payment...
+          </>
+        ) : (
+          `Pay $${amount.toFixed(2)} for ${(amount * RWAPAWN_EXCHANGE_RATE).toLocaleString()} RWAPAWN`
+        )}
+      </Button>
+    </form>
+  );
+}
+
+// Buy tab component
+function BuyTab() {
+  const [amount, setAmount] = useState(100);
+  const [paymentStatus, setPaymentStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [statusMessage, setStatusMessage] = useState('');
+  const { toast } = useToast();
+
+  // Fetch user balance
+  const { data: balanceData, refetch: refetchBalance } = useQuery({
+    queryKey: ['/api/rwapawn/balance'],
+    enabled: false // Only fetch when needed
+  });
+
+  const tokenAmount = amount * RWAPAWN_EXCHANGE_RATE;
+  const processingFee = amount * 0.029 + 0.30; // Stripe's standard fee
+  const totalCost = amount + processingFee;
+
+  const handleAmountChange = (value: string) => {
+    const numValue = parseFloat(value) || 0;
+    setAmount(Math.min(Math.max(numValue, MIN_PURCHASE_USD), MAX_PURCHASE_USD));
+  };
+
+  const handlePaymentSuccess = (purchaseId: string, tokenAmount: number) => {
+    setPaymentStatus('success');
+    setStatusMessage(`Successfully purchased ${tokenAmount.toLocaleString()} RWAPAWN tokens!`);
+    refetchBalance();
+    toast({
+      title: "Payment Successful",
+      description: `You've purchased ${tokenAmount.toLocaleString()} RWAPAWN tokens.`,
+    });
+  };
+
+  const handlePaymentError = (error: string) => {
+    setPaymentStatus('error');
+    setStatusMessage(error);
+    toast({
+      title: "Payment Failed",
+      description: error,
+      variant: "destructive",
+    });
+  };
+
+  if (paymentStatus === 'success') {
+    return (
+      <Card data-testid="card-buy-success">
+        <CardContent className="p-8 text-center">
+          <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
+          <h3 className="text-2xl font-bold text-green-600 mb-2">Payment Successful!</h3>
+          <p className="text-muted-foreground mb-6">{statusMessage}</p>
+          <Button 
+            onClick={() => {
+              setPaymentStatus('idle');
+              setStatusMessage('');
+              setAmount(100);
+            }}
+            data-testid="button-buy-more"
+          >
+            Buy More Tokens
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (paymentStatus === 'error') {
+    return (
+      <Card data-testid="card-buy-error">
+        <CardContent className="p-8 text-center">
+          <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+          <h3 className="text-2xl font-bold text-red-600 mb-2">Payment Failed</h3>
+          <p className="text-muted-foreground mb-6">{statusMessage}</p>
+          <Button 
+            onClick={() => {
+              setPaymentStatus('idle');
+              setStatusMessage('');
+            }}
+            data-testid="button-try-again"
+          >
+            Try Again
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card data-testid="card-buy">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <CreditCard className="w-5 h-5" />
+          Buy RWAPAWN Tokens
+        </CardTitle>
+        <CardDescription>
+          Purchase RWAPAWN tokens with credit card
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="usd-amount">USD Amount</Label>
+              <Input
+                id="usd-amount"
+                type="number"
+                min={MIN_PURCHASE_USD}
+                max={MAX_PURCHASE_USD}
+                step="0.01"
+                value={amount}
+                onChange={(e) => handleAmountChange(e.target.value)}
+                data-testid="input-usd-amount"
+              />
+              <div className="text-xs text-muted-foreground">
+                Min: ${MIN_PURCHASE_USD} • Max: ${MAX_PURCHASE_USD.toLocaleString()}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="token-amount">RWAPAWN Tokens</Label>
+              <Input
+                id="token-amount"
+                type="text"
+                value={tokenAmount.toLocaleString()}
+                readOnly
+                className="bg-muted"
+                data-testid="display-token-amount"
+              />
+              <div className="text-xs text-muted-foreground">
+                Rate: 1 USD = {RWAPAWN_EXCHANGE_RATE} RWAPAWN
+              </div>
+            </div>
+          </div>
+
+          <div className="p-4 bg-muted/50 rounded-lg space-y-2">
+            <div className="flex justify-between text-sm">
+              <span>Token Purchase:</span>
+              <span className="font-medium">${amount.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span>Processing Fee:</span>
+              <span className="font-medium">${processingFee.toFixed(2)}</span>
+            </div>
+            <Separator />
+            <div className="flex justify-between font-medium">
+              <span>Total Cost:</span>
+              <span data-testid="text-total-cost">${totalCost.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between text-sm text-muted-foreground">
+              <span>You'll receive:</span>
+              <span className="font-medium">{tokenAmount.toLocaleString()} RWAPAWN</span>
+            </div>
+          </div>
+        </div>
+
+        {amount >= MIN_PURCHASE_USD && amount <= MAX_PURCHASE_USD ? (
+          stripePromise ? (
+            <Elements 
+              stripe={stripePromise} 
+              options={{
+                mode: 'payment',
+                amount: Math.round(totalCost * 100),
+                currency: 'usd',
+              }}
+            >
+              <PaymentForm 
+                amount={totalCost}
+                onSuccess={handlePaymentSuccess}
+                onError={handlePaymentError}
+              />
+            </Elements>
+          ) : (
+            <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-5 h-5 text-red-600" />
+                <div>
+                  <p className="text-red-800 font-medium">Payment system unavailable</p>
+                  <p className="text-red-700 text-sm">
+                    Unable to load payment processor. Please refresh the page or try again later.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )
+        ) : (
+          <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <p className="text-yellow-800 text-sm">
+              Please enter an amount between ${MIN_PURCHASE_USD} and ${MAX_PURCHASE_USD.toLocaleString()} to continue.
+            </p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 export default function Token() {
   return (
@@ -69,80 +387,7 @@ export default function Token() {
             </TabsList>
 
             <TabsContent value="buy" className="space-y-6">
-              <Card data-testid="card-buy">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <CreditCard className="w-5 h-5" />
-                    Buy RWAPAWN Tokens
-                  </CardTitle>
-                  <CardDescription>
-                    Purchase RWAPAWN tokens with credit card or cryptocurrency
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="buy-method">Payment Method</Label>
-                      <Select data-testid="select-payment-method">
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select payment method" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="credit_card">Credit Card</SelectItem>
-                          <SelectItem value="crypto">Cryptocurrency</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="usd-amount">USD Amount</Label>
-                        <Input
-                          id="usd-amount"
-                          type="number"
-                          placeholder="100.00"
-                          data-testid="input-usd-amount"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="token-amount">RWAPAWN Tokens</Label>
-                        <Input
-                          id="token-amount"
-                          type="number"
-                          placeholder="1000"
-                          readOnly
-                          className="bg-muted"
-                          data-testid="display-token-amount"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="p-4 bg-muted/50 rounded-lg space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span>Exchange Rate:</span>
-                        <span className="font-medium">1 USD = 10 RWAPAWN</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span>Processing Fee:</span>
-                        <span className="font-medium">2.5%</span>
-                      </div>
-                      <Separator />
-                      <div className="flex justify-between font-medium">
-                        <span>Total Cost:</span>
-                        <span data-testid="text-total-cost">$102.50</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <Button 
-                    className="w-full" 
-                    size="lg"
-                    data-testid="button-purchase-tokens"
-                  >
-                    Purchase Tokens
-                  </Button>
-                </CardContent>
-              </Card>
+              <BuyTab />
             </TabsContent>
 
             <TabsContent value="swap" className="space-y-6">

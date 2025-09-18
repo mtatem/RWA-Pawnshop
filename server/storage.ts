@@ -19,6 +19,10 @@ import {
   assetReviews,
   userFlags,
   performanceMetrics,
+  rwapawnPurchases,
+  rwapawnStakes,
+  rwapawnSwaps,
+  rwapawnBalances,
   type User,
   type InsertUser,
   type RwaSubmission,
@@ -61,6 +65,14 @@ import {
   type PerformanceMetric,
   type InsertPerformanceMetric,
   type AdminDashboardFilters,
+  type RwapawnPurchase,
+  type InsertRwapawnPurchase,
+  type RwapawnStake,
+  type InsertRwapawnStake,
+  type RwapawnSwap,
+  type InsertRwapawnSwap,
+  type RwapawnBalance,
+  type InsertRwapawnBalance,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, lt, gte, sql } from "drizzle-orm";
@@ -257,6 +269,27 @@ export interface IStorage {
       avgProcessingTime: number;
     };
   }>;
+
+  // RWAPAWN Token operations
+  createRwapawnPurchase(purchase: InsertRwapawnPurchase): Promise<RwapawnPurchase>;
+  getRwapawnPurchase(id: string): Promise<RwapawnPurchase | undefined>;
+  getRwapawnPurchasesByUser(userId: string): Promise<RwapawnPurchase[]>;
+  updateRwapawnPurchaseStatus(id: string, status: string): Promise<RwapawnPurchase>;
+
+  createRwapawnStake(stake: InsertRwapawnStake): Promise<RwapawnStake>;
+  getRwapawnStake(id: string): Promise<RwapawnStake | undefined>;
+  getRwapawnStakesByUser(userId: string): Promise<RwapawnStake[]>;
+  updateRwapawnStakeStatus(id: string, status: string): Promise<RwapawnStake>;
+
+  createRwapawnSwap(swap: InsertRwapawnSwap): Promise<RwapawnSwap>;
+  getRwapawnSwap(id: string): Promise<RwapawnSwap | undefined>;
+  getRwapawnSwapsByUser(userId: string): Promise<RwapawnSwap[]>;
+  updateRwapawnSwapStatus(id: string, status: string): Promise<RwapawnSwap>;
+
+  getRwapawnBalance(userId: string): Promise<RwapawnBalance | undefined>;
+  createRwapawnBalance(balance: InsertRwapawnBalance): Promise<RwapawnBalance>;
+  updateRwapawnBalance(userId: string, updates: Partial<RwapawnBalance>): Promise<RwapawnBalance>;
+  addTokensToBalance(userId: string, amount: number): Promise<RwapawnBalance>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1536,6 +1569,131 @@ export class DatabaseStorage implements IStorage {
         avgProcessingTime: 420, // TODO: Calculate actual average processing time
       },
     };
+  }
+
+  // RWAPAWN Token operations implementation
+  async createRwapawnPurchase(purchase: InsertRwapawnPurchase): Promise<RwapawnPurchase> {
+    const [result] = await db.insert(rwapawnPurchases).values([purchase]).returning();
+    return result;
+  }
+
+  async getRwapawnPurchase(id: string): Promise<RwapawnPurchase | undefined> {
+    const [purchase] = await db.select().from(rwapawnPurchases).where(eq(rwapawnPurchases.id, id));
+    return purchase || undefined;
+  }
+
+  async getRwapawnPurchasesByUser(userId: string): Promise<RwapawnPurchase[]> {
+    return await db.select()
+      .from(rwapawnPurchases)
+      .where(eq(rwapawnPurchases.userId, userId))
+      .orderBy(desc(rwapawnPurchases.createdAt));
+  }
+
+  async updateRwapawnPurchaseStatus(id: string, status: string): Promise<RwapawnPurchase> {
+    const [purchase] = await db
+      .update(rwapawnPurchases)
+      .set({ status })
+      .where(eq(rwapawnPurchases.id, id))
+      .returning();
+    return purchase;
+  }
+
+  async createRwapawnStake(stake: InsertRwapawnStake): Promise<RwapawnStake> {
+    const [result] = await db.insert(rwapawnStakes).values([stake]).returning();
+    return result;
+  }
+
+  async getRwapawnStake(id: string): Promise<RwapawnStake | undefined> {
+    const [stake] = await db.select().from(rwapawnStakes).where(eq(rwapawnStakes.id, id));
+    return stake || undefined;
+  }
+
+  async getRwapawnStakesByUser(userId: string): Promise<RwapawnStake[]> {
+    return await db.select()
+      .from(rwapawnStakes)
+      .where(eq(rwapawnStakes.userId, userId))
+      .orderBy(desc(rwapawnStakes.startDate));
+  }
+
+  async updateRwapawnStakeStatus(id: string, status: string): Promise<RwapawnStake> {
+    const [stake] = await db
+      .update(rwapawnStakes)
+      .set({ status })
+      .where(eq(rwapawnStakes.id, id))
+      .returning();
+    return stake;
+  }
+
+  async createRwapawnSwap(swap: InsertRwapawnSwap): Promise<RwapawnSwap> {
+    const [result] = await db.insert(rwapawnSwaps).values([swap]).returning();
+    return result;
+  }
+
+  async getRwapawnSwap(id: string): Promise<RwapawnSwap | undefined> {
+    const [swap] = await db.select().from(rwapawnSwaps).where(eq(rwapawnSwaps.id, id));
+    return swap || undefined;
+  }
+
+  async getRwapawnSwapsByUser(userId: string): Promise<RwapawnSwap[]> {
+    return await db.select()
+      .from(rwapawnSwaps)
+      .where(eq(rwapawnSwaps.userId, userId))
+      .orderBy(desc(rwapawnSwaps.createdAt));
+  }
+
+  async updateRwapawnSwapStatus(id: string, status: string): Promise<RwapawnSwap> {
+    const [swap] = await db
+      .update(rwapawnSwaps)
+      .set({ status })
+      .where(eq(rwapawnSwaps.id, id))
+      .returning();
+    return swap;
+  }
+
+  async getRwapawnBalance(userId: string): Promise<RwapawnBalance | undefined> {
+    const [balance] = await db.select().from(rwapawnBalances).where(eq(rwapawnBalances.userId, userId));
+    return balance || undefined;
+  }
+
+  async createRwapawnBalance(balance: InsertRwapawnBalance): Promise<RwapawnBalance> {
+    const [result] = await db.insert(rwapawnBalances).values([balance]).returning();
+    return result;
+  }
+
+  async updateRwapawnBalance(userId: string, updates: Partial<RwapawnBalance>): Promise<RwapawnBalance> {
+    const [balance] = await db
+      .update(rwapawnBalances)
+      .set({ ...updates, lastUpdated: new Date() })
+      .where(eq(rwapawnBalances.userId, userId))
+      .returning();
+    return balance;
+  }
+
+  async addTokensToBalance(userId: string, amount: number): Promise<RwapawnBalance> {
+    // First, try to get existing balance
+    let balance = await this.getRwapawnBalance(userId);
+    
+    if (!balance) {
+      // Create new balance if doesn't exist
+      balance = await this.createRwapawnBalance({
+        userId,
+        availableTokens: amount,
+        stakedTokens: 0,
+        pendingTokens: 0,
+        totalTokens: amount
+      });
+    } else {
+      // Update existing balance
+      const newAvailable = parseFloat(balance.availableTokens) + amount;
+      const newTotal = parseFloat(balance.totalTokens) + amount;
+      
+      balance = await this.updateRwapawnBalance(userId, {
+        availableTokens: newAvailable.toString(),
+        totalTokens: newTotal.toString()
+      });
+    }
+    
+    return balance;
   }
 }
 
