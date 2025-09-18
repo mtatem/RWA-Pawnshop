@@ -12,7 +12,7 @@ export default function Footer() {
       { label: "Help Center", href: "/help-center" },
       { label: "Contact Us", href: "/contact-us" },
       { label: "Whitepaper", href: "/whitepaper" },
-      { label: "Twitter", href: "#" },
+      { label: "Buy RWAPAWN", href: "/token" },
     ],
     legal: [
       { label: "Terms of Service", href: "/terms-of-service" },

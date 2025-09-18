@@ -586,6 +586,74 @@ export const assetPricingCache = pgTable("asset_pricing_cache", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// RWAPAWN Token System Tables
+
+// RWAPAWN Purchase Records - Credit card and crypto purchases
+export const rwapawnPurchases = pgTable("rwapawn_purchases", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  amount: numeric("amount", { precision: 12, scale: 2 }).notNull(), // USD amount spent
+  purchaseType: text("purchase_type").notNull(), // credit_card, crypto
+  paymentReference: text("payment_reference").notNull(), // Stripe payment ID or crypto tx hash
+  tokenAmount: numeric("token_amount", { precision: 18, scale: 8 }).notNull(), // RWAPAWN tokens received
+  exchangeRate: numeric("exchange_rate", { precision: 18, scale: 8 }).notNull(), // USD to RWAPAWN rate
+  status: text("status").notNull().default("pending"), // pending, completed, failed
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_rwapawn_purchases_user_id").on(table.userId),
+  index("idx_rwapawn_purchases_status").on(table.status),
+  index("idx_rwapawn_purchases_created_at").on(table.createdAt),
+]);
+
+// RWAPAWN Staking Records - Token staking with lock periods
+export const rwapawnStakes = pgTable("rwapawn_stakes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  tokenAmount: numeric("token_amount", { precision: 18, scale: 8 }).notNull(), // Tokens staked
+  stakingTier: integer("staking_tier").notNull(), // 1-4 (30, 60, 90, 180 days)
+  lockPeriod: integer("lock_period").notNull(), // Days locked
+  annualPercentageYield: numeric("annual_percentage_yield", { precision: 5, scale: 2 }).notNull(), // APY %
+  startDate: timestamp("start_date").defaultNow(),
+  endDate: timestamp("end_date").notNull(), // Calculated unlock date
+  status: text("status").notNull().default("active"), // active, completed, withdrawn
+  accruedRewards: numeric("accrued_rewards", { precision: 18, scale: 8 }).notNull().default("0"), // Rewards earned
+}, (table) => [
+  index("idx_rwapawn_stakes_user_id").on(table.userId),
+  index("idx_rwapawn_stakes_status").on(table.status),
+  index("idx_rwapawn_stakes_end_date").on(table.endDate),
+]);
+
+// RWAPAWN Swap Records - Crypto to RWAPAWN conversions
+export const rwapawnSwaps = pgTable("rwapawn_swaps", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  fromCurrency: text("from_currency").notNull(), // ETH, BTC, ICP, USDC, etc.
+  fromAmount: numeric("from_amount", { precision: 18, scale: 8 }).notNull(), // Amount of source currency
+  toTokenAmount: numeric("to_token_amount", { precision: 18, scale: 8 }).notNull(), // RWAPAWN tokens received
+  exchangeRate: numeric("exchange_rate", { precision: 18, scale: 8 }).notNull(), // Conversion rate
+  transactionHash: text("transaction_hash"), // Blockchain transaction hash
+  status: text("status").notNull().default("pending"), // pending, processing, completed, failed
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_rwapawn_swaps_user_id").on(table.userId),
+  index("idx_rwapawn_swaps_status").on(table.status),
+  index("idx_rwapawn_swaps_created_at").on(table.createdAt),
+]);
+
+// RWAPAWN Balance Records - User token balances
+export const rwapawnBalances = pgTable("rwapawn_balances", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().unique().references(() => users.id), // One balance record per user
+  availableTokens: numeric("available_tokens", { precision: 18, scale: 8 }).notNull().default("0"), // Available for trading
+  stakedTokens: numeric("staked_tokens", { precision: 18, scale: 8 }).notNull().default("0"), // Currently staked
+  pendingTokens: numeric("pending_tokens", { precision: 18, scale: 8 }).notNull().default("0"), // Pending purchases/swaps
+  totalTokens: numeric("total_tokens", { precision: 18, scale: 8 }).notNull().default("0"), // Total owned
+  lastUpdated: timestamp("last_updated").defaultNow(),
+}, (table) => [
+  index("idx_rwapawn_balances_user_id").on(table.userId),
+  index("idx_rwapawn_balances_last_updated").on(table.lastUpdated),
+]);
+
 // Document Analysis System Tables
 
 // Documents table - Core document metadata and storage
@@ -1140,6 +1208,136 @@ export const performanceMetrics = pgTable("performance_metrics", {
   index("idx_performance_metrics_aggregation_period").on(table.aggregationPeriod),
 ]);
 
+// RWAPAWN Token Insert Schemas
+export const insertRwapawnPurchaseSchema = createInsertSchema(rwapawnPurchases).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  userId: z.string()
+    .min(1, 'User ID is required')
+    .max(50, 'User ID too long')
+    .regex(/^[a-zA-Z0-9-_]+$/, 'Invalid User ID format'),
+  amount: z.union([z.string(), z.number()])
+    .transform(val => typeof val === 'string' ? parseFloat(val) : val)
+    .refine(val => !isNaN(val), 'Amount must be a valid number')
+    .refine(val => val > 0, 'Amount must be greater than zero')
+    .refine(val => val <= 1000000, 'Amount cannot exceed $1,000,000')
+    .refine(val => val >= 1, 'Amount must be at least $1'),
+  purchaseType: z.enum(['credit_card', 'crypto'], {
+    errorMap: () => ({ message: 'Purchase type must be credit_card or crypto' })
+  }),
+  paymentReference: z.string()
+    .min(1, 'Payment reference is required')
+    .max(500, 'Payment reference too long'),
+  tokenAmount: z.union([z.string(), z.number()])
+    .transform(val => typeof val === 'string' ? parseFloat(val) : val)
+    .refine(val => !isNaN(val), 'Token amount must be a valid number')
+    .refine(val => val > 0, 'Token amount must be greater than zero'),
+  exchangeRate: z.union([z.string(), z.number()])
+    .transform(val => typeof val === 'string' ? parseFloat(val) : val)
+    .refine(val => !isNaN(val), 'Exchange rate must be a valid number')
+    .refine(val => val > 0, 'Exchange rate must be greater than zero'),
+  status: z.enum(['pending', 'completed', 'failed']).default('pending'),
+});
+
+export const insertRwapawnStakeSchema = createInsertSchema(rwapawnStakes).omit({
+  id: true,
+  startDate: true,
+}).extend({
+  userId: z.string()
+    .min(1, 'User ID is required')
+    .max(50, 'User ID too long')
+    .regex(/^[a-zA-Z0-9-_]+$/, 'Invalid User ID format'),
+  tokenAmount: z.union([z.string(), z.number()])
+    .transform(val => typeof val === 'string' ? parseFloat(val) : val)
+    .refine(val => !isNaN(val), 'Token amount must be a valid number')
+    .refine(val => val > 0, 'Token amount must be greater than zero'),
+  stakingTier: z.number()
+    .int('Staking tier must be an integer')
+    .min(1, 'Staking tier must be between 1-4')
+    .max(4, 'Staking tier must be between 1-4'),
+  lockPeriod: z.number()
+    .int('Lock period must be an integer')
+    .min(1, 'Lock period must be at least 1 day')
+    .max(365, 'Lock period cannot exceed 365 days'),
+  annualPercentageYield: z.union([z.string(), z.number()])
+    .transform(val => typeof val === 'string' ? parseFloat(val) : val)
+    .refine(val => !isNaN(val), 'APY must be a valid number')
+    .refine(val => val >= 0, 'APY cannot be negative')
+    .refine(val => val <= 100, 'APY cannot exceed 100%'),
+  endDate: z.union([z.string(), z.date()])
+    .transform(val => typeof val === 'string' ? new Date(val) : val)
+    .refine(val => !isNaN(val.getTime()), 'Invalid end date')
+    .refine(val => val > new Date(), 'End date must be in the future'),
+  status: z.enum(['active', 'completed', 'withdrawn']).default('active'),
+  accruedRewards: z.union([z.string(), z.number()])
+    .transform(val => typeof val === 'string' ? parseFloat(val) : val)
+    .refine(val => !isNaN(val), 'Accrued rewards must be a valid number')
+    .refine(val => val >= 0, 'Accrued rewards cannot be negative')
+    .default(0),
+});
+
+export const insertRwapawnSwapSchema = createInsertSchema(rwapawnSwaps).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  userId: z.string()
+    .min(1, 'User ID is required')
+    .max(50, 'User ID too long')
+    .regex(/^[a-zA-Z0-9-_]+$/, 'Invalid User ID format'),
+  fromCurrency: z.string()
+    .min(1, 'From currency is required')
+    .max(20, 'Currency code too long')
+    .regex(/^[A-Z]+$/, 'Currency code must be uppercase letters only'),
+  fromAmount: z.union([z.string(), z.number()])
+    .transform(val => typeof val === 'string' ? parseFloat(val) : val)
+    .refine(val => !isNaN(val), 'From amount must be a valid number')
+    .refine(val => val > 0, 'From amount must be greater than zero'),
+  toTokenAmount: z.union([z.string(), z.number()])
+    .transform(val => typeof val === 'string' ? parseFloat(val) : val)
+    .refine(val => !isNaN(val), 'To token amount must be a valid number')
+    .refine(val => val > 0, 'To token amount must be greater than zero'),
+  exchangeRate: z.union([z.string(), z.number()])
+    .transform(val => typeof val === 'string' ? parseFloat(val) : val)
+    .refine(val => !isNaN(val), 'Exchange rate must be a valid number')
+    .refine(val => val > 0, 'Exchange rate must be greater than zero'),
+  transactionHash: z.string()
+    .max(200, 'Transaction hash too long')
+    .regex(/^0x[a-fA-F0-9]{64}$|^[a-zA-Z0-9-_]+$/, 'Invalid transaction hash format')
+    .optional(),
+  status: z.enum(['pending', 'processing', 'completed', 'failed']).default('pending'),
+});
+
+export const insertRwapawnBalanceSchema = createInsertSchema(rwapawnBalances).omit({
+  id: true,
+  lastUpdated: true,
+}).extend({
+  userId: z.string()
+    .min(1, 'User ID is required')
+    .max(50, 'User ID too long')
+    .regex(/^[a-zA-Z0-9-_]+$/, 'Invalid User ID format'),
+  availableTokens: z.union([z.string(), z.number()])
+    .transform(val => typeof val === 'string' ? parseFloat(val) : val)
+    .refine(val => !isNaN(val), 'Available tokens must be a valid number')
+    .refine(val => val >= 0, 'Available tokens cannot be negative')
+    .default(0),
+  stakedTokens: z.union([z.string(), z.number()])
+    .transform(val => typeof val === 'string' ? parseFloat(val) : val)
+    .refine(val => !isNaN(val), 'Staked tokens must be a valid number')
+    .refine(val => val >= 0, 'Staked tokens cannot be negative')
+    .default(0),
+  pendingTokens: z.union([z.string(), z.number()])
+    .transform(val => typeof val === 'string' ? parseFloat(val) : val)
+    .refine(val => !isNaN(val), 'Pending tokens must be a valid number')
+    .refine(val => val >= 0, 'Pending tokens cannot be negative')
+    .default(0),
+  totalTokens: z.union([z.string(), z.number()])
+    .transform(val => typeof val === 'string' ? parseFloat(val) : val)
+    .refine(val => !isNaN(val), 'Total tokens must be a valid number')
+    .refine(val => val >= 0, 'Total tokens cannot be negative')
+    .default(0),
+});
+
 // Admin Management Insert Schemas
 export const insertAdminActionSchema = createInsertSchema(adminActions).omit({
   id: true,
@@ -1246,6 +1444,16 @@ export type Transaction = typeof transactions.$inferSelect;
 export type InsertTransaction = z.infer<typeof insertTransactionSchema>;
 export type BridgeTransaction = typeof bridgeTransactions.$inferSelect;
 export type InsertBridgeTransaction = z.infer<typeof insertBridgeTransactionSchema>;
+
+// RWAPAWN Token types
+export type RwapawnPurchase = typeof rwapawnPurchases.$inferSelect;
+export type InsertRwapawnPurchase = z.infer<typeof insertRwapawnPurchaseSchema>;
+export type RwapawnStake = typeof rwapawnStakes.$inferSelect;
+export type InsertRwapawnStake = z.infer<typeof insertRwapawnStakeSchema>;
+export type RwapawnSwap = typeof rwapawnSwaps.$inferSelect;
+export type InsertRwapawnSwap = z.infer<typeof insertRwapawnSwapSchema>;
+export type RwapawnBalance = typeof rwapawnBalances.$inferSelect;
+export type InsertRwapawnBalance = z.infer<typeof insertRwapawnBalanceSchema>;
 
 // Bridge types
 export type SupportedNetwork = z.infer<typeof supportedNetworks>;
