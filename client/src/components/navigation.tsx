@@ -48,13 +48,18 @@ export default function Navigation() {
     await disconnect();
   };
 
-  const navItems = [
+  const baseNavItems = [
     { href: "/", label: "Home" },
     { href: "/how-it-works", label: "How it Works" },
     { href: "/dashboard", label: "Dashboard" },
     { href: "/marketplace", label: "Marketplace" },
     { href: "/bridge", label: "Bridge" },
-    { href: "/admin", label: "Admin" },
+  ];
+
+  // Only show admin menu to authenticated admin users
+  const navItems = [
+    ...baseNavItems,
+    ...(isAuthenticated && user?.isAdmin ? [{ href: "/admin", label: "Admin" }] : [])
   ];
 
   const NavItems = ({ mobile = false }: { mobile?: boolean }) => (
