@@ -15,6 +15,7 @@ import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/hooks/useAuth";
 
 // Initialize Stripe
 const getStripePublicKey = () => {
@@ -34,36 +35,20 @@ const MIN_PURCHASE_USD = 10;
 const MAX_PURCHASE_USD = 10000;
 
 // Payment form component
-function PaymentForm({ amount, onSuccess, onError }: { 
-  amount: number; 
+function PaymentForm({ amount, purchaseId, onSuccess, onError }: { 
+  amount: number;
+  purchaseId: string; 
   onSuccess: (purchaseId: string, tokenAmount: number) => void;
   onError: (error: string) => void;
 }) {
   const stripe = useStripe();
   const elements = useElements();
   const [isProcessing, setIsProcessing] = useState(false);
-  const [clientSecret, setClientSecret] = useState("");
-  const [purchaseId, setPurchaseId] = useState("");
-
-  useEffect(() => {
-    if (amount >= MIN_PURCHASE_USD && amount <= MAX_PURCHASE_USD) {
-      // Create payment intent
-      apiRequest("POST", "/api/rwapawn/create-payment-intent", { amount })
-        .then((data) => {
-          setClientSecret(data.clientSecret);
-          setPurchaseId(data.purchaseId);
-        })
-        .catch((error) => {
-          console.error("Error creating payment intent:", error);
-          onError("Failed to initialize payment. Please try again.");
-        });
-    }
-  }, [amount]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!stripe || !elements || !clientSecret) {
+    if (!stripe || !elements) {
       return;
     }
 
@@ -103,15 +88,6 @@ function PaymentForm({ amount, onSuccess, onError }: {
     }
   };
 
-  if (!clientSecret) {
-    return (
-      <div className="flex items-center justify-center p-8">
-        <Loader className="w-6 h-6 animate-spin mr-2" />
-        <span>Initializing payment...</span>
-      </div>
-    );
-  }
-
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <PaymentElement />
@@ -140,7 +116,11 @@ function BuyTab() {
   const [amount, setAmount] = useState(100);
   const [paymentStatus, setPaymentStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [statusMessage, setStatusMessage] = useState('');
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [purchaseId, setPurchaseId] = useState<string | null>(null);
+  const [isInitializingPayment, setIsInitializingPayment] = useState(false);
   const { toast } = useToast();
+  const { user, isLoading: authLoading, isAuthenticated } = useAuth();
 
   // Fetch user balance
   const { data: balanceData, refetch: refetchBalance } = useQuery({
@@ -152,10 +132,7 @@ function BuyTab() {
   const processingFee = amount * 0.029 + 0.30; // Stripe's standard fee
   const totalCost = amount + processingFee;
 
-  const handleAmountChange = (value: string) => {
-    const numValue = parseFloat(value) || 0;
-    setAmount(Math.min(Math.max(numValue, MIN_PURCHASE_USD), MAX_PURCHASE_USD));
-  };
+  // Amount change handler moved above with payment reset logic
 
   const handlePaymentSuccess = (purchaseId: string, tokenAmount: number) => {
     setPaymentStatus('success');
@@ -175,6 +152,68 @@ function BuyTab() {
       description: error,
       variant: "destructive",
     });
+  };
+
+  const initializePayment = async () => {
+    if (!isAuthenticated) {
+      toast({
+        title: "Authentication Required",
+        description: "Please log in to purchase RWAPAWN tokens.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsInitializingPayment(true);
+    
+    try {
+      const data = await apiRequest("POST", "/api/rwapawn/create-payment-intent", { 
+        amount: totalCost 
+      });
+      
+      setClientSecret(data.clientSecret);
+      setPurchaseId(data.purchaseId);
+      
+      toast({
+        title: "Payment Initialized",
+        description: "You can now complete your purchase.",
+      });
+    } catch (error: any) {
+      console.error("Error creating payment intent:", error);
+      
+      if (error.status === 401) {
+        toast({
+          title: "Authentication Required",
+          description: "Please log in to purchase RWAPAWN tokens.",
+          variant: "destructive",
+        });
+      } else {
+        handlePaymentError("Failed to initialize payment. Please try again.");
+      }
+    } finally {
+      setIsInitializingPayment(false);
+    }
+  };
+
+  // Reset payment state when amount changes significantly
+  const resetPaymentState = () => {
+    setClientSecret(null);
+    setPurchaseId(null);
+    setPaymentStatus('idle');
+    setStatusMessage('');
+  };
+
+  // Reset when amount changes
+  const handleAmountChange = (value: string) => {
+    const numValue = parseFloat(value) || 0;
+    const newAmount = Math.min(Math.max(numValue, MIN_PURCHASE_USD), MAX_PURCHASE_USD);
+    
+    // Reset payment state if amount changed significantly
+    if (Math.abs(newAmount - amount) > 0.01) {
+      resetPaymentState();
+    }
+    
+    setAmount(newAmount);
   };
 
   if (paymentStatus === 'success') {
@@ -289,20 +328,43 @@ function BuyTab() {
 
         {amount >= MIN_PURCHASE_USD && amount <= MAX_PURCHASE_USD ? (
           stripePromise ? (
-            <Elements 
-              stripe={stripePromise} 
-              options={{
-                mode: 'payment',
-                amount: Math.round(totalCost * 100),
-                currency: 'usd',
-              }}
-            >
-              <PaymentForm 
-                amount={totalCost}
-                onSuccess={handlePaymentSuccess}
-                onError={handlePaymentError}
-              />
-            </Elements>
+            clientSecret && purchaseId ? (
+              <Elements 
+                stripe={stripePromise} 
+                options={{
+                  clientSecret,
+                  appearance: {
+                    theme: 'stripe'
+                  }
+                }}
+              >
+                <PaymentForm 
+                  amount={totalCost}
+                  purchaseId={purchaseId}
+                  onSuccess={handlePaymentSuccess}
+                  onError={handlePaymentError}
+                />
+              </Elements>
+            ) : (
+              <div className="space-y-4">
+                <Button 
+                  onClick={initializePayment}
+                  className="w-full" 
+                  size="lg"
+                  disabled={isInitializingPayment}
+                  data-testid="button-initialize-payment"
+                >
+                  {isInitializingPayment ? (
+                    <>
+                      <Loader className="w-4 h-4 animate-spin mr-2" />
+                      Initializing Payment...
+                    </>
+                  ) : (
+                    `Initialize Payment for ${(amount * RWAPAWN_EXCHANGE_RATE).toLocaleString()} RWAPAWN`
+                  )}
+                </Button>
+              </div>
+            )
           ) : (
             <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
               <div className="flex items-center gap-2">

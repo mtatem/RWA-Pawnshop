@@ -98,6 +98,12 @@ const rwapawnPaymentIntentSchema = z.object({
     .min(MIN_PURCHASE_USD, `Minimum purchase amount is $${MIN_PURCHASE_USD}`)
     .max(MAX_PURCHASE_USD, `Maximum purchase amount is $${MAX_PURCHASE_USD}`)
     .multipleOf(0.01, 'Amount must be in cents (2 decimal places)'),
+  idempotencyKey: z.string().optional().refine((key) => {
+    if (key && (key.length < 1 || key.length > 255)) {
+      return false;
+    }
+    return true;
+  }, 'Idempotency key must be between 1 and 255 characters')
 });
 
 const rwapawnPaymentConfirmSchema = z.object({
@@ -120,6 +126,9 @@ const bindingNonces = new Map<string, { nonce: string; userId: string; expires: 
 // Track successful bindings to prevent replay attacks (in production, use Redis with TTL)
 const successfulBindings = new Map<string, { userId: string; principalId: string; timestamp: number }>();
 
+// Track payment intent idempotency keys to prevent duplicates (in production, use Redis with TTL)
+const paymentIntentCache = new Map<string, { paymentIntentId: string; userId: string; timestamp: number }>();
+
 // Track failed attempts for rate limiting (in production, use Redis)
 const failedAttempts = new Map<string, { count: number; lastAttempt: number; blocked: boolean }>();
 
@@ -138,6 +147,13 @@ setInterval(() => {
   for (const [key, value] of Array.from(successfulBindings.entries())) {
     if (now - value.timestamp > 24 * 60 * 60 * 1000) {
       successfulBindings.delete(key);
+    }
+  }
+  
+  // Clean old payment intent cache (keep for 24 hours to prevent replay)
+  for (const [key, value] of Array.from(paymentIntentCache.entries())) {
+    if (now - value.timestamp > 24 * 60 * 60 * 1000) {
+      paymentIntentCache.delete(key);
     }
   }
   
@@ -872,7 +888,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     async (req: any, res) => {
       try {
         const userId = req.user.claims.sub;
-        const { amount } = req.body; // USD amount, already validated
+        const { amount, idempotencyKey } = req.body; // USD amount, already validated
+        
+        // Generate idempotency key if not provided
+        const finalIdempotencyKey = idempotencyKey || `rwapawn_${userId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        
+        // Check for duplicate requests using idempotency key
+        const existingPayment = paymentIntentCache.get(finalIdempotencyKey);
+        if (existingPayment) {
+          // Return existing payment intent instead of creating duplicate
+          const existingPaymentIntent = await stripe.paymentIntents.retrieve(existingPayment.paymentIntentId);
+          
+          console.log('Returning existing payment intent for idempotency key:', {
+            userId,
+            idempotencyKey: finalIdempotencyKey,
+            paymentIntentId: existingPayment.paymentIntentId,
+            timestamp: new Date().toISOString()
+          });
+          
+          return res.json({
+            success: true,
+            clientSecret: existingPaymentIntent.client_secret,
+            purchaseId: existingPaymentIntent.metadata.purchaseId,
+            tokenAmount: parseFloat(existingPaymentIntent.metadata.tokenAmount),
+            exchangeRate: RWAPAWN_EXCHANGE_RATE,
+            usdAmount: amount,
+            duplicate: true
+          });
+        }
         
         // Calculate RWAPAWN token amount
         const tokenAmount = amount * RWAPAWN_EXCHANGE_RATE;
@@ -888,7 +931,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           status: 'pending'
         });
 
-        // Create Stripe payment intent
+        // Create Stripe payment intent with idempotency key
         const paymentIntent = await stripe.paymentIntents.create({
           amount: Math.round(amount * 100), // Convert to cents
           currency: 'usd',
@@ -897,11 +940,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
             purchaseId: purchase.id,
             tokenAmount: tokenAmount.toString(),
             exchangeRate: RWAPAWN_EXCHANGE_RATE.toString(),
-            type: 'rwapawn_purchase'
+            type: 'rwapawn_purchase',
+            idempotencyKey: finalIdempotencyKey,
+            timestamp: new Date().toISOString()
           },
           description: `Purchase ${tokenAmount} RWAPAWN tokens`,
+        }, {
+          idempotencyKey: finalIdempotencyKey
         });
 
+        // Cache payment intent to prevent duplicates
+        paymentIntentCache.set(finalIdempotencyKey, {
+          paymentIntentId: paymentIntent.id,
+          userId,
+          timestamp: Date.now()
+        });
+        
         // Update purchase record with payment intent ID
         await storage.updateRwapawnPurchaseStatus(purchase.id, 'pending');
         
@@ -967,6 +1021,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // Retrieve payment intent from Stripe to confirm payment status
         const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+        
+        // Enhanced security verification
+        if (!paymentIntent.metadata) {
+          return res.status(400).json({
+            success: false,
+            error: 'Payment intent metadata missing',
+            code: 'INVALID_PAYMENT_INTENT'
+          });
+        }
+        
+        // Verify payment intent belongs to current user
+        if (paymentIntent.metadata.userId !== userId) {
+          return res.status(403).json({
+            success: false,
+            error: 'Payment intent does not belong to current user',
+            code: 'UNAUTHORIZED_PAYMENT_ACCESS'
+          });
+        }
+        
+        // Verify payment intent matches our purchase record
+        if (paymentIntent.metadata.purchaseId !== purchaseId) {
+          return res.status(400).json({
+            success: false,
+            error: 'Payment intent purchase ID mismatch',
+            code: 'PURCHASE_ID_MISMATCH'
+          });
+        }
+        
+        // Verify payment intent type
+        if (paymentIntent.metadata.type !== 'rwapawn_purchase') {
+          return res.status(400).json({
+            success: false,
+            error: 'Invalid payment intent type',
+            code: 'INVALID_PAYMENT_TYPE'
+          });
+        }
         
         if (paymentIntent.status === 'succeeded') {
           // Update purchase status to completed
