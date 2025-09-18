@@ -91,7 +91,7 @@ export default function Navigation() {
             <div className="flex items-center space-x-1 sm:space-x-2 cursor-pointer" data-testid="logo">
               <Coins className="text-primary text-xl sm:text-2xl" />
               <span className="text-base sm:text-xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-                <span className="hidden sm:inline">ICP RWA Pawn</span>
+                <span className="hidden sm:inline">RWA PAWN</span>
                 <span className="sm:hidden">RWA Pawn</span>
               </span>
             </div>
