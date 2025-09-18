@@ -18,6 +18,7 @@ import Whitepaper from "@/pages/whitepaper";
 import Dashboard from "@/pages/dashboard";
 import Marketplace from "@/pages/marketplace";
 import Bridge from "@/pages/bridge";
+import Token from "@/pages/token";
 import Admin from "@/pages/admin";
 import NotFound from "@/pages/not-found";
 
@@ -39,6 +40,7 @@ function Router() {
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/marketplace" component={Marketplace} />
       <Route path="/bridge" component={Bridge} />
+      <Route path="/token" component={Token} />
       <Route path="/admin" component={Admin} />
       <Route component={NotFound} />
     </Switch>
