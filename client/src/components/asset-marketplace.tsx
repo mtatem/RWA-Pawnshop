@@ -149,7 +149,7 @@ export default function AssetMarketplace() {
               <SelectTrigger data-testid="filter-category" className="h-11 sm:h-10">
                 <SelectValue placeholder="All Categories" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-background dark:bg-black border-border dark:border-gray-800">
                 <SelectItem value="all">All Categories</SelectItem>
                 <SelectItem value="jewelry">💎 Jewelry</SelectItem>
                 <SelectItem value="art-collectibles">🎨 Art & Collectibles</SelectItem>
@@ -165,7 +165,7 @@ export default function AssetMarketplace() {
               <SelectTrigger data-testid="filter-sort" className="h-11 sm:h-10">
                 <SelectValue placeholder="Sort By" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-background dark:bg-black border-border dark:border-gray-800">
                 <SelectItem value="price-low">Price: Low to High</SelectItem>
                 <SelectItem value="price-high">Price: High to Low</SelectItem>
                 <SelectItem value="recent">Recently Added</SelectItem>
