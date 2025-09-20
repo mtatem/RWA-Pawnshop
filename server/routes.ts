@@ -52,7 +52,7 @@ if (!process.env.STRIPE_SECRET_KEY) {
   throw new Error('Missing required Stripe secret: STRIPE_SECRET_KEY');
 }
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: "2023-10-16",
+  apiVersion: "2025-08-27.basil",
 });
 
 // RWAPAWN token configuration
@@ -119,6 +119,7 @@ import { adminService } from "./services/admin-service";
 import { pricingQuerySchema } from "@shared/schema";
 import { db } from "./db";
 import { sql, eq, and } from "drizzle-orm";
+import { rwapawnPurchases } from "@shared/schema";
 
 // In-memory storage for wallet binding nonces (in production, use Redis)
 const bindingNonces = new Map<string, { nonce: string; userId: string; expires: number; walletType: string; challenge: string }>();
@@ -923,11 +924,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Create purchase record in database
         const purchase = await storage.createRwapawnPurchase({
           userId,
-          amount: amount.toString(),
+          amount: amount,
           purchaseType: 'credit_card',
           paymentReference: '', // Will be updated with Stripe payment intent ID
-          tokenAmount: tokenAmount.toString(),
-          exchangeRate: RWAPAWN_EXCHANGE_RATE.toString(),
+          tokenAmount: tokenAmount,
+          exchangeRate: RWAPAWN_EXCHANGE_RATE,
           status: 'pending'
         });
 
@@ -1913,7 +1914,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           category: query.category,
           // specifications: query.specifications || null, // Removed - not in schema
           estimatedValue: pricing.median.toString(),
-          confidence: pricing.confidence.toString(),
+          confidenceScore: pricing.confidence.toString(),
           methodology: pricing.methodology,
           sources: pricing.sources,
         });
@@ -2326,7 +2327,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Handle file filter errors
-      if (error.message?.includes('Unsupported file type')) {
+      if (error instanceof Error && error.message?.includes('Unsupported file type')) {
         return res.status(400).json({ error: error.message });
       }
       
