@@ -99,9 +99,9 @@ export default function BridgeMonitoring() {
   const queryClient = useQueryClient();
   
   // State for filters and selection
-  const [statusFilter, setStatusFilter] = useState<string>('');
-  const [directionFilter, setDirectionFilter] = useState<string>('');
-  const [tokenFilter, setTokenFilter] = useState<string>('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [directionFilter, setDirectionFilter] = useState<string>('all');
+  const [tokenFilter, setTokenFilter] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTransaction, setSelectedTransaction] = useState<BridgeTransaction | null>(null);
   const [isTransactionDetailOpen, setIsTransactionDetailOpen] = useState(false);
@@ -109,9 +109,9 @@ export default function BridgeMonitoring() {
   // Fetch bridge monitoring data
   const { data: bridgeData, isLoading, refetch } = useQuery<BridgeMonitoringData>({
     queryKey: ["/api/admin/bridge/monitoring", { 
-      status: statusFilter, 
-      direction: directionFilter,
-      token: tokenFilter 
+      status: statusFilter === 'all' ? '' : statusFilter, 
+      direction: directionFilter === 'all' ? '' : directionFilter,
+      token: tokenFilter === 'all' ? '' : tokenFilter 
     }],
     refetchInterval: 10000, // Refresh every 10 seconds for real-time monitoring
   });
@@ -491,7 +491,7 @@ export default function BridgeMonitoring() {
                 <SelectItem value="failed">Failed</SelectItem>
                 <SelectItem value="stuck">Stuck</SelectItem>
                 <SelectItem value="cancelled">Cancelled</SelectItem>
-                <SelectItem value="">All Statuses</SelectItem>
+                <SelectItem value="all">All Statuses</SelectItem>
               </SelectContent>
             </Select>
 
@@ -502,7 +502,7 @@ export default function BridgeMonitoring() {
               <SelectContent>
                 <SelectItem value="eth_to_icp">ETH → ICP</SelectItem>
                 <SelectItem value="icp_to_eth">ICP → ETH</SelectItem>
-                <SelectItem value="">All Directions</SelectItem>
+                <SelectItem value="all">All Directions</SelectItem>
               </SelectContent>
             </Select>
 
@@ -516,7 +516,7 @@ export default function BridgeMonitoring() {
                 <SelectItem value="USDC">USDC</SelectItem>
                 <SelectItem value="ckUSDC">ckUSDC</SelectItem>
                 <SelectItem value="ICP">ICP</SelectItem>
-                <SelectItem value="">All Tokens</SelectItem>
+                <SelectItem value="all">All Tokens</SelectItem>
               </SelectContent>
             </Select>
           </div>

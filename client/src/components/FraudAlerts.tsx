@@ -70,13 +70,13 @@ export default function FraudAlerts() {
   
   // State for filters and search
   const [statusFilter, setStatusFilter] = useState<string>('open');
-  const [severityFilter, setSeverityFilter] = useState<string>('');
+  const [severityFilter, setSeverityFilter] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedAlert, setSelectedAlert] = useState<FraudAlert | null>(null);
   
   // Fetch fraud alerts with filters
   const { data: fraudAlertsData, isLoading, refetch } = useQuery<FraudAlertsData>({
-    queryKey: ["/api/admin/alerts/fraud", { status: statusFilter, severity: severityFilter }],
+    queryKey: ["/api/admin/alerts/fraud", { status: statusFilter === 'all' ? '' : statusFilter, severity: severityFilter === 'all' ? '' : severityFilter }],
     refetchInterval: 30000, // Refresh every 30 seconds
   });
 
@@ -316,7 +316,7 @@ export default function FraudAlerts() {
                 <SelectItem value="investigating">Investigating</SelectItem>
                 <SelectItem value="resolved">Resolved</SelectItem>
                 <SelectItem value="false_positive">False Positive</SelectItem>
-                <SelectItem value="">All Statuses</SelectItem>
+                <SelectItem value="all">All Statuses</SelectItem>
               </SelectContent>
             </Select>
 
@@ -329,7 +329,7 @@ export default function FraudAlerts() {
                 <SelectItem value="high">High</SelectItem>
                 <SelectItem value="medium">Medium</SelectItem>
                 <SelectItem value="low">Low</SelectItem>
-                <SelectItem value="">All Severities</SelectItem>
+                <SelectItem value="all">All Severities</SelectItem>
               </SelectContent>
             </Select>
           </div>
