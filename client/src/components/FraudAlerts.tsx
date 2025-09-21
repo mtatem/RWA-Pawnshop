@@ -311,7 +311,7 @@ export default function FraudAlerts() {
               <SelectTrigger className="w-[180px]" data-testid="status-filter">
                 <SelectValue placeholder="Filter by status" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-background dark:bg-black border-border dark:border-gray-800">
                 <SelectItem value="open">Open</SelectItem>
                 <SelectItem value="investigating">Investigating</SelectItem>
                 <SelectItem value="resolved">Resolved</SelectItem>
@@ -324,7 +324,7 @@ export default function FraudAlerts() {
               <SelectTrigger className="w-[180px]" data-testid="severity-filter">
                 <SelectValue placeholder="Filter by severity" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-background dark:bg-black border-border dark:border-gray-800">
                 <SelectItem value="critical">Critical</SelectItem>
                 <SelectItem value="high">High</SelectItem>
                 <SelectItem value="medium">Medium</SelectItem>
