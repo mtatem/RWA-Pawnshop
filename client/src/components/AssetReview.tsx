@@ -113,7 +113,7 @@ export default function AssetReview() {
   // Create asset review mutation
   const createReviewMutation = useMutation({
     mutationFn: async ({ submissionId, reviewData }: { submissionId: string; reviewData: any }) => {
-      const response = await apiRequest("POST", `/api/admin/assets/${submissionId}/review`, reviewData);
+      const response = await adminApiRequest("POST", `/api/admin/assets/${submissionId}/review`, reviewData);
       return response.json();
     },
     onSuccess: () => {
@@ -135,7 +135,7 @@ export default function AssetReview() {
   // Update asset review mutation
   const updateReviewMutation = useMutation({
     mutationFn: async ({ reviewId, updates }: { reviewId: string; updates: any }) => {
-      const response = await apiRequest("PATCH", `/api/admin/assets/review/${reviewId}`, updates);
+      const response = await adminApiRequest("PATCH", `/api/admin/assets/review/${reviewId}`, updates);
       return response.json();
     },
     onSuccess: () => {
@@ -159,7 +159,7 @@ export default function AssetReview() {
   // Approve asset mutation
   const approveAssetMutation = useMutation({
     mutationFn: async ({ submissionId, reviewData }: { submissionId: string; reviewData: any }) => {
-      const response = await apiRequest("POST", `/api/admin/assets/${submissionId}/approve`, reviewData);
+      const response = await adminApiRequest("POST", `/api/admin/assets/${submissionId}/approve`, reviewData);
       return response.json();
     },
     onSuccess: () => {
@@ -182,7 +182,7 @@ export default function AssetReview() {
   // Reject asset mutation
   const rejectAssetMutation = useMutation({
     mutationFn: async ({ submissionId, reasoning }: { submissionId: string; reasoning: string }) => {
-      const response = await apiRequest("POST", `/api/admin/assets/${submissionId}/reject`, { reasoning });
+      const response = await adminApiRequest("POST", `/api/admin/assets/${submissionId}/reject`, { reasoning });
       return response.json();
     },
     onSuccess: () => {
