@@ -35,7 +35,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
+import { adminApiRequest, getAdminQueryFn } from "@/lib/queryClient";
 
 interface BridgeTransaction {
   id: string;
@@ -113,13 +113,14 @@ export default function BridgeMonitoring() {
       direction: directionFilter === 'all' ? '' : directionFilter,
       token: tokenFilter === 'all' ? '' : tokenFilter 
     }],
+    queryFn: getAdminQueryFn({ on401: "throw" }),
     refetchInterval: 10000, // Refresh every 10 seconds for real-time monitoring
   });
 
   // Retry bridge transaction mutation
   const retryTransactionMutation = useMutation({
     mutationFn: async (transactionId: string) => {
-      const response = await apiRequest("POST", `/api/bridge/retry/${transactionId}`, {});
+      const response = await adminApiRequest("POST", `/api/bridge/retry/${transactionId}`, {});
       return response.json();
     },
     onSuccess: () => {
@@ -141,7 +142,7 @@ export default function BridgeMonitoring() {
   // Cancel bridge transaction mutation
   const cancelTransactionMutation = useMutation({
     mutationFn: async (transactionId: string) => {
-      const response = await apiRequest("POST", `/api/bridge/cancel/${transactionId}`, {});
+      const response = await adminApiRequest("POST", `/api/bridge/cancel/${transactionId}`, {});
       return response.json();
     },
     onSuccess: () => {

@@ -25,7 +25,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
+import { adminApiRequest, getAdminQueryFn } from "@/lib/queryClient";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -77,13 +77,14 @@ export default function FraudAlerts() {
   // Fetch fraud alerts with filters
   const { data: fraudAlertsData, isLoading, refetch } = useQuery<FraudAlertsData>({
     queryKey: ["/api/admin/alerts/fraud", { status: statusFilter === 'all' ? '' : statusFilter, severity: severityFilter === 'all' ? '' : severityFilter }],
+    queryFn: getAdminQueryFn({ on401: "throw" }),
     refetchInterval: 30000, // Refresh every 30 seconds
   });
 
   // Create fraud alert mutation
   const createAlertMutation = useMutation({
     mutationFn: async (alertData: any) => {
-      const response = await apiRequest("POST", "/api/admin/alerts/fraud", alertData);
+      const response = await adminApiRequest("POST", "/api/admin/alerts/fraud", alertData);
       return response.json();
     },
     onSuccess: () => {
@@ -105,7 +106,7 @@ export default function FraudAlerts() {
   // Update fraud alert mutation
   const updateAlertMutation = useMutation({
     mutationFn: async ({ alertId, updates }: { alertId: string; updates: any }) => {
-      const response = await apiRequest("PATCH", `/api/admin/alerts/fraud/${alertId}`, updates);
+      const response = await adminApiRequest("PATCH", `/api/admin/alerts/fraud/${alertId}`, updates);
       return response.json();
     },
     onSuccess: () => {
