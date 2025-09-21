@@ -405,7 +405,7 @@ export default function UserManagement() {
               <SelectTrigger className="w-[180px]" data-testid="status-filter">
                 <SelectValue placeholder="Account status" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-background dark:bg-black border-border dark:border-gray-800">
                 <SelectItem value="active">Active</SelectItem>
                 <SelectItem value="suspended">Suspended</SelectItem>
                 <SelectItem value="restricted">Restricted</SelectItem>
@@ -418,7 +418,7 @@ export default function UserManagement() {
               <SelectTrigger className="w-[180px]" data-testid="verification-filter">
                 <SelectValue placeholder="Verification status" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-background dark:bg-black border-border dark:border-gray-800">
                 <SelectItem value="verified">Verified</SelectItem>
                 <SelectItem value="pending">Pending</SelectItem>
                 <SelectItem value="rejected">Rejected</SelectItem>
@@ -431,7 +431,7 @@ export default function UserManagement() {
               <SelectTrigger className="w-[180px]" data-testid="flag-filter">
                 <SelectValue placeholder="Flag status" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-background dark:bg-black border-border dark:border-gray-800">
                 <SelectItem value="flagged">Flagged Users</SelectItem>
                 <SelectItem value="unflagged">Clean Users</SelectItem>
                 <SelectItem value="all">All Users</SelectItem>
@@ -740,7 +740,7 @@ export default function UserManagement() {
                                                       <SelectValue placeholder="Select flag type" />
                                                     </SelectTrigger>
                                                   </FormControl>
-                                                  <SelectContent>
+                                                  <SelectContent className="bg-background dark:bg-black border-border dark:border-gray-800">
                                                     <SelectItem value="fraud_suspicion">Fraud Suspicion</SelectItem>
                                                     <SelectItem value="document_issues">Document Issues</SelectItem>
                                                     <SelectItem value="kyc_failure">KYC Failure</SelectItem>
@@ -765,7 +765,7 @@ export default function UserManagement() {
                                                       <SelectValue />
                                                     </SelectTrigger>
                                                   </FormControl>
-                                                  <SelectContent>
+                                                  <SelectContent className="bg-background dark:bg-black border-border dark:border-gray-800">
                                                     <SelectItem value="low">Low</SelectItem>
                                                     <SelectItem value="medium">Medium</SelectItem>
                                                     <SelectItem value="high">High</SelectItem>
