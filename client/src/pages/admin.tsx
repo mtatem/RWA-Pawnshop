@@ -1,3 +1,5 @@
+import { useState, useEffect } from "react";
+import { useLocation } from "wouter";
 import Navigation from "@/components/navigation";
 import AdminPanel from "@/components/admin-panel";
 import AdminDocumentQueue from "@/components/admin-document-queue";
@@ -8,8 +10,62 @@ import UserManagement from "@/components/UserManagement";
 import BridgeMonitoring from "@/components/BridgeMonitoring";
 import Footer from "@/components/footer";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card } from "@/components/ui/card";
 
 export default function Admin() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [, setLocation] = useLocation();
+
+  useEffect(() => {
+    const checkAdminAuth = async () => {
+      const adminToken = localStorage.getItem('adminToken');
+      
+      if (!adminToken) {
+        setLocation('/admin-login');
+        return;
+      }
+
+      try {
+        const response = await fetch('/api/admin/verify', {
+          headers: {
+            'Authorization': `Bearer ${adminToken}`
+          }
+        });
+
+        if (response.ok) {
+          setIsAuthenticated(true);
+        } else {
+          localStorage.removeItem('adminToken');
+          setLocation('/admin-login');
+        }
+      } catch (error) {
+        localStorage.removeItem('adminToken');
+        setLocation('/admin-login');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    checkAdminAuth();
+  }, [setLocation]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+        <Navigation />
+        <div className="container mx-auto px-4 py-8">
+          <Card className="p-8 text-center">
+            <div className="text-lg">Verifying admin access...</div>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return null; // Will redirect to login
+  }
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <Navigation />

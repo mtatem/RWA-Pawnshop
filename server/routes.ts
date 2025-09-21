@@ -120,6 +120,7 @@ import { pricingQuerySchema } from "@shared/schema";
 import { db } from "./db";
 import { sql, eq, and } from "drizzle-orm";
 import { rwapawnPurchases } from "@shared/schema";
+import { verifyAdminCredentials, generateAdminToken, requireAdminAuth } from "./admin-auth";
 
 // In-memory storage for wallet binding nonces (in production, use Redis)
 const bindingNonces = new Map<string, { nonce: string; userId: string; expires: number; walletType: string; challenge: string }>();
@@ -308,6 +309,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     }
   );
+
+  // Admin Authentication Routes
+  app.post('/api/admin/login', async (req, res) => {
+    try {
+      const { username, password } = req.body;
+
+      if (!username || !password) {
+        return res.status(400).json({
+          success: false,
+          error: 'Username and password are required',
+          code: 'MISSING_CREDENTIALS'
+        });
+      }
+
+      if (verifyAdminCredentials(username, password)) {
+        const token = generateAdminToken(username);
+        res.json({
+          success: true,
+          token,
+          admin: { username, isAdmin: true }
+        });
+      } else {
+        // Add delay to prevent brute force attacks
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        res.status(401).json({
+          success: false,
+          error: 'Invalid admin credentials',
+          code: 'INVALID_CREDENTIALS'
+        });
+      }
+    } catch (error) {
+      console.error('Admin login error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Login failed',
+        code: 'LOGIN_ERROR'
+      });
+    }
+  });
+
+  // Admin verification endpoint
+  app.get('/api/admin/verify', requireAdminAuth, async (req: any, res) => {
+    res.json({
+      success: true,
+      admin: req.adminUser
+    });
+  });
 
   // User routes with comprehensive validation
   app.post("/api/users", 
