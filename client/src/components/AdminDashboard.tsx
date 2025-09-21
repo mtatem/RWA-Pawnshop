@@ -143,7 +143,7 @@ export default function AdminDashboard() {
     );
   }
 
-  const stats: EnhancedAdminStats = adminStats || {
+  const stats: EnhancedAdminStats = (adminStats as EnhancedAdminStats) || {
     overview: { pendingApprovals: 0, activeLoans: 0, expiringSoon: 0, totalRevenue: "0", monthlyGrowth: "0", userCount: 0, avgLoanValue: "0" },
     security: { openFraudAlerts: 0, criticalAlerts: 0, flaggedUsers: 0, suspiciousDocuments: 0, fraudPrevented: "0" },
     operations: { pendingDocuments: 0, processingDocuments: 0, completedToday: 0, avgProcessingTime: 0, manualReviewRequired: 0 },
@@ -501,7 +501,7 @@ export default function AdminDashboard() {
       </Tabs>
 
       {/* Performance Metrics Section */}
-      {performanceMetrics && performanceMetrics.metrics && performanceMetrics.metrics.length > 0 && (
+      {performanceMetrics && (performanceMetrics as any)?.metrics && (performanceMetrics as any).metrics.length > 0 && (
         <Card data-testid="performance-metrics">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -514,7 +514,7 @@ export default function AdminDashboard() {
           </CardHeader>
           <CardContent>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {performanceMetrics.metrics.slice(0, 6).map((metric: PerformanceMetric) => (
+              {((performanceMetrics as any)?.metrics || []).slice(0, 6).map((metric: PerformanceMetric) => (
                 <div key={metric.id} className="flex items-center justify-between p-3 border rounded-lg">
                   <div>
                     <p className="font-medium text-sm">{metric.metricName.replace(/_/g, ' ')}</p>
