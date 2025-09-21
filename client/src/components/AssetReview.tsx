@@ -368,7 +368,7 @@ export default function AssetReview() {
               <SelectTrigger className="w-[180px]" data-testid="status-filter">
                 <SelectValue placeholder="Filter by status" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-background dark:bg-black border-border dark:border-gray-800">
                 <SelectItem value="pending">Pending</SelectItem>
                 <SelectItem value="in_progress">In Progress</SelectItem>
                 <SelectItem value="completed">Completed</SelectItem>
@@ -381,7 +381,7 @@ export default function AssetReview() {
               <SelectTrigger className="w-[180px]" data-testid="priority-filter">
                 <SelectValue placeholder="Filter by priority" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-background dark:bg-black border-border dark:border-gray-800">
                 <SelectItem value="urgent">Urgent</SelectItem>
                 <SelectItem value="high">High</SelectItem>
                 <SelectItem value="medium">Medium</SelectItem>
@@ -394,7 +394,7 @@ export default function AssetReview() {
               <SelectTrigger className="w-[180px]" data-testid="category-filter">
                 <SelectValue placeholder="Filter by category" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-background dark:bg-black border-border dark:border-gray-800">
                 <SelectItem value="jewelry">Jewelry</SelectItem>
                 <SelectItem value="watches">Watches</SelectItem>
                 <SelectItem value="art">Art</SelectItem>

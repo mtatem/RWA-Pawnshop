@@ -484,7 +484,7 @@ export default function BridgeMonitoring() {
               <SelectTrigger className="w-[180px]" data-testid="status-filter">
                 <SelectValue placeholder="Filter by status" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-background dark:bg-black border-border dark:border-gray-800">
                 <SelectItem value="pending">Pending</SelectItem>
                 <SelectItem value="processing">Processing</SelectItem>
                 <SelectItem value="completed">Completed</SelectItem>
@@ -499,7 +499,7 @@ export default function BridgeMonitoring() {
               <SelectTrigger className="w-[180px]" data-testid="direction-filter">
                 <SelectValue placeholder="Filter by direction" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-background dark:bg-black border-border dark:border-gray-800">
                 <SelectItem value="eth_to_icp">ETH → ICP</SelectItem>
                 <SelectItem value="icp_to_eth">ICP → ETH</SelectItem>
                 <SelectItem value="all">All Directions</SelectItem>
@@ -510,7 +510,7 @@ export default function BridgeMonitoring() {
               <SelectTrigger className="w-[180px]" data-testid="token-filter">
                 <SelectValue placeholder="Filter by token" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-background dark:bg-black border-border dark:border-gray-800">
                 <SelectItem value="ETH">ETH</SelectItem>
                 <SelectItem value="ckETH">ckETH</SelectItem>
                 <SelectItem value="USDC">USDC</SelectItem>
