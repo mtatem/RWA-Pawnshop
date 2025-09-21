@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Clock, Handshake, TriangleAlert, TrendingUp, Gavel, Eye, Check, X } from "lucide-react";
+import { Clock, HandHeart, TriangleAlert, TrendingUp, Gavel, Eye, Check, X } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -149,7 +149,7 @@ export default function AdminPanel() {
                   {stats?.activeLoans || 0}
                 </p>
               </div>
-              <Handshake className="text-lg sm:text-2xl text-secondary" />
+              <HandHeart className="text-lg sm:text-2xl text-secondary" />
             </div>
           </Card>
 
