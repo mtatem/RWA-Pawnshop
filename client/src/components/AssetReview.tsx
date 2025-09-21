@@ -87,8 +87,8 @@ export default function AssetReview() {
   
   // State for filters and selection
   const [statusFilter, setStatusFilter] = useState<string>('pending');
-  const [priorityFilter, setPriorityFilter] = useState<string>('');
-  const [categoryFilter, setCategoryFilter] = useState<string>('');
+  const [priorityFilter, setPriorityFilter] = useState<string>('all');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [selectedReview, setSelectedReview] = useState<AssetReview | null>(null);
   const [isReviewDialogOpen, setIsReviewDialogOpen] = useState(false);
 
@@ -106,7 +106,7 @@ export default function AssetReview() {
 
   // Fetch pending asset reviews
   const { data: assetReviewData, isLoading, refetch } = useQuery<AssetReviewData>({
-    queryKey: ["/api/admin/assets/pending", { status: statusFilter, priority: priorityFilter }],
+    queryKey: ["/api/admin/assets/pending", { status: statusFilter === 'all' ? '' : statusFilter, priority: priorityFilter === 'all' ? '' : priorityFilter }],
     refetchInterval: 30000, // Refresh every 30 seconds
   });
 
@@ -286,7 +286,7 @@ export default function AssetReview() {
   };
 
   const filteredReviews = assetReviewData?.reviews?.filter(review => {
-    const matchesCategory = !categoryFilter || review.submission?.category === categoryFilter;
+    const matchesCategory = !categoryFilter || categoryFilter === 'all' || review.submission?.category === categoryFilter;
     return matchesCategory;
   }) || [];
 
@@ -373,7 +373,7 @@ export default function AssetReview() {
                 <SelectItem value="in_progress">In Progress</SelectItem>
                 <SelectItem value="completed">Completed</SelectItem>
                 <SelectItem value="escalated">Escalated</SelectItem>
-                <SelectItem value="">All Statuses</SelectItem>
+                <SelectItem value="all">All Statuses</SelectItem>
               </SelectContent>
             </Select>
 
@@ -386,7 +386,7 @@ export default function AssetReview() {
                 <SelectItem value="high">High</SelectItem>
                 <SelectItem value="medium">Medium</SelectItem>
                 <SelectItem value="low">Low</SelectItem>
-                <SelectItem value="">All Priorities</SelectItem>
+                <SelectItem value="all">All Priorities</SelectItem>
               </SelectContent>
             </Select>
 
@@ -400,7 +400,7 @@ export default function AssetReview() {
                 <SelectItem value="art">Art</SelectItem>
                 <SelectItem value="collectibles">Collectibles</SelectItem>
                 <SelectItem value="vehicles">Vehicles</SelectItem>
-                <SelectItem value="">All Categories</SelectItem>
+                <SelectItem value="all">All Categories</SelectItem>
               </SelectContent>
             </Select>
           </div>
