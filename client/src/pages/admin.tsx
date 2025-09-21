@@ -71,7 +71,7 @@ export default function Admin() {
       <Navigation />
       <div className="container mx-auto px-4 py-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
+          <h1 className="text-3xl font-bold tracking-tight dark:text-white text-[#ffffff]">
             Admin Dashboard
           </h1>
           <p className="text-muted-foreground">
