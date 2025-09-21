@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { getAdminQueryFn } from "@/lib/queryClient";
 import { 
   Activity, 
   AlertTriangle, 
@@ -75,12 +76,14 @@ export default function AdminDashboard() {
   // Fetch comprehensive admin KPIs
   const { data: adminStats, isLoading: statsLoading, refetch: refetchStats } = useQuery({
     queryKey: ["/api/admin/dashboard/kpis"],
+    queryFn: getAdminQueryFn({ on401: "throw" }),
     refetchInterval: refreshInterval,
   });
 
   // Fetch recent performance metrics
   const { data: performanceMetrics, isLoading: metricsLoading } = useQuery({
     queryKey: ["/api/admin/dashboard/metrics"],
+    queryFn: getAdminQueryFn({ on401: "throw" }),
     refetchInterval: refreshInterval,
   });
 
