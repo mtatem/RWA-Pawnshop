@@ -1284,7 +1284,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/rwa-submissions/pending", isAuthenticated, isAdmin, async (req, res) => {
+  app.get("/api/rwa-submissions/pending", requireAdminAuth, async (req: any, res) => {
     try {
       const submissions = await storage.getPendingRwaSubmissions();
       res.json(submissions);
@@ -1294,7 +1294,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/rwa-submissions/:id/status", isAuthenticated, isAdmin, async (req, res) => {
+  app.patch("/api/rwa-submissions/:id/status", requireAdminAuth, async (req: any, res) => {
     try {
       const { status, adminNotes, reviewedBy } = req.body;
       
@@ -1411,7 +1411,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/marketplace/assets", isAuthenticated, isAdmin, async (req, res) => {
+  app.post("/api/marketplace/assets", requireAdminAuth, async (req: any, res) => {
     try {
       const assetData = insertMarketplaceAssetSchema.parse(req.body);
       const asset = await storage.createMarketplaceAsset(assetData);
@@ -1678,7 +1678,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin routes
-  app.get("/api/admin/stats", isAuthenticated, isAdmin, async (req, res) => {
+  app.get("/api/admin/stats", requireAdminAuth, async (req: any, res) => {
     try {
       const stats = await storage.getAdminStats();
       res.json(stats);
@@ -1700,7 +1700,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Mock endpoint for expired loans to marketplace conversion
-  app.post("/api/admin/process-expired-loans", isAuthenticated, isAdmin, async (req, res) => {
+  app.post("/api/admin/process-expired-loans", requireAdminAuth, async (req: any, res) => {
     try {
       // Get expired loans
       const expiredLoans = await storage.getExpiringPawnLoans(-1); // Already expired
@@ -2162,7 +2162,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin endpoint to clear expired pricing cache
-  app.delete("/api/pricing/cache", isAuthenticated, isAdmin, async (req: any, res) => {
+  app.delete("/api/pricing/cache", requireAdminAuth, async (req: any, res) => {
     try {
       const deletedCount = await storage.clearExpiredPricingCache();
       res.json({ 
@@ -2176,7 +2176,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Enhanced admin endpoint to get comprehensive pricing service statistics
-  app.get("/api/pricing/stats", isAuthenticated, isAdmin, async (req: any, res) => {
+  app.get("/api/pricing/stats", requireAdminAuth, async (req: any, res) => {
     try {
       const memoryCache = pricingService.getCacheStats();
       
@@ -2212,7 +2212,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin endpoint to clear specific cache entries
-  app.delete("/api/pricing/cache/:category", isAuthenticated, isAdmin, async (req: any, res) => {
+  app.delete("/api/pricing/cache/:category", requireAdminAuth, async (req: any, res) => {
     try {
       const { category } = req.params;
       const { symbol, itemType } = req.query;
@@ -2242,7 +2242,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin endpoint to reset circuit breakers
-  app.post("/api/pricing/circuit-breaker/reset", isAuthenticated, isAdmin, async (req: any, res) => {
+  app.post("/api/pricing/circuit-breaker/reset", requireAdminAuth, async (req: any, res) => {
     try {
       const { service } = req.body;
       
@@ -2489,7 +2489,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Admin endpoints
   
   // Get pending documents analysis queue
-  app.get("/api/admin/documents/queue", isAuthenticated, isAdmin, async (req: any, res) => {
+  app.get("/api/admin/documents/queue", requireAdminAuth, async (req: any, res) => {
     try {
       const queue = await documentAnalysisService.getAnalysisQueue();
       
@@ -2506,7 +2506,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Process queued document (admin trigger)
-  app.post("/api/admin/documents/queue/:queueId/process", isAuthenticated, isAdmin, async (req: any, res) => {
+  app.post("/api/admin/documents/queue/:queueId/process", requireAdminAuth, async (req: any, res) => {
     try {
       const queueId = req.params.queueId;
       
@@ -2520,7 +2520,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Batch analyze documents
-  app.post("/api/admin/documents/batch-analyze", isAuthenticated, isAdmin, async (req: any, res) => {
+  app.post("/api/admin/documents/batch-analyze", requireAdminAuth, async (req: any, res) => {
     try {
       const { documentIds, analysisOptions } = req.body;
       
@@ -2541,7 +2541,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Get analysis statistics (admin)
-  app.get("/api/admin/documents/stats", isAuthenticated, isAdmin, async (req: any, res) => {
+  app.get("/api/admin/documents/stats", requireAdminAuth, async (req: any, res) => {
     try {
       // Get document analysis statistics from database
       const stats = await db.select({
@@ -2577,7 +2577,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ENHANCED ADMIN DASHBOARD API ENDPOINTS
 
   // Dashboard KPIs and Analytics
-  app.get("/api/admin/dashboard/kpis", isAuthenticated, isAdmin, async (req: any, res) => {
+  app.get("/api/admin/dashboard/kpis", requireAdminAuth, async (req: any, res) => {
     try {
       const kpis = await adminService.getDashboardKPIs();
       
@@ -2593,7 +2593,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Calculate Performance Metrics
-  app.post("/api/admin/dashboard/metrics/calculate", isAuthenticated, isAdmin, async (req: any, res) => {
+  app.post("/api/admin/dashboard/metrics/calculate", requireAdminAuth, async (req: any, res) => {
     try {
       const { category, period } = req.body;
       
@@ -2615,7 +2615,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get Performance Metrics
-  app.get("/api/admin/dashboard/metrics", isAuthenticated, isAdmin, async (req: any, res) => {
+  app.get("/api/admin/dashboard/metrics", requireAdminAuth, async (req: any, res) => {
     try {
       const filters = req.query;
       const result = await storage.getPerformanceMetrics(filters);
@@ -2629,7 +2629,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // FRAUD DETECTION AND ALERTS
 
   // Get Active Fraud Alerts
-  app.get("/api/admin/alerts/fraud", isAuthenticated, isAdmin, async (req: any, res) => {
+  app.get("/api/admin/alerts/fraud", requireAdminAuth, async (req: any, res) => {
     try {
       const filters = req.query;
       const result = await adminService.getActiveFraudAlerts(filters);
@@ -2646,7 +2646,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create Fraud Alert
-  app.post("/api/admin/alerts/fraud", isAuthenticated, isAdmin, async (req: any, res) => {
+  app.post("/api/admin/alerts/fraud", requireAdminAuth, async (req: any, res) => {
     try {
       const alertData = req.body;
       const adminId = req.user.claims.sub;
@@ -2669,7 +2669,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update Fraud Alert
-  app.patch("/api/admin/alerts/fraud/:alertId", isAuthenticated, isAdmin, async (req: any, res) => {
+  app.patch("/api/admin/alerts/fraud/:alertId", requireAdminAuth, async (req: any, res) => {
     try {
       const { alertId } = req.params;
       const updates = req.body;
@@ -2689,7 +2689,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get Fraud Alert Details
-  app.get("/api/admin/alerts/fraud/:alertId", isAuthenticated, isAdmin, async (req: any, res) => {
+  app.get("/api/admin/alerts/fraud/:alertId", requireAdminAuth, async (req: any, res) => {
     try {
       const { alertId } = req.params;
       const alert = await storage.getFraudAlert(alertId);
@@ -2708,7 +2708,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ASSET REVIEW WORKFLOWS
 
   // Get Pending Asset Reviews
-  app.get("/api/admin/assets/pending", isAuthenticated, isAdmin, async (req: any, res) => {
+  app.get("/api/admin/assets/pending", requireAdminAuth, async (req: any, res) => {
     try {
       const filters = req.query;
       const result = await adminService.getPendingAssetReviews(filters);
@@ -2725,7 +2725,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create Asset Review
-  app.post("/api/admin/assets/:submissionId/review", isAuthenticated, isAdmin, async (req: any, res) => {
+  app.post("/api/admin/assets/:submissionId/review", requireAdminAuth, async (req: any, res) => {
     try {
       const { submissionId } = req.params;
       const { reviewType, priority } = req.body;
@@ -2749,7 +2749,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update Asset Review Decision
-  app.patch("/api/admin/assets/review/:reviewId", isAuthenticated, isAdmin, async (req: any, res) => {
+  app.patch("/api/admin/assets/review/:reviewId", requireAdminAuth, async (req: any, res) => {
     try {
       const { reviewId } = req.params;
       const updates = req.body;
@@ -2769,7 +2769,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Approve Asset Submission
-  app.post("/api/admin/assets/:submissionId/approve", isAuthenticated, isAdmin, async (req: any, res) => {
+  app.post("/api/admin/assets/:submissionId/approve", requireAdminAuth, async (req: any, res) => {
     try {
       const { submissionId } = req.params;
       const { estimatedValue, reasoning, conditions } = req.body;
@@ -2800,7 +2800,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Reject Asset Submission
-  app.post("/api/admin/assets/:submissionId/reject", isAuthenticated, isAdmin, async (req: any, res) => {
+  app.post("/api/admin/assets/:submissionId/reject", requireAdminAuth, async (req: any, res) => {
     try {
       const { submissionId } = req.params;
       const { reasoning } = req.body;
@@ -2836,7 +2836,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // USER MANAGEMENT AND FLAGS
 
   // Get Flagged Users
-  app.get("/api/admin/users/flagged", isAuthenticated, isAdmin, async (req: any, res) => {
+  app.get("/api/admin/users/flagged", requireAdminAuth, async (req: any, res) => {
     try {
       const filters = req.query;
       const result = await adminService.getFlaggedUsers(filters);
@@ -2853,7 +2853,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Flag User Account
-  app.post("/api/admin/users/:userId/flag", isAuthenticated, isAdmin, async (req: any, res) => {
+  app.post("/api/admin/users/:userId/flag", requireAdminAuth, async (req: any, res) => {
     try {
       const { userId } = req.params;
       const flagData = { ...req.body, userId };
@@ -2877,7 +2877,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update User Flag
-  app.patch("/api/admin/users/flags/:flagId", isAuthenticated, isAdmin, async (req: any, res) => {
+  app.patch("/api/admin/users/flags/:flagId", requireAdminAuth, async (req: any, res) => {
     try {
       const { flagId } = req.params;
       const updates = req.body;
@@ -2906,7 +2906,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Restrict User Account
-  app.post("/api/admin/users/:userId/restrict", isAuthenticated, isAdmin, async (req: any, res) => {
+  app.post("/api/admin/users/:userId/restrict", requireAdminAuth, async (req: any, res) => {
     try {
       const { userId } = req.params;
       const { restrictions, reason } = req.body;
@@ -2943,7 +2943,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // BRIDGE MONITORING
 
   // Get Bridge Monitoring Data
-  app.get("/api/admin/bridge/monitoring", isAuthenticated, isAdmin, async (req: any, res) => {
+  app.get("/api/admin/bridge/monitoring", requireAdminAuth, async (req: any, res) => {
     try {
       const filters = req.query;
       const result = await adminService.getBridgeMonitoringData(filters);
@@ -2960,7 +2960,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get Bridge Transaction Details
-  app.get("/api/admin/bridge/transactions/:txId", isAuthenticated, isAdmin, async (req: any, res) => {
+  app.get("/api/admin/bridge/transactions/:txId", requireAdminAuth, async (req: any, res) => {
     try {
       const { txId } = req.params;
       const transaction = await storage.getBridgeTransaction(txId);
@@ -2979,7 +2979,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ADMIN ACTIONS AND AUDIT TRAIL
 
   // Get Admin Actions (Audit Trail)
-  app.get("/api/admin/actions", isAuthenticated, isAdmin, async (req: any, res) => {
+  app.get("/api/admin/actions", requireAdminAuth, async (req: any, res) => {
     try {
       const filters = req.query;
       const result = await storage.getAdminActions(filters);
@@ -2991,7 +2991,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get Admin Actions for Specific Target
-  app.get("/api/admin/actions/:targetType/:targetId", isAuthenticated, isAdmin, async (req: any, res) => {
+  app.get("/api/admin/actions/:targetType/:targetId", requireAdminAuth, async (req: any, res) => {
     try {
       const { targetType, targetId } = req.params;
       const actions = await storage.getAdminActionsByTarget(targetType, targetId);
