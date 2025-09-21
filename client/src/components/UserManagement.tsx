@@ -101,8 +101,8 @@ export default function UserManagement() {
   
   // State for filters and selection
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('');
-  const [verificationFilter, setVerificationFilter] = useState<string>('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [verificationFilter, setVerificationFilter] = useState<string>('all');
   const [flagFilter, setFlagFilter] = useState<string>('flagged');
   const [selectedUser, setSelectedUser] = useState<UserAccount | null>(null);
   const [isUserDetailOpen, setIsUserDetailOpen] = useState(false);
@@ -132,9 +132,9 @@ export default function UserManagement() {
   // Fetch user management data
   const { data: userManagementData, isLoading, refetch } = useQuery<UserManagementData>({
     queryKey: ["/api/admin/users/flagged", { 
-      status: statusFilter, 
-      verification: verificationFilter, 
-      flagged: flagFilter 
+      status: statusFilter === 'all' ? '' : statusFilter, 
+      verification: verificationFilter === 'all' ? '' : verificationFilter, 
+      flagged: flagFilter === 'all' ? '' : flagFilter 
     }],
     refetchInterval: 30000, // Refresh every 30 seconds
   });
@@ -410,7 +410,7 @@ export default function UserManagement() {
                 <SelectItem value="suspended">Suspended</SelectItem>
                 <SelectItem value="restricted">Restricted</SelectItem>
                 <SelectItem value="banned">Banned</SelectItem>
-                <SelectItem value="">All Statuses</SelectItem>
+                <SelectItem value="all">All Statuses</SelectItem>
               </SelectContent>
             </Select>
 
@@ -423,7 +423,7 @@ export default function UserManagement() {
                 <SelectItem value="pending">Pending</SelectItem>
                 <SelectItem value="rejected">Rejected</SelectItem>
                 <SelectItem value="unverified">Unverified</SelectItem>
-                <SelectItem value="">All Statuses</SelectItem>
+                <SelectItem value="all">All Statuses</SelectItem>
               </SelectContent>
             </Select>
 
@@ -434,7 +434,7 @@ export default function UserManagement() {
               <SelectContent>
                 <SelectItem value="flagged">Flagged Users</SelectItem>
                 <SelectItem value="unflagged">Clean Users</SelectItem>
-                <SelectItem value="">All Users</SelectItem>
+                <SelectItem value="all">All Users</SelectItem>
               </SelectContent>
             </Select>
           </div>
