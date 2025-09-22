@@ -55,7 +55,6 @@ export default function Navigation() {
     { href: "/dashboard", label: "Dashboard" },
     { href: "/marketplace", label: "Marketplace" },
     { href: "/bridge", label: "Bridge" },
-    { href: "/token", label: "RWAPAWN Token" },
   ];
 
   // Only show admin menu to authenticated admin users
