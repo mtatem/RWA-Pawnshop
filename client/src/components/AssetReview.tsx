@@ -30,6 +30,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
+import { adminApiRequest, getAdminQueryFn } from "@/lib/queryClient";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useForm } from "react-hook-form";
 
@@ -106,6 +107,7 @@ export default function AssetReview() {
   // Fetch pending asset reviews
   const { data: assetReviewData, isLoading, refetch } = useQuery<AssetReviewData>({
     queryKey: ["/api/admin/assets/pending", { status: statusFilter === 'all' ? '' : statusFilter, priority: priorityFilter === 'all' ? '' : priorityFilter }],
+    queryFn: getAdminQueryFn({ on401: "throw" }),
     refetchInterval: 30000, // Refresh every 30 seconds
   });
 
@@ -341,7 +343,7 @@ export default function AssetReview() {
       </div>
 
       {/* Summary Cards */}
-      {assetReviewData?.breakdown && (
+      {assetReviewData?.breakdown?.byStatus && (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {Object.entries(assetReviewData.breakdown.byStatus).map(([status, count]) => (
             <Card key={status} data-testid={`status-card-${status}`}>
