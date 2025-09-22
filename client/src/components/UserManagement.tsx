@@ -367,7 +367,7 @@ export default function UserManagement() {
       </div>
 
       {/* Summary Cards */}
-      {userManagementData?.breakdown && (
+      {userManagementData?.breakdown?.byAccountStatus && (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {Object.entries(userManagementData.breakdown.byAccountStatus).map(([status, count]) => (
             <Card key={status} data-testid={`status-card-${status}`}>
