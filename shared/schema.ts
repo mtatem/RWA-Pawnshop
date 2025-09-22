@@ -1698,6 +1698,10 @@ export type FraudDetectionConfig = z.infer<typeof fraudDetectionConfigSchema>;
 export type BatchDocumentAnalysis = z.infer<typeof batchDocumentAnalysisSchema>;
 export type DocumentSearch = z.infer<typeof documentSearchSchema>;
 
+// KYC types
+export type KycInformation = typeof kycInformation.$inferSelect;
+export type InsertKycInformation = typeof kycInformation.$inferInsert;
+
 // Admin Management types
 export type AdminAction = typeof adminActions.$inferSelect;
 export type InsertAdminAction = z.infer<typeof insertAdminActionSchema>;

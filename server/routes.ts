@@ -799,6 +799,204 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   );
 
+  // KYC Information endpoints
+  app.get("/api/user/kyc", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      const kycInfo = await storage.getKycInformation(userId);
+      
+      if (!kycInfo) {
+        return res.json(successResponse(null, 'No KYC information found'));
+      }
+      
+      // Return KYC info without sensitive encrypted data
+      const sanitizedKyc = {
+        id: kycInfo.id,
+        userId: kycInfo.userId,
+        documentType: kycInfo.documentType,
+        documentCountry: kycInfo.documentCountry,
+        status: kycInfo.status,
+        submittedAt: kycInfo.submittedAt,
+        reviewedAt: kycInfo.reviewedAt,
+        reviewNotes: kycInfo.reviewNotes,
+        rejectionReason: kycInfo.rejectionReason
+      };
+      
+      res.json(successResponse(sanitizedKyc));
+    } catch (error) {
+      console.error("Error fetching KYC information:", {
+        userId: req.user?.claims?.sub,
+        error: error instanceof Error ? error.message : error,
+        timestamp: new Date().toISOString(),
+        ip: req.ip
+      });
+      res.status(500).json({
+        success: false,
+        error: "Failed to fetch KYC information",
+        code: 'INTERNAL_ERROR',
+        timestamp: new Date().toISOString()
+      });
+    }
+  });
+
+  // KYC submission with file uploads
+  const kycUpload = multer({
+    limits: {
+      fileSize: 10 * 1024 * 1024, // 10MB per file
+      files: 3 // Maximum 3 files (document front, back, selfie)
+    },
+    fileFilter: (req, file, cb) => {
+      // Only allow image files
+      if (file.mimetype.startsWith('image/')) {
+        cb(null, true);
+      } else {
+        cb(new Error('Only image files are allowed'));
+      }
+    }
+  });
+
+  const kycSubmissionSchema = z.object({
+    documentType: z.enum(['passport', 'drivers_license', 'national_id']),
+    documentNumber: z.string().min(1).max(50),
+    documentCountry: z.string().min(2).max(3),
+    fullName: z.string().min(1).max(100),
+    dateOfBirth: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    nationality: z.string().min(1).max(100),
+    occupation: z.string().min(1).max(100),
+    sourceOfFunds: z.enum(['employment', 'business_ownership', 'investments', 'inheritance', 'savings', 'pension', 'other']),
+    annualIncome: z.enum(['under_25k', '25k_50k', '50k_100k', '100k_250k', '250k_500k', 'over_500k'])
+  });
+
+  app.post("/api/user/kyc", 
+    isAuthenticated, 
+    kycUpload.fields([
+      { name: 'documentImage', maxCount: 1 },
+      { name: 'documentBackImage', maxCount: 1 },
+      { name: 'selfieImage', maxCount: 1 }
+    ]),
+    async (req: any, res) => {
+      try {
+        const userId = req.user.claims.sub;
+        
+        // Check if KYC already exists and is not rejected
+        const existingKyc = await storage.getKycInformation(userId);
+        if (existingKyc && existingKyc.status !== 'rejected') {
+          return res.status(409).json({
+            success: false,
+            error: "KYC information already submitted",
+            code: 'KYC_ALREADY_EXISTS',
+            timestamp: new Date().toISOString()
+          });
+        }
+
+        // Validate form data
+        const formData = kycSubmissionSchema.parse(req.body);
+        
+        // Validate required files
+        if (!req.files?.documentImage) {
+          return res.status(400).json({
+            success: false,
+            error: "Document image is required",
+            code: 'MISSING_DOCUMENT_IMAGE',
+            timestamp: new Date().toISOString()
+          });
+        }
+        
+        if (!req.files?.selfieImage) {
+          return res.status(400).json({
+            success: false,
+            error: "Selfie image is required",
+            code: 'MISSING_SELFIE_IMAGE',
+            timestamp: new Date().toISOString()
+          });
+        }
+
+        // For now, store file names as placeholders (in production, these would be uploaded to secure storage)
+        const documentImageFile = req.files.documentImage[0];
+        const documentBackImageFile = req.files.documentBackImage?.[0];
+        const selfieImageFile = req.files.selfieImage[0];
+
+        // Prepare KYC data (in production, sensitive data would be encrypted)
+        const kycData = {
+          userId,
+          documentType: formData.documentType,
+          documentNumberEncrypted: formData.documentNumber, // Should be encrypted in production
+          documentCountry: formData.documentCountry,
+          documentImageKeyEncrypted: `document_${userId}_${Date.now()}`, // Placeholder for storage key
+          documentBackImageKeyEncrypted: documentBackImageFile ? `document_back_${userId}_${Date.now()}` : null,
+          selfieImageKeyEncrypted: `selfie_${userId}_${Date.now()}`, // Placeholder for storage key
+          fullNameEncrypted: formData.fullName, // Should be encrypted in production
+          dateOfBirthEncrypted: formData.dateOfBirth, // Should be encrypted in production
+          nationalityEncrypted: formData.nationality, // Should be encrypted in production
+          occupationEncrypted: formData.occupation, // Should be encrypted in production
+          sourceOfFunds: formData.sourceOfFunds,
+          annualIncome: formData.annualIncome,
+          status: 'pending'
+        };
+
+        // Create KYC information
+        const kycInfo = await storage.createKycInformation(kycData);
+        
+        // Update user's KYC status
+        await storage.updateUser(userId, { kycStatus: 'in_progress' });
+        
+        // Log KYC submission
+        await storage.logUserActivity(userId, 'kyc_submit', {
+          documentType: formData.documentType,
+          documentCountry: formData.documentCountry,
+          hasDocumentBack: !!documentBackImageFile
+        }, req.ip, req.get('User-Agent'));
+
+        console.log('KYC submitted successfully:', {
+          userId,
+          kycId: kycInfo.id,
+          documentType: formData.documentType,
+          timestamp: new Date().toISOString(),
+          ip: req.ip
+        });
+
+        // Return sanitized response
+        const response = {
+          id: kycInfo.id,
+          userId: kycInfo.userId,
+          documentType: kycInfo.documentType,
+          documentCountry: kycInfo.documentCountry,
+          status: kycInfo.status,
+          submittedAt: kycInfo.submittedAt
+        };
+        
+        res.status(201).json(successResponse(response, 'KYC information submitted successfully'));
+      } catch (error) {
+        console.error("Error submitting KYC:", {
+          userId: req.user?.claims?.sub,
+          error: error instanceof Error ? error.message : error,
+          stack: error instanceof Error ? error.stack : undefined,
+          timestamp: new Date().toISOString(),
+          ip: req.ip,
+          files: req.files ? Object.keys(req.files) : []
+        });
+
+        if (error instanceof z.ZodError) {
+          return res.status(400).json({
+            success: false,
+            error: "Invalid KYC data",
+            details: error.errors,
+            code: 'VALIDATION_ERROR',
+            timestamp: new Date().toISOString()
+          });
+        }
+
+        res.status(500).json({
+          success: false,
+          error: "Failed to submit KYC information",
+          code: 'INTERNAL_ERROR',
+          timestamp: new Date().toISOString()
+        });
+      }
+    }
+  );
+
   // Secure Wallet Binding endpoints
   app.post("/api/wallet/bind-intent", isAuthenticated, async (req: any, res) => {
     try {
