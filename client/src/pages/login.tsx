@@ -10,7 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Lock, User, Eye, EyeOff, ArrowRight } from "lucide-react";
+import { Lock, User, Eye, EyeOff, ArrowRight, UserPlus } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import logoImage from "@assets/rwa1_1758232271312.png";
 import { z } from "zod";
@@ -220,6 +220,22 @@ export default function Login() {
             </Button>
           </form>
         </Form>
+
+        <div className="text-center">
+          <p className="text-sm text-muted-foreground mb-3">
+            New to RWA Pawn Platform?
+          </p>
+          <Link href="/register">
+            <Button
+              variant="outline"
+              className="w-full"
+              data-testid="button-register"
+            >
+              <UserPlus className="mr-2 h-4 w-4" />
+              Create Account
+            </Button>
+          </Link>
+        </div>
 
         <Separator />
 
