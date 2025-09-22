@@ -26,9 +26,13 @@ import {
   documentAnalysisRequestSchema,
   documents,
   fraudDetectionResults,
-  insertRwapawnPurchaseSchema
+  insertRwapawnPurchaseSchema,
+  userLoginSchema,
+  forgotPasswordSchema,
+  resetPasswordSchema
 } from "@shared/schema";
 import { randomUUID } from "crypto";
+import bcrypt from "bcryptjs";
 
 // Import comprehensive validation middleware and utilities
 import { 
@@ -121,6 +125,9 @@ import { db } from "./db";
 import { sql, eq, and } from "drizzle-orm";
 import { rwapawnPurchases } from "@shared/schema";
 import { verifyAdminCredentials, generateAdminToken, requireAdminAuth } from "./admin-auth";
+
+// Session management for traditional auth
+const TRADITIONAL_SESSION_DURATION = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 // In-memory storage for wallet binding nonces (in production, use Redis)
 const bindingNonces = new Map<string, { nonce: string; userId: string; expires: number; walletType: string; challenge: string }>();
@@ -356,6 +363,210 @@ export async function registerRoutes(app: Express): Promise<Server> {
       admin: req.adminUser
     });
   });
+
+  // Traditional User Authentication Routes
+  app.post('/api/auth/login',
+    rateLimitConfigs.auth,
+    validateRequest(userLoginSchema, 'body'),
+    async (req, res) => {
+      try {
+        const { email, password } = req.body;
+        
+        // Get user by email
+        const user = await storage.getUserByEmail(email);
+        if (!user || !user.passwordHash) {
+          // Add delay to prevent brute force attacks
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          return res.status(401).json({
+            success: false,
+            error: 'Invalid email or password',
+            code: 'INVALID_CREDENTIALS',
+            timestamp: new Date().toISOString()
+          });
+        }
+        
+        // Check if account is locked
+        if (user.lockedUntil && new Date(user.lockedUntil) > new Date()) {
+          return res.status(423).json({
+            success: false,
+            error: 'Account is temporarily locked due to too many failed login attempts',
+            code: 'ACCOUNT_LOCKED',
+            timestamp: new Date().toISOString()
+          });
+        }
+        
+        // Verify password
+        const isValidPassword = await bcrypt.compare(password, user.passwordHash);
+        if (!isValidPassword) {
+          // Increment login attempts
+          await storage.incrementLoginAttempts(user.id);
+          
+          // Check if we need to lock the account (5 failed attempts)
+          const currentAttempts = (user.loginAttempts || 0) + 1;
+          if (currentAttempts >= 5) {
+            const lockUntil = new Date();
+            lockUntil.setMinutes(lockUntil.getMinutes() + 15); // Lock for 15 minutes
+            await storage.lockUser(user.id, lockUntil);
+            
+            return res.status(423).json({
+              success: false,
+              error: 'Too many failed login attempts. Account locked for 15 minutes.',
+              code: 'ACCOUNT_LOCKED',
+              timestamp: new Date().toISOString()
+            });
+          }
+          
+          // Add delay to prevent brute force attacks
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          return res.status(401).json({
+            success: false,
+            error: 'Invalid email or password',
+            code: 'INVALID_CREDENTIALS',
+            timestamp: new Date().toISOString()
+          });
+        }
+        
+        // Reset login attempts on successful login
+        await storage.resetLoginAttempts(user.id);
+        
+        // Create session (similar to Replit Auth but for traditional users)
+        // For now, we'll return user data - proper session handling would be implemented here
+        res.json({
+          success: true,
+          user: {
+            id: user.id,
+            email: user.email,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            username: user.username,
+            emailVerified: user.emailVerified,
+            accountStatus: user.accountStatus
+          },
+          timestamp: new Date().toISOString()
+        });
+        
+      } catch (error) {
+        console.error('Traditional login error:', {
+          error: error instanceof Error ? error.message : error,
+          stack: error instanceof Error ? error.stack : undefined,
+          timestamp: new Date().toISOString(),
+          userAgent: req.get('User-Agent'),
+          ip: req.ip
+        });
+        res.status(500).json({
+          success: false,
+          error: 'Login failed',
+          code: 'INTERNAL_ERROR',
+          timestamp: new Date().toISOString()
+        });
+      }
+    }
+  );
+
+  // Forgot password endpoint
+  app.post('/api/auth/forgot-password',
+    rateLimitConfigs.auth,
+    validateRequest(forgotPasswordSchema, 'body'),
+    async (req, res) => {
+      try {
+        const { email } = req.body;
+        
+        // Always return success to prevent email enumeration
+        const successResponse = {
+          success: true,
+          message: 'If an account with this email exists, a password reset link has been sent',
+          timestamp: new Date().toISOString()
+        };
+        
+        const user = await storage.getUserByEmail(email);
+        if (!user || !user.passwordHash) {
+          // Don't reveal that the user doesn't exist
+          return res.json(successResponse);
+        }
+        
+        // Generate password reset token
+        const resetToken = randomUUID();
+        const resetTokenHash = await bcrypt.hash(resetToken, 10);
+        const resetExpires = new Date();
+        resetExpires.setHours(resetExpires.getHours() + 1); // Token expires in 1 hour
+        
+        // Save reset token
+        await storage.setPasswordResetToken(user.id, resetTokenHash, resetExpires);
+        
+        // TODO: Send email with reset link containing the resetToken
+        // For development, log the reset token
+        console.log(`Password reset token for ${email}: ${resetToken}`);
+        
+        res.json(successResponse);
+        
+      } catch (error) {
+        console.error('Forgot password error:', {
+          error: error instanceof Error ? error.message : error,
+          timestamp: new Date().toISOString(),
+          userAgent: req.get('User-Agent'),
+          ip: req.ip
+        });
+        res.status(500).json({
+          success: false,
+          error: 'Failed to process password reset request',
+          code: 'INTERNAL_ERROR',
+          timestamp: new Date().toISOString()
+        });
+      }
+    }
+  );
+
+  // Reset password endpoint
+  app.post('/api/auth/reset-password',
+    rateLimitConfigs.auth,
+    validateRequest(resetPasswordSchema, 'body'),
+    async (req, res) => {
+      try {
+        const { token, password } = req.body;
+        
+        // Hash the token to match what's stored
+        const tokenHash = await bcrypt.hash(token, 10);
+        
+        // Find user with valid reset token
+        const user = await storage.getUserByResetToken(tokenHash);
+        if (!user) {
+          return res.status(400).json({
+            success: false,
+            error: 'Invalid or expired reset token',
+            code: 'INVALID_TOKEN',
+            timestamp: new Date().toISOString()
+          });
+        }
+        
+        // Hash new password
+        const newPasswordHash = await bcrypt.hash(password, 12);
+        
+        // Update user password and clear reset token
+        await storage.updateUserPassword(user.id, newPasswordHash);
+        await storage.clearPasswordResetToken(user.id);
+        
+        res.json({
+          success: true,
+          message: 'Password has been reset successfully',
+          timestamp: new Date().toISOString()
+        });
+        
+      } catch (error) {
+        console.error('Reset password error:', {
+          error: error instanceof Error ? error.message : error,
+          timestamp: new Date().toISOString(),
+          userAgent: req.get('User-Agent'),
+          ip: req.ip
+        });
+        res.status(500).json({
+          success: false,
+          error: 'Failed to reset password',
+          code: 'INTERNAL_ERROR',
+          timestamp: new Date().toISOString()
+        });
+      }
+    }
+  );
 
   // User routes with comprehensive validation
   app.post("/api/users", 
