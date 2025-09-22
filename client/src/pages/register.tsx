@@ -63,6 +63,7 @@ export default function Register() {
         firstName: data.firstName,
         lastName: data.lastName,
         password: data.password,
+        confirmPassword: data.confirmPassword,
       });
 
       const result = await response.json();

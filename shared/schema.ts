@@ -317,6 +317,27 @@ export const insertUserSchema = createInsertSchema(users).omit({
       } catch { return false; }
     }, 'Only HTTP and HTTPS URLs are allowed')
     .optional(),
+  username: z.string()
+    .min(3, 'Username must be at least 3 characters')
+    .max(30, 'Username cannot exceed 30 characters')
+    .regex(/^[a-zA-Z0-9_-]+$/, 'Username can only contain letters, numbers, hyphens, and underscores')
+    .optional(),
+  password: z.string()
+    .min(8, 'Password must be at least 8 characters')
+    .max(128, 'Password cannot exceed 128 characters')
+    .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, 'Password must contain at least one uppercase letter, one lowercase letter, and one number')
+    .optional(),
+  confirmPassword: z.string()
+    .optional(),
+}).refine((data) => {
+  // If password is provided, confirmPassword must match
+  if (data.password && data.password !== data.confirmPassword) {
+    return false;
+  }
+  return true;
+}, {
+  message: 'Passwords do not match',
+  path: ['confirmPassword'],
 });
 
 export const insertRwaSubmissionSchema = createInsertSchema(rwaSubmissions).omit({
