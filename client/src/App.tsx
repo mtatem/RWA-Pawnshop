@@ -21,6 +21,9 @@ import Bridge from "@/pages/bridge";
 import Token from "@/pages/token";
 import Admin from "@/pages/admin";
 import AdminLogin from "@/pages/admin-login";
+import Login from "@/pages/login";
+import Register from "@/pages/register";
+import ForgotPassword from "@/pages/forgot-password";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -42,6 +45,9 @@ function Router() {
       <Route path="/marketplace" component={Marketplace} />
       <Route path="/bridge" component={Bridge} />
       <Route path="/token" component={Token} />
+      <Route path="/login" component={Login} />
+      <Route path="/register" component={Register} />
+      <Route path="/forgot-password" component={ForgotPassword} />
       <Route path="/admin-login" component={AdminLogin} />
       <Route path="/admin" component={Admin} />
       <Route component={NotFound} />
