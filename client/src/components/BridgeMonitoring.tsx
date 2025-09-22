@@ -293,11 +293,11 @@ export default function BridgeMonitoring() {
             {bridgeData?.totalCount || 0} Total Transactions
           </Badge>
           <Badge 
-            variant={bridgeData?.metrics.stuckTransactions ? "destructive" : "secondary"} 
+            variant={(bridgeData?.metrics?.stuckTransactions || 0) > 0 ? "destructive" : "secondary"} 
             className="flex items-center gap-2"
           >
             <AlertTriangle className="h-3 w-3" />
-            {bridgeData?.metrics.stuckTransactions || 0} Stuck
+            {bridgeData?.metrics?.stuckTransactions || 0} Stuck
           </Badge>
           <Button 
             variant="outline" 
@@ -312,7 +312,7 @@ export default function BridgeMonitoring() {
       </div>
 
       {/* Network Health Status */}
-      {bridgeData?.metrics.networkHealth && (
+      {bridgeData?.metrics?.networkHealth && (
         <Card className="border-l-4 border-l-blue-500">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
@@ -323,19 +323,19 @@ export default function BridgeMonitoring() {
                 </div>
                 <div className="flex items-center space-x-1">
                   <span className="text-sm">Ethereum:</span>
-                  <Badge className={`${getNetworkHealthColor(bridgeData.metrics.networkHealth.ethereum)} border-0`}>
-                    {bridgeData.metrics.networkHealth.ethereum.toUpperCase()}
+                  <Badge className={`${getNetworkHealthColor(bridgeData.metrics?.networkHealth?.ethereum)} border-0`}>
+                    {bridgeData.metrics?.networkHealth?.ethereum?.toUpperCase()}
                   </Badge>
                 </div>
                 <div className="flex items-center space-x-1">
                   <span className="text-sm">ICP:</span>
-                  <Badge className={`${getNetworkHealthColor(bridgeData.metrics.networkHealth.icp)} border-0`}>
-                    {bridgeData.metrics.networkHealth.icp.toUpperCase()}
+                  <Badge className={`${getNetworkHealthColor(bridgeData.metrics?.networkHealth?.icp)} border-0`}>
+                    {bridgeData.metrics?.networkHealth?.icp?.toUpperCase()}
                   </Badge>
                 </div>
               </div>
               <div className="text-sm text-muted-foreground">
-                Success Rate: <span className="font-bold text-green-600">{bridgeData.metrics.successRate}%</span>
+                Success Rate: <span className="font-bold text-green-600">{bridgeData.metrics?.successRate}%</span>
               </div>
             </div>
           </CardContent>
@@ -352,7 +352,7 @@ export default function BridgeMonitoring() {
                   <Activity className="h-4 w-4 text-blue-600" />
                   <span className="font-medium">Active</span>
                 </div>
-                <span className="text-2xl font-bold">{bridgeData.metrics.activeTransactions}</span>
+                <span className="text-2xl font-bold">{bridgeData.metrics?.activeTransactions || 0}</span>
               </div>
               <p className="text-xs text-muted-foreground mt-1">Currently processing</p>
             </CardContent>
@@ -365,10 +365,10 @@ export default function BridgeMonitoring() {
                   <CheckCircle className="h-4 w-4 text-green-600" />
                   <span className="font-medium">Completed Today</span>
                 </div>
-                <span className="text-2xl font-bold">{bridgeData.metrics.completedToday}</span>
+                <span className="text-2xl font-bold">{bridgeData.metrics?.completedToday || 0}</span>
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                Avg: {formatProcessingTime(bridgeData.metrics.averageProcessingTime)}
+                Avg: {formatProcessingTime(bridgeData.metrics?.averageProcessingTime || 0)}
               </p>
             </CardContent>
           </Card>
@@ -380,7 +380,7 @@ export default function BridgeMonitoring() {
                   <DollarSign className="h-4 w-4 text-purple-600" />
                   <span className="font-medium">Total Volume</span>
                 </div>
-                <span className="text-2xl font-bold">{formatCurrency(bridgeData.metrics.totalVolume)}</span>
+                <span className="text-2xl font-bold">{formatCurrency((bridgeData.metrics?.totalVolume || 0).toString())}</span>
               </div>
               <p className="text-xs text-muted-foreground mt-1">24h volume</p>
             </CardContent>
@@ -393,7 +393,7 @@ export default function BridgeMonitoring() {
                   <Zap className="h-4 w-4 text-yellow-600" />
                   <span className="font-medium">Bridge Fees</span>
                 </div>
-                <span className="text-2xl font-bold">{formatCurrency(bridgeData.metrics.totalFees)}</span>
+                <span className="text-2xl font-bold">{formatCurrency((bridgeData.metrics?.totalFees || 0).toString())}</span>
               </div>
               <p className="text-xs text-muted-foreground mt-1">Revenue generated</p>
             </CardContent>
