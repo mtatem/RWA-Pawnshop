@@ -605,6 +605,38 @@ export default function Profile() {
                   </div>
                 </CardContent>
               </Card>
+              
+              <Card>
+                <CardHeader>
+                  <CardTitle>KYC Verification</CardTitle>
+                  <CardDescription>
+                    Complete identity verification to unlock all platform features
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-1">
+                      <p className="font-medium">Identity Verification Status</p>
+                      <div className="flex items-center space-x-2">
+                        {getStatusBadge(user.kycStatus || "not_started")}
+                        <span className="text-sm text-muted-foreground">
+                          {user.kycStatus === "completed" ? "Verified" : 
+                           user.kycStatus === "pending" ? "Under Review" :
+                           user.kycStatus === "in_progress" ? "In Progress" :
+                           "Not Started"}
+                        </span>
+                      </div>
+                    </div>
+                    <Link href="/kyc">
+                      <Button variant="outline" data-testid="button-kyc-verification">
+                        {user.kycStatus === "completed" ? "View Status" : 
+                         user.kycStatus === "pending" || user.kycStatus === "in_progress" ? "View Status" :
+                         "Start Verification"}
+                      </Button>
+                    </Link>
+                  </div>
+                </CardContent>
+              </Card>
             </TabsContent>
 
             {/* Wallets Tab */}
