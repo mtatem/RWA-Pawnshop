@@ -80,10 +80,13 @@ export const getAdminQueryFn: <T>(options: {
       params.forEach(param => {
         if (param && typeof param === 'object') {
           Object.entries(param).forEach(([key, value]) => {
-            if (value !== '' && value !== null && value !== undefined) {
+            if (value !== '' && value !== null && value !== undefined && value !== 'all') {
               queryParams.append(key, String(value));
             }
           });
+        } else if (param !== null && param !== undefined && param !== '') {
+          // Handle non-object parameters (though this shouldn't happen in our current implementation)
+          queryParams.append('filter', String(param));
         }
       });
       const queryString = queryParams.toString();
