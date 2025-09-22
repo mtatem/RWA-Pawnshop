@@ -182,15 +182,17 @@ export default function Navigation() {
               </Button>
             ) : isAuthenticated ? (
               <div className="flex items-center space-x-1 sm:space-x-2">
-                <Button
-                  variant="outline"
-                  className="text-xs sm:text-sm px-2 sm:px-3 h-8 sm:h-9"
-                  data-testid="button-user-profile"
-                >
+                <Link href="/profile">
+                  <Button
+                    variant="outline"
+                    className="text-xs sm:text-sm px-2 sm:px-3 h-8 sm:h-9"
+                    data-testid="button-user-profile"
+                  >
                   <User className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
-                  <span className="hidden sm:inline">{user?.principalId?.slice(0, 8) + "..." || "User"}</span>
-                  <span className="sm:hidden">{user?.principalId?.slice(0, 4) + "..." || "User"}</span>
-                </Button>
+                  <span className="hidden sm:inline">{user?.firstName || user?.username || "User"}</span>
+                  <span className="sm:hidden">{user?.firstName?.slice(0, 4) || user?.username?.slice(0, 4) || "User"}</span>
+                  </Button>
+                </Link>
                 <Button
                   onClick={handleLogout}
                   variant="outline"
