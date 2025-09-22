@@ -49,15 +49,16 @@ export const users = pgTable("users", {
   username: varchar("username").unique(),
   passwordHash: varchar("password_hash"), // bcrypt hash for traditional login
   emailVerified: boolean("email_verified").default(false),
-  emailVerificationToken: varchar("email_verification_token"),
-  passwordResetToken: varchar("password_reset_token"),
+  emailVerificationTokenHash: varchar("email_verification_token_hash"), // hashed token for security
+  emailVerificationExpires: timestamp("email_verification_expires"),
+  passwordResetTokenHash: varchar("password_reset_token_hash"), // hashed token for security
   passwordResetExpires: timestamp("password_reset_expires"),
-  // Profile and wallet fields
-  walletAddress: text("wallet_address"),
-  principalId: text("principal_id").unique(), // ICP wallet principal ID
-  phone: varchar("phone"),
-  dateOfBirth: timestamp("date_of_birth"),
-  address: text("address"),
+  // Profile and wallet fields (deprecated in favor of walletBindings table)
+  // walletAddress: text("wallet_address"), // DEPRECATED - use walletBindings table
+  // principalId: text("principal_id").unique(), // DEPRECATED - use walletBindings table
+  phoneEncrypted: varchar("phone_encrypted"), // encrypted phone number
+  dateOfBirthEncrypted: varchar("date_of_birth_encrypted"), // encrypted DOB
+  addressEncrypted: text("address_encrypted"), // encrypted address
   city: varchar("city"),
   state: varchar("state"),
   country: varchar("country").default("US"),
@@ -69,8 +70,8 @@ export const users = pgTable("users", {
   riskLevel: varchar("risk_level").default("low"), // low, medium, high, critical
   // Security and admin
   mfaEnabled: boolean("mfa_enabled").default(false),
-  mfaSecret: varchar("mfa_secret"), // TOTP secret for authenticator apps
-  backupCodes: jsonb("backup_codes"), // Array of backup codes
+  mfaSecretEncrypted: varchar("mfa_secret_encrypted"), // encrypted TOTP secret
+  mfaBackupCodesHash: jsonb("mfa_backup_codes_hash"), // Array of hashed backup codes
   lastLoginAt: timestamp("last_login_at"),
   loginAttempts: integer("login_attempts").default(0),
   lockedUntil: timestamp("locked_until"),
@@ -79,22 +80,22 @@ export const users = pgTable("users", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-// KYC Information table
+// KYC Information table with security enhancements
 export const kycInformation = pgTable("kyc_information", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull().references(() => users.id),
   documentType: varchar("document_type").notNull(), // passport, drivers_license, national_id
-  documentNumber: varchar("document_number").notNull(),
+  documentNumberEncrypted: varchar("document_number_encrypted").notNull(), // encrypted document number
   documentCountry: varchar("document_country").notNull(),
-  documentImageUrl: text("document_image_url"),
-  documentBackImageUrl: text("document_back_image_url"),
-  selfieImageUrl: text("selfie_image_url"),
-  fullName: varchar("full_name").notNull(),
-  dateOfBirth: timestamp("date_of_birth").notNull(),
-  nationality: varchar("nationality").notNull(),
-  occupation: varchar("occupation"),
-  sourceOfFunds: text("source_of_funds"),
-  annualIncome: varchar("annual_income"),
+  documentImageKeyEncrypted: text("document_image_key_encrypted"), // encrypted storage key, not URL
+  documentBackImageKeyEncrypted: text("document_back_image_key_encrypted"), // encrypted storage key
+  selfieImageKeyEncrypted: text("selfie_image_key_encrypted"), // encrypted storage key
+  fullNameEncrypted: varchar("full_name_encrypted").notNull(), // encrypted full name
+  dateOfBirthEncrypted: varchar("date_of_birth_encrypted").notNull(), // encrypted DOB
+  nationalityEncrypted: varchar("nationality_encrypted").notNull(), // encrypted nationality
+  occupationEncrypted: varchar("occupation_encrypted"), // encrypted occupation
+  sourceOfFunds: text("source_of_funds"), // can remain unencrypted as it's categorical
+  annualIncome: varchar("annual_income"), // can remain unencrypted as it's range-based
   status: varchar("status").default("pending"), // pending, approved, rejected, needs_review
   reviewedBy: varchar("reviewed_by").references(() => users.id),
   reviewedAt: timestamp("reviewed_at"),
@@ -102,16 +103,19 @@ export const kycInformation = pgTable("kyc_information", {
   rejectionReason: text("rejection_reason"),
   submittedAt: timestamp("submitted_at").defaultNow(),
   createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-});
+  updatedAt: timestamp("updated_at").defaultNow().$onUpdate(() => new Date()),
+}, (table) => ({
+  kycUserIdIdx: index("kyc_user_id_idx").on(table.userId),
+}));
 
-// Wallet bindings table
+// Wallet bindings table with proper constraints
 export const walletBindings = pgTable("wallet_bindings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull().references(() => users.id),
   walletType: varchar("wallet_type").notNull(), // plug, internetIdentity, metamask, ledger
   walletAddress: text("wallet_address").notNull(),
   principalId: text("principal_id"), // For ICP wallets
+  isPrimary: boolean("is_primary").default(false), // Primary wallet for this user
   bindingStatus: varchar("binding_status").default("pending"), // pending, verified, revoked
   verificationMethod: varchar("verification_method"), // signature, delegation_proof
   bindingProof: text("binding_proof"), // Signature or delegation proof
@@ -119,22 +123,30 @@ export const walletBindings = pgTable("wallet_bindings", {
   verifiedAt: timestamp("verified_at"),
   revokedAt: timestamp("revoked_at"),
   createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-});
+  updatedAt: timestamp("updated_at").defaultNow().$onUpdate(() => new Date()),
+}, (table) => ({
+  walletBindingsUserWalletUnique: index("wallet_bindings_user_wallet_unique").on(table.userId, table.walletType, table.walletAddress),
+  walletBindingsGlobalUnique: index("wallet_bindings_global_unique").on(table.walletType, table.walletAddress, table.principalId),
+  walletBindingsUserIdIdx: index("wallet_bindings_user_id_idx").on(table.userId),
+  walletBindingsAddressIdx: index("wallet_bindings_address_idx").on(table.walletAddress),
+}));
 
-// MFA tokens and backup codes
+// MFA tokens and backup codes with proper indexing
 export const mfaTokens = pgTable("mfa_tokens", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull().references(() => users.id),
-  tokenType: varchar("token_type").notNull(), // totp, backup_code, sms
-  tokenValue: varchar("token_value").notNull(), // Hashed backup code or phone for SMS
+  tokenType: varchar("token_type").notNull(), // backup_code, sms_token
+  tokenValueHash: varchar("token_value_hash").notNull(), // Hashed backup code or SMS token
   isUsed: boolean("is_used").default(false),
   usedAt: timestamp("used_at"),
   expiresAt: timestamp("expires_at"),
   createdAt: timestamp("created_at").defaultNow(),
-});
+}, (table) => ({
+  mfaTokensUserTypeIdx: index("mfa_tokens_user_type_idx").on(table.userId, table.tokenType, table.isUsed, table.expiresAt),
+  mfaTokensHashIdx: index("mfa_tokens_hash_idx").on(table.tokenValueHash)
+}));
 
-// User activity log for security tracking
+// User activity log for security tracking with proper indexing
 export const userActivityLog = pgTable("user_activity_log", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").references(() => users.id),
@@ -146,7 +158,10 @@ export const userActivityLog = pgTable("user_activity_log", {
   success: boolean("success").default(true),
   errorMessage: text("error_message"),
   createdAt: timestamp("created_at").defaultNow(),
-});
+}, (table) => ({
+  userActivityUserCreatedIdx: index("user_activity_user_created_idx").on(table.userId, table.createdAt),
+  userActivityTypeSuccessIdx: index("user_activity_type_success_idx").on(table.activityType, table.success, table.createdAt)
+}));
 
 // RWA submissions table
 export const rwaSubmissions = pgTable("rwa_submissions", {
