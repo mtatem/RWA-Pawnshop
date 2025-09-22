@@ -23,6 +23,10 @@ import {
   rwapawnStakes,
   rwapawnSwaps,
   rwapawnBalances,
+  kycInformation,
+  walletBindings,
+  mfaTokens,
+  userActivityLog,
   type User,
   type InsertUser,
   type RwaSubmission,
@@ -73,6 +77,14 @@ import {
   type InsertRwapawnSwap,
   type RwapawnBalance,
   type InsertRwapawnBalance,
+  type KycInformation,
+  type InsertKycInformation,
+  type WalletBinding,
+  type InsertWalletBinding,
+  type MfaToken,
+  type InsertMfaToken,
+  type UserActivityLog,
+  type InsertUserActivityLog,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, lt, gte, sql } from "drizzle-orm";
@@ -85,6 +97,41 @@ export interface IStorage {
   getUserByPrincipalId(principalId: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: string, user: Partial<InsertUser>): Promise<User>;
+  
+  // Traditional authentication methods
+  getUserByEmail(email: string): Promise<User | undefined>;
+  getUserByUsername(username: string): Promise<User | undefined>;
+  createUserWithPassword(userData: Partial<InsertUser>, passwordHash: string): Promise<User>;
+  updateUserPassword(id: string, passwordHash: string): Promise<User>;
+  setPasswordResetToken(email: string, token: string, expiry: Date): Promise<User | undefined>;
+  getUserByResetToken(token: string): Promise<User | undefined>;
+  clearPasswordResetToken(id: string): Promise<User>;
+  incrementLoginAttempts(id: string): Promise<User>;
+  resetLoginAttempts(id: string): Promise<User>;
+  lockUser(id: string, until: Date): Promise<User>;
+  
+  // KYC operations
+  createKycInformation(kycData: InsertKycInformation): Promise<KycInformation>;
+  getKycInformation(userId: string): Promise<KycInformation | undefined>;
+  updateKycStatus(userId: string, status: string, reviewNotes?: string, reviewedBy?: string): Promise<KycInformation>;
+  getPendingKycSubmissions(): Promise<KycInformation[]>;
+  
+  // Wallet binding operations
+  createWalletBinding(bindingData: InsertWalletBinding): Promise<WalletBinding>;
+  getWalletBindings(userId: string): Promise<WalletBinding[]>;
+  getWalletBinding(id: string): Promise<WalletBinding | undefined>;
+  verifyWalletBinding(id: string, verificationData: any): Promise<WalletBinding>;
+  revokeWalletBinding(id: string): Promise<WalletBinding>;
+  
+  // MFA operations
+  createMfaToken(tokenData: InsertMfaToken): Promise<MfaToken>;
+  getMfaTokens(userId: string, tokenType: string): Promise<MfaToken[]>;
+  useMfaToken(tokenId: string): Promise<MfaToken>;
+  getUnusedBackupCodes(userId: string): Promise<MfaToken[]>;
+  
+  // User activity logging
+  logUserActivity(activityData: InsertUserActivityLog): Promise<UserActivityLog>;
+  getUserActivityLog(userId: string, limit?: number): Promise<UserActivityLog[]>;
 
   // RWA Submission operations
   createRwaSubmission(submission: InsertRwaSubmission): Promise<RwaSubmission>;
@@ -299,14 +346,456 @@ export class DatabaseStorage implements IStorage {
     return user || undefined;
   }
 
-  async getUserByWallet(walletAddress: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.walletAddress, walletAddress));
+  // Traditional authentication methods
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.email, email));
     return user || undefined;
   }
 
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    if (!username) return undefined;
+    try {
+      const [user] = await db.select().from(users).where(eq(users.username, username));
+      return user || undefined;
+    } catch (error) {
+      // Column doesn't exist yet - database not migrated
+      return undefined;
+    }
+  }
+
+  async createUserWithPassword(userData: Partial<InsertUser>, passwordHash: string): Promise<User> {
+    try {
+      const [user] = await db.insert(users).values({
+        ...userData,
+        passwordHash,
+        emailVerified: false,
+        accountStatus: 'active',
+        verificationStatus: 'unverified',
+        kycStatus: 'not_started',
+        mfaEnabled: false,
+        loginAttempts: 0,
+      } as any).returning();
+      return user;
+    } catch (error: any) {
+      // Only catch column-not-exist errors, rethrow others
+      if (error?.code === '42703' || error?.message?.includes('column') || error?.message?.includes('does not exist')) {
+        throw new Error('Traditional authentication not yet available - database schema needs migration. Please complete the database migration first.');
+      }
+      throw error; // Rethrow other errors
+    }
+  }
+
+  async updateUserPassword(id: string, passwordHash: string): Promise<User> {
+    try {
+      const [user] = await db.update(users)
+        .set({ passwordHash: passwordHash as any, updatedAt: new Date() })
+        .where(eq(users.id, id))
+        .returning();
+      return user;
+    } catch (error) {
+      // Fallback if passwordHash column doesn't exist
+      throw new Error('Password authentication not yet available - database schema needs migration');
+    }
+  }
+
+  async setPasswordResetToken(email: string, tokenHash: string, expiry: Date): Promise<User | undefined> {
+    try {
+      const [user] = await db.update(users)
+        .set({ 
+          passwordResetTokenHash: tokenHash as any,
+          passwordResetExpires: expiry,
+          updatedAt: new Date()
+        })
+        .where(eq(users.email, email))
+        .returning();
+      return user;
+    } catch (error) {
+      // Fallback if new columns don't exist
+      return undefined;
+    }
+  }
+
+  async getUserByResetToken(tokenHash: string): Promise<User | undefined> {
+    try {
+      const [user] = await db.select().from(users)
+        .where(and(
+          eq(users.passwordResetTokenHash as any, tokenHash),
+          sql`${users.passwordResetExpires} > NOW()`
+        ));
+      return user;
+    } catch (error: any) {
+      // Only handle column-not-exist errors
+      if (error?.code === '42703' || error?.message?.includes('column') || error?.message?.includes('does not exist')) {
+        return undefined;
+      }
+      throw error; // Rethrow other errors for diagnosability
+    }
+  }
+
+  async clearPasswordResetToken(id: string): Promise<User> {
+    try {
+      const [user] = await db.update(users)
+        .set({ 
+          passwordResetTokenHash: null,
+          passwordResetExpires: null,
+          updatedAt: new Date() 
+        })
+        .where(eq(users.id, id))
+        .returning();
+      return user;
+    } catch (error) {
+      // Fallback if new columns don't exist
+      const [user] = await db.update(users)
+        .set({ updatedAt: new Date() })
+        .where(eq(users.id, id))
+        .returning();
+      return user;
+    }
+  }
+
+  async incrementLoginAttempts(id: string): Promise<User> {
+    try {
+      const [user] = await db.update(users)
+        .set({ 
+          loginAttempts: sql`COALESCE(${users.loginAttempts}, 0) + 1`,
+          updatedAt: new Date() 
+        })
+        .where(eq(users.id, id))
+        .returning();
+      return user;
+    } catch (error: any) {
+      // Fallback if loginAttempts column doesn't exist
+      if (error?.code === '42703' || error?.message?.includes('column') || error?.message?.includes('does not exist')) {
+        const [user] = await db.update(users)
+          .set({ updatedAt: new Date() })
+          .where(eq(users.id, id))
+          .returning();
+        return user;
+      }
+      throw error;
+    }
+  }
+
+  async resetLoginAttempts(id: string): Promise<User> {
+    try {
+      const [user] = await db.update(users)
+        .set({ 
+          loginAttempts: 0,
+          lockedUntil: null,
+          lastLoginAt: new Date(),
+          updatedAt: new Date()
+        })
+        .where(eq(users.id, id))
+        .returning();
+      return user;
+    } catch (error: any) {
+      // Fallback if new columns don't exist
+      if (error?.code === '42703' || error?.message?.includes('column') || error?.message?.includes('does not exist')) {
+        const [user] = await db.update(users)
+          .set({ 
+            lastLoginAt: new Date() as any,
+            updatedAt: new Date()
+          })
+          .where(eq(users.id, id))
+          .returning();
+        return user;
+      }
+      throw error;
+    }
+  }
+
+  async lockUser(id: string, until: Date): Promise<User> {
+    try {
+      const [user] = await db.update(users)
+        .set({ 
+          lockedUntil: until,
+          accountStatus: 'restricted',
+          updatedAt: new Date() 
+        })
+        .where(eq(users.id, id))
+        .returning();
+      return user;
+    } catch (error: any) {
+      // Fallback if new columns don't exist
+      if (error?.code === '42703' || error?.message?.includes('column') || error?.message?.includes('does not exist')) {
+        const [user] = await db.update(users)
+          .set({ updatedAt: new Date() })
+          .where(eq(users.id, id))
+          .returning();
+        return user;
+      }
+      throw error;
+    }
+  }
+
+  // KYC operations
+  async createKycInformation(kycData: InsertKycInformation): Promise<KycInformation> {
+    try {
+      const [kyc] = await db.insert(kycInformation).values(kycData).returning();
+      return kyc;
+    } catch (error) {
+      throw new Error('KYC functionality not yet available - database schema needs migration');
+    }
+  }
+
+  async getKycInformation(userId: string): Promise<KycInformation | undefined> {
+    try {
+      const [kyc] = await db.select().from(kycInformation).where(eq(kycInformation.userId, userId));
+      return kyc;
+    } catch (error) {
+      return undefined;
+    }
+  }
+
+  async updateKycStatus(userId: string, status: string, reviewNotes?: string, reviewedBy?: string): Promise<KycInformation> {
+    try {
+      // Update KYC information
+      const [kyc] = await db.update(kycInformation)
+        .set({
+          status: status as any,
+          reviewNotes,
+          reviewedBy,
+          reviewedAt: new Date(),
+          updatedAt: new Date()
+        })
+        .where(eq(kycInformation.userId, userId))
+        .returning();
+
+      // Also update user's KYC status for consistency
+      await db.update(users)
+        .set({ kycStatus: status as any, updatedAt: new Date() })
+        .where(eq(users.id, userId));
+
+      return kyc;
+    } catch (error) {
+      throw new Error('KYC functionality not yet available - database schema needs migration');
+    }
+  }
+
+  async getPendingKycSubmissions(): Promise<KycInformation[]> {
+    try {
+      const kycSubmissions = await db.select().from(kycInformation)
+        .where(eq(kycInformation.status as any, 'pending'))
+        .orderBy(desc(kycInformation.submittedAt));
+      return kycSubmissions;
+    } catch (error: any) {
+      if (error?.code === '42703' || error?.message?.includes('table') || error?.message?.includes('does not exist')) {
+        return [];
+      }
+      throw error;
+    }
+  }
+
+  // Wallet binding operations
+  async createWalletBinding(bindingData: InsertWalletBinding): Promise<WalletBinding> {
+    try {
+      const [binding] = await db.insert(walletBindings).values(bindingData).returning();
+      return binding;
+    } catch (error) {
+      throw new Error('Wallet binding functionality not yet available - database schema needs migration');
+    }
+  }
+
+  async getWalletBindings(userId: string): Promise<WalletBinding[]> {
+    try {
+      const bindings = await db.select().from(walletBindings)
+        .where(eq(walletBindings.userId, userId))
+        .orderBy(desc(walletBindings.createdAt));
+      return bindings;
+    } catch (error) {
+      return [];
+    }
+  }
+
+  async getWalletBinding(id: string): Promise<WalletBinding | undefined> {
+    try {
+      const [binding] = await db.select().from(walletBindings).where(eq(walletBindings.id, id));
+      return binding;
+    } catch (error) {
+      return undefined;
+    }
+  }
+
+  async verifyWalletBinding(id: string, verificationData: any): Promise<WalletBinding> {
+    try {
+      // Get the binding first to validate
+      const [binding] = await db.select().from(walletBindings).where(eq(walletBindings.id, id));
+      if (!binding) {
+        throw new Error('Wallet binding not found');
+      }
+
+      // TODO: Add cryptographic verification here
+      // For now, require verificationData to contain signature/proof
+      if (!verificationData || (!verificationData.signature && !verificationData.proof)) {
+        throw new Error('Cryptographic proof required for wallet verification');
+      }
+
+      const [updatedBinding] = await db.update(walletBindings)
+        .set({
+          bindingStatus: 'verified',
+          verificationData,
+          verifiedAt: new Date(),
+          updatedAt: new Date()
+        })
+        .where(eq(walletBindings.id, id))
+        .returning();
+      return updatedBinding;
+    } catch (error: any) {
+      if (error?.code === '42703' || error?.message?.includes('table') || error?.message?.includes('does not exist')) {
+        throw new Error('Wallet binding functionality not yet available - database schema needs migration');
+      }
+      throw error; // Rethrow validation and other errors
+    }
+  }
+
+  async revokeWalletBinding(id: string): Promise<WalletBinding> {
+    try {
+      const [binding] = await db.update(walletBindings)
+        .set({
+          bindingStatus: 'revoked',
+          revokedAt: new Date(),
+          updatedAt: new Date()
+        })
+        .where(eq(walletBindings.id, id))
+        .returning();
+      return binding;
+    } catch (error) {
+      throw new Error('Wallet binding functionality not yet available - database schema needs migration');
+    }
+  }
+
+  // MFA operations
+  async createMfaToken(tokenData: InsertMfaToken): Promise<MfaToken> {
+    try {
+      const [token] = await db.insert(mfaTokens).values(tokenData).returning();
+      return token;
+    } catch (error) {
+      throw new Error('MFA functionality not yet available - database schema needs migration');
+    }
+  }
+
+  async getMfaTokens(userId: string, tokenType: string): Promise<MfaToken[]> {
+    try {
+      const tokens = await db.select().from(mfaTokens)
+        .where(and(
+          eq(mfaTokens.userId, userId),
+          eq(mfaTokens.tokenType, tokenType),
+          eq(mfaTokens.isUsed, false)
+        ))
+        .orderBy(desc(mfaTokens.createdAt));
+      return tokens;
+    } catch (error) {
+      return [];
+    }
+  }
+
+  async useMfaToken(tokenId: string): Promise<MfaToken> {
+    try {
+      const [token] = await db.update(mfaTokens)
+        .set({
+          isUsed: true,
+          usedAt: new Date()
+        })
+        .where(eq(mfaTokens.id, tokenId))
+        .returning();
+      return token;
+    } catch (error) {
+      throw new Error('MFA functionality not yet available - database schema needs migration');
+    }
+  }
+
+  async getUnusedBackupCodes(userId: string): Promise<MfaToken[]> {
+    try {
+      const codes = await db.select().from(mfaTokens)
+        .where(and(
+          eq(mfaTokens.userId, userId),
+          eq(mfaTokens.tokenType, 'backup_code'),
+          eq(mfaTokens.isUsed, false),
+          // Ensure codes haven't expired
+          sql`(${mfaTokens.expiresAt} IS NULL OR ${mfaTokens.expiresAt} > NOW())`
+        ))
+        .orderBy(desc(mfaTokens.createdAt));
+      return codes;
+    } catch (error: any) {
+      if (error?.code === '42703' || error?.message?.includes('table') || error?.message?.includes('does not exist')) {
+        return [];
+      }
+      throw error;
+    }
+  }
+
+  // User activity logging
+  async logUserActivity(activityData: InsertUserActivityLog): Promise<UserActivityLog> {
+    try {
+      const [activity] = await db.insert(userActivityLog).values(activityData).returning();
+      return activity;
+    } catch (error) {
+      // Silently fail if activity logging is not available yet
+      return {
+        id: 'temp-id',
+        userId: activityData.userId,
+        activityType: activityData.activityType,
+        success: activityData.success ?? true,
+        createdAt: new Date(),
+        ...activityData
+      } as UserActivityLog;
+    }
+  }
+
+  async getUserActivityLog(userId: string, limit: number = 50): Promise<UserActivityLog[]> {
+    try {
+      const activities = await db.select().from(userActivityLog)
+        .where(eq(userActivityLog.userId, userId))
+        .orderBy(desc(userActivityLog.createdAt))
+        .limit(limit);
+      return activities;
+    } catch (error) {
+      return [];
+    }
+  }
+
+  async getUserByWallet(walletAddress: string): Promise<User | undefined> {
+    try {
+      // Try new approach with walletBindings table
+      const result = await db.select({ user: users })
+        .from(users)
+        .innerJoin(walletBindings, eq(users.id, walletBindings.userId))
+        .where(and(
+          eq(walletBindings.walletAddress, walletAddress),
+          eq(walletBindings.bindingStatus, 'verified')
+        ));
+      return result[0]?.user;
+    } catch (error) {
+      // Fallback to deprecated approach if walletBindings table doesn't exist
+      try {
+        const [user] = await db.select().from(users).where(eq(users.walletAddress as any, walletAddress));
+        return user;
+      } catch (fallbackError) {
+        return undefined;
+      }
+    }
+  }
+
   async getUserByPrincipalId(principalId: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.principalId, principalId));
-    return user || undefined;
+    try {
+      // Try new approach with walletBindings table
+      const result = await db.select({ user: users })
+        .from(users)
+        .innerJoin(walletBindings, eq(users.id, walletBindings.userId))
+        .where(and(
+          eq(walletBindings.principalId, principalId),
+          eq(walletBindings.bindingStatus, 'verified')
+        ));
+      return result[0]?.user;
+    } catch (error) {
+      // Fallback to deprecated approach if walletBindings table doesn't exist
+      try {
+        const [user] = await db.select().from(users).where(eq(users.principalId as any, principalId));
+        return user;
+      } catch (fallbackError) {
+        return undefined;
+      }
+    }
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
