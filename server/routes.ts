@@ -575,9 +575,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
     async (req, res) => {
       try {
         const userData = req.body; // Already validated by middleware
+        let user;
         
-        // Additional business logic validation
-        if (userData.walletAddress) {
+        // Handle traditional password-based registration
+        if (userData.password) {
+          // Check for existing user by email
+          if (userData.email) {
+            const existingUser = await storage.getUserByEmail(userData.email);
+            if (existingUser) {
+              return res.status(409).json({
+                success: false,
+                error: 'User with this email already exists',
+                code: 'EMAIL_EXISTS',
+                timestamp: new Date().toISOString()
+              });
+            }
+          }
+          
+          // Check for existing user by username
+          if (userData.username) {
+            const existingUser = await storage.getUserByUsername(userData.username);
+            if (existingUser) {
+              return res.status(409).json({
+                success: false,
+                error: 'Username already taken',
+                code: 'USERNAME_EXISTS',
+                timestamp: new Date().toISOString()
+              });
+            }
+          }
+          
+          // Hash the password and create user
+          const saltRounds = 12;
+          const passwordHash = await bcrypt.hash(userData.password, saltRounds);
+          
+          // Remove password from userData before storing
+          const { password, confirmPassword, ...userDataForDB } = userData;
+          
+          user = await storage.createUserWithPassword(userDataForDB, passwordHash);
+          
+          console.log('Traditional user created successfully:', {
+            userId: user.id,
+            email: userData.email,
+            username: userData.username,
+            timestamp: new Date().toISOString(),
+            ip: req.ip,
+            userAgent: req.get('User-Agent')
+          });
+        } 
+        // Handle wallet-based registration
+        else if (userData.walletAddress) {
+          // Additional business logic validation for wallet addresses
           const addressValidation = AddressValidator.validateBridgeAddress(
             userData.walletAddress,
             userData.walletAddress.startsWith('0x') ? 'ethereum' : 'icp',
@@ -594,27 +642,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
               timestamp: new Date().toISOString()
             });
           }
-        }
-        
-        // Check for existing user
-        if (userData.walletAddress) {
-          const existingUser = await storage.getUserByWallet(userData.walletAddress);
           
+          // Check for existing user by wallet
+          const existingUser = await storage.getUserByWallet(userData.walletAddress);
           if (existingUser) {
             return res.json(successResponse(existingUser, 'User already exists'));
           }
+          
+          user = await storage.createUser(userData);
+          
+          console.log('Wallet user created successfully:', {
+            userId: user.id,
+            walletAddress: userData.walletAddress,
+            timestamp: new Date().toISOString(),
+            ip: req.ip,
+            userAgent: req.get('User-Agent')
+          });
+        } else {
+          return res.status(400).json({
+            success: false,
+            error: 'Either password or walletAddress is required for registration',
+            code: 'MISSING_AUTH_METHOD',
+            timestamp: new Date().toISOString()
+          });
         }
-        
-        // Create new user
-        const user = await storage.createUser(userData);
-        
-        console.log('User created successfully:', {
-          userId: user.id,
-          walletAddress: userData.walletAddress,
-          timestamp: new Date().toISOString(),
-          ip: req.ip,
-          userAgent: req.get('User-Agent')
-        });
         
         res.status(201).json(successResponse(user, 'User created successfully'));
       } catch (error) {
