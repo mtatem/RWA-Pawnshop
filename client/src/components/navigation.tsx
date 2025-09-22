@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Wallet, Coins, Menu, X, LogOut, User, Plug } from "lucide-react";
+import { Wallet, Coins, Menu, X, LogOut, User, Plug, UserPlus } from "lucide-react";
 import logoImage from "@assets/rwa1_1758232271312.png";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -25,7 +25,7 @@ export default function Navigation() {
   const { toast } = useToast();
 
   const handleLogin = () => {
-    window.location.href = "/api/login";
+    window.location.href = "/login";
   };
 
   const handleLogout = () => {
@@ -203,15 +203,28 @@ export default function Navigation() {
                 </Button>
               </div>
             ) : (
-              <Button
-                onClick={handleLogin}
-                className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs sm:text-sm px-2 sm:px-3 h-8 sm:h-9"
-                data-testid="button-login"
-              >
-                <User className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
-                <span className="hidden xs:inline">Login</span>
-                <span className="xs:hidden">Login</span>
-              </Button>
+              <div className="flex items-center space-x-1 sm:space-x-2">
+                <Button
+                  onClick={handleLogin}
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs sm:text-sm px-2 sm:px-3 h-8 sm:h-9"
+                  data-testid="button-login"
+                >
+                  <User className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+                  <span className="hidden xs:inline">Login</span>
+                  <span className="xs:hidden">Login</span>
+                </Button>
+                <Link href="/register">
+                  <Button
+                    variant="outline"
+                    className="text-xs sm:text-sm px-2 sm:px-3 h-8 sm:h-9"
+                    data-testid="button-register"
+                  >
+                    <UserPlus className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+                    <span className="hidden xs:inline">Register</span>
+                    <span className="xs:hidden">Register</span>
+                  </Button>
+                </Link>
+              </div>
             )}
 
             {/* Mobile Menu */}
