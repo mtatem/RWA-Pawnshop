@@ -37,18 +37,115 @@ export const sessions = pgTable(
   (table) => [index("IDX_session_expire").on(table.expire)],
 );
 
-// Users table (updated for Replit Auth compatibility)
+// Users table (updated for Replit Auth compatibility + traditional auth)
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  walletAddress: text("wallet_address"),
-  principalId: text("principal_id").unique(), // ICP wallet principal ID for real blockchain integration
+  // Replit Auth fields
   email: varchar("email").unique(),
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
+  // Traditional auth fields (optional - for users who prefer username/password)
+  username: varchar("username").unique(),
+  passwordHash: varchar("password_hash"), // bcrypt hash for traditional login
+  emailVerified: boolean("email_verified").default(false),
+  emailVerificationToken: varchar("email_verification_token"),
+  passwordResetToken: varchar("password_reset_token"),
+  passwordResetExpires: timestamp("password_reset_expires"),
+  // Profile and wallet fields
+  walletAddress: text("wallet_address"),
+  principalId: text("principal_id").unique(), // ICP wallet principal ID
+  phone: varchar("phone"),
+  dateOfBirth: timestamp("date_of_birth"),
+  address: text("address"),
+  city: varchar("city"),
+  state: varchar("state"),
+  country: varchar("country").default("US"),
+  postalCode: varchar("postal_code"),
+  // Account status and verification
+  accountStatus: varchar("account_status").default("active"), // active, suspended, banned, restricted
+  verificationStatus: varchar("verification_status").default("unverified"), // unverified, pending, verified, rejected
+  kycStatus: varchar("kyc_status").default("not_started"), // not_started, in_progress, completed, failed
+  riskLevel: varchar("risk_level").default("low"), // low, medium, high, critical
+  // Security and admin
+  mfaEnabled: boolean("mfa_enabled").default(false),
+  mfaSecret: varchar("mfa_secret"), // TOTP secret for authenticator apps
+  backupCodes: jsonb("backup_codes"), // Array of backup codes
+  lastLoginAt: timestamp("last_login_at"),
+  loginAttempts: integer("login_attempts").default(0),
+  lockedUntil: timestamp("locked_until"),
   isAdmin: boolean("is_admin").default(false),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// KYC Information table
+export const kycInformation = pgTable("kyc_information", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  documentType: varchar("document_type").notNull(), // passport, drivers_license, national_id
+  documentNumber: varchar("document_number").notNull(),
+  documentCountry: varchar("document_country").notNull(),
+  documentImageUrl: text("document_image_url"),
+  documentBackImageUrl: text("document_back_image_url"),
+  selfieImageUrl: text("selfie_image_url"),
+  fullName: varchar("full_name").notNull(),
+  dateOfBirth: timestamp("date_of_birth").notNull(),
+  nationality: varchar("nationality").notNull(),
+  occupation: varchar("occupation"),
+  sourceOfFunds: text("source_of_funds"),
+  annualIncome: varchar("annual_income"),
+  status: varchar("status").default("pending"), // pending, approved, rejected, needs_review
+  reviewedBy: varchar("reviewed_by").references(() => users.id),
+  reviewedAt: timestamp("reviewed_at"),
+  reviewNotes: text("review_notes"),
+  rejectionReason: text("rejection_reason"),
+  submittedAt: timestamp("submitted_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Wallet bindings table
+export const walletBindings = pgTable("wallet_bindings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  walletType: varchar("wallet_type").notNull(), // plug, internetIdentity, metamask, ledger
+  walletAddress: text("wallet_address").notNull(),
+  principalId: text("principal_id"), // For ICP wallets
+  bindingStatus: varchar("binding_status").default("pending"), // pending, verified, revoked
+  verificationMethod: varchar("verification_method"), // signature, delegation_proof
+  bindingProof: text("binding_proof"), // Signature or delegation proof
+  verificationData: jsonb("verification_data"), // Additional verification metadata
+  verifiedAt: timestamp("verified_at"),
+  revokedAt: timestamp("revoked_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// MFA tokens and backup codes
+export const mfaTokens = pgTable("mfa_tokens", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  tokenType: varchar("token_type").notNull(), // totp, backup_code, sms
+  tokenValue: varchar("token_value").notNull(), // Hashed backup code or phone for SMS
+  isUsed: boolean("is_used").default(false),
+  usedAt: timestamp("used_at"),
+  expiresAt: timestamp("expires_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// User activity log for security tracking
+export const userActivityLog = pgTable("user_activity_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id),
+  activityType: varchar("activity_type").notNull(), // login, logout, password_change, profile_update, wallet_bind, kyc_submit
+  ipAddress: varchar("ip_address"),
+  userAgent: text("user_agent"),
+  location: varchar("location"), // Approximate location from IP
+  details: jsonb("details"), // Additional activity-specific data
+  success: boolean("success").default(true),
+  errorMessage: text("error_message"),
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
 // RWA submissions table
@@ -1429,9 +1526,99 @@ export const adminDashboardFiltersSchema = z.object({
   sortOrder: z.enum(['asc', 'desc']).default('desc'),
 });
 
-// Type exports
+// Enhanced validation schemas for new tables
+export const insertKycInformationSchema = createInsertSchema(kycInformation).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  submittedAt: true,
+  reviewedAt: true,
+}).extend({
+  documentType: z.enum(['passport', 'drivers_license', 'national_id']),
+  fullName: z.string().min(1, 'Full name is required').max(100, 'Full name too long'),
+  documentNumber: z.string().min(1, 'Document number is required').max(50, 'Document number too long'),
+  documentCountry: z.string().min(2, 'Country code required').max(3, 'Invalid country code'),
+  nationality: z.string().min(2, 'Nationality required').max(50, 'Nationality too long'),
+});
+
+export const insertWalletBindingSchema = createInsertSchema(walletBindings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  verifiedAt: true,
+  revokedAt: true,
+}).extend({
+  walletType: z.enum(['plug', 'internetIdentity', 'metamask', 'ledger']),
+  walletAddress: z.string().min(1, 'Wallet address is required'),
+});
+
+export const insertMfaTokenSchema = createInsertSchema(mfaTokens).omit({
+  id: true,
+  createdAt: true,
+  usedAt: true,
+}).extend({
+  tokenType: z.enum(['totp', 'backup_code', 'sms']),
+  tokenValue: z.string().min(1, 'Token value is required'),
+});
+
+export const insertUserActivityLogSchema = createInsertSchema(userActivityLog).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  activityType: z.enum(['login', 'logout', 'password_change', 'profile_update', 'wallet_bind', 'kyc_submit', 'mfa_setup', 'mfa_disable']),
+});
+
+// User profile management schemas
+export const userRegistrationSchema = z.object({
+  email: z.string().email('Invalid email format').max(320, 'Email too long'),
+  password: z.string().min(8, 'Password must be at least 8 characters').max(128, 'Password too long')
+    .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, 'Password must contain uppercase, lowercase, and number'),
+  firstName: z.string().min(1, 'First name required').max(50, 'First name too long'),
+  lastName: z.string().min(1, 'Last name required').max(50, 'Last name too long'),
+  confirmPassword: z.string(),
+}).refine(data => data.password === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"],
+});
+
+export const userLoginSchema = z.object({
+  email: z.string().email('Invalid email format'),
+  password: z.string().min(1, 'Password is required'),
+  rememberMe: z.boolean().default(false),
+});
+
+export const forgotPasswordSchema = z.object({
+  email: z.string().email('Invalid email format'),
+});
+
+export const resetPasswordSchema = z.object({
+  token: z.string().min(1, 'Reset token is required'),
+  password: z.string().min(8, 'Password must be at least 8 characters').max(128, 'Password too long')
+    .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, 'Password must contain uppercase, lowercase, and number'),
+  confirmPassword: z.string(),
+}).refine(data => data.password === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"],
+});
+
+export const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1, 'Current password is required'),
+  newPassword: z.string().min(8, 'Password must be at least 8 characters').max(128, 'Password too long')
+    .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, 'Password must contain uppercase, lowercase, and number'),
+  confirmNewPassword: z.string(),
+}).refine(data => data.newPassword === data.confirmNewPassword, {
+  message: "Passwords don't match",
+  path: ["confirmNewPassword"],
+});
+
+export const mfaSetupSchema = z.object({
+  totpCode: z.string().length(6, 'TOTP code must be 6 digits').regex(/^\d{6}$/, 'TOTP code must be numeric'),
+});
+
+// Type exports (preserving existing ones for compatibility)
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
+export type UpsertUser = typeof users.$inferInsert; // Keep for Replit Auth compatibility
 export type RwaSubmission = typeof rwaSubmissions.$inferSelect;
 export type InsertRwaSubmission = z.infer<typeof insertRwaSubmissionSchema>;
 export type PawnLoan = typeof pawnLoans.$inferSelect;
@@ -1514,3 +1701,21 @@ export type FraudAlertUpdate = z.infer<typeof fraudAlertUpdateSchema>;
 export type AssetReviewUpdate = z.infer<typeof assetReviewUpdateSchema>;
 export type UserFlagCreate = z.infer<typeof userFlagCreateSchema>;
 export type AdminDashboardFilters = z.infer<typeof adminDashboardFiltersSchema>;
+
+// New user management types
+export type KycInformation = typeof kycInformation.$inferSelect;
+export type InsertKycInformation = z.infer<typeof insertKycInformationSchema>;
+export type WalletBinding = typeof walletBindings.$inferSelect;
+export type InsertWalletBinding = z.infer<typeof insertWalletBindingSchema>;
+export type MfaToken = typeof mfaTokens.$inferSelect;
+export type InsertMfaToken = z.infer<typeof insertMfaTokenSchema>;
+export type UserActivityLog = typeof userActivityLog.$inferSelect;
+export type InsertUserActivityLog = z.infer<typeof insertUserActivityLogSchema>;
+
+// User authentication form types
+export type UserRegistration = z.infer<typeof userRegistrationSchema>;
+export type UserLogin = z.infer<typeof userLoginSchema>;
+export type ForgotPassword = z.infer<typeof forgotPasswordSchema>;
+export type ResetPassword = z.infer<typeof resetPasswordSchema>;
+export type ChangePassword = z.infer<typeof changePasswordSchema>;
+export type MfaSetup = z.infer<typeof mfaSetupSchema>;
