@@ -16,44 +16,116 @@ export default function HelpCenter() {
     {
       icon: <HelpCircle className="w-8 h-8 text-primary" />,
       title: "Getting Started",
-      description: "Learn the basics of using our platform",
-      articleCount: 12,
-      color: "bg-blue-500/10 text-blue-600"
+      description: "Complete guide to setting up your account and making your first pawn",
+      articleCount: 8,
+      color: "bg-blue-500/10 text-blue-600",
+      articles: [
+        "Creating Your RWA Pawn Account",
+        "Connecting Your ICP Wallet",
+        "Understanding Loan Terms and Interest Rates",
+        "Platform Overview: Dashboard Navigation",
+        "Your First Asset Submission - Step by Step",
+        "Reading Your Loan Agreement",
+        "Setting Up Two-Factor Authentication",
+        "Account Verification Requirements"
+      ]
     },
     {
       icon: <Coins className="w-8 h-8 text-primary" />,
       title: "Asset Submission",
-      description: "How to submit and manage your assets",
-      articleCount: 8,
-      color: "bg-green-500/10 text-green-600"
+      description: "Everything about submitting, documenting, and managing your assets",
+      articleCount: 12,
+      color: "bg-green-500/10 text-green-600",
+      articles: [
+        "Acceptable Asset Types and Categories",
+        "Required Documentation for Different Assets",
+        "Photography Guidelines for Asset Submission",
+        "Certificate of Authenticity Requirements",
+        "Asset Valuation Process Explained",
+        "Express vs Standard Processing Options",
+        "Editing or Withdrawing Pending Submissions",
+        "Asset Condition Assessment Criteria",
+        "Insurance and Asset Protection",
+        "Multiple Asset Submissions",
+        "Resubmission After Rejection",
+        "Asset Storage and Pickup Procedures"
+      ]
     },
     {
       icon: <Shield className="w-8 h-8 text-primary" />,
       title: "Security & Verification",
-      description: "Account security and identity verification",
-      articleCount: 6,
-      color: "bg-purple-500/10 text-purple-600"
+      description: "Keep your account secure and complete identity verification",
+      articleCount: 9,
+      color: "bg-purple-500/10 text-purple-600",
+      articles: [
+        "Identity Verification (KYC) Process",
+        "Document Upload Security Best Practices",
+        "Recognizing Phishing and Scam Attempts",
+        "Two-Factor Authentication Setup",
+        "Secure Wallet Connection Guidelines",
+        "Privacy Policy and Data Protection",
+        "Suspicious Activity Monitoring",
+        "Password Security Recommendations",
+        "Account Recovery Procedures"
+      ]
     },
     {
       icon: <ArrowRightLeft className="w-8 h-8 text-primary" />,
       title: "Cross-Chain Bridge",
-      description: "Using the bridge for ETH ↔ ICP conversions",
-      articleCount: 5,
-      color: "bg-orange-500/10 text-orange-600"
+      description: "Convert between ETH/USDC and ICP using our secure bridge",
+      articleCount: 7,
+      color: "bg-orange-500/10 text-orange-600",
+      articles: [
+        "Bridge Transaction Tutorial: ETH to ICP",
+        "Bridge Transaction Tutorial: ICP to ETH",
+        "Understanding Bridge Fees and Processing Times",
+        "Supported Tokens and Networks",
+        "Transaction Monitoring and Status Updates",
+        "Failed Bridge Transaction Recovery",
+        "MetaMask Integration for Bridge Transactions"
+      ]
     },
     {
       icon: <Settings className="w-8 h-8 text-primary" />,
-      title: "Account Management",
-      description: "Managing your account and preferences",
-      articleCount: 7,
-      color: "bg-red-500/10 text-red-600"
+      title: "Loans & Repayment",
+      description: "Managing active loans, repayments, and loan extensions",
+      articleCount: 10,
+      color: "bg-red-500/10 text-red-600",
+      articles: [
+        "Understanding Your Loan Terms",
+        "Making Loan Payments and Repayments",
+        "Early Repayment Benefits and Discounts",
+        "Loan Extension Options and Fees",
+        "What Happens When Loans Expire",
+        "Marketplace Process for Unredeemed Assets",
+        "Loan History and Payment Records",
+        "Interest Calculation and Payment Schedules",
+        "Partial Payments and Payment Plans",
+        "Loan Default Consequences"
+      ]
     },
     {
       icon: <MessageCircle className="w-8 h-8 text-primary" />,
       title: "Troubleshooting",
-      description: "Common issues and solutions",
-      articleCount: 15,
-      color: "bg-yellow-500/10 text-yellow-600"
+      description: "Solutions to common issues and technical problems",
+      articleCount: 14,
+      color: "bg-yellow-500/10 text-yellow-600",
+      articles: [
+        "Transaction Failed: Common Causes and Solutions",
+        "Wallet Connection Issues",
+        "Asset Submission Upload Problems",
+        "Email Notification Not Received",
+        "Account Login and Password Issues",
+        "Bridge Transaction Stuck or Delayed",
+        "Missing Loan Payments or Incorrect Balances",
+        "Document Upload Size and Format Issues",
+        "Browser Compatibility and Cache Issues",
+        "Mobile App vs Web Platform Differences",
+        "Customer Support Contact Methods",
+        "Platform Maintenance and Downtime",
+        "Gas Fee Issues on Ethereum Network",
+        "ICP Network Congestion Solutions"
+      ]
     }
   ];
 
@@ -111,12 +183,18 @@ export default function HelpCenter() {
   };
 
   const quickLinks = [
-    { title: "Account Setup Guide", category: "Getting Started", readTime: "5 min" },
-    { title: "Asset Submission Process", category: "Asset Submission", readTime: "8 min" },
-    { title: "Loan Repayment Options", category: "Account Management", readTime: "6 min" },
-    { title: "Bridge Transaction Tutorial", category: "Cross-Chain Bridge", readTime: "10 min" },
-    { title: "Security Best Practices", category: "Security & Verification", readTime: "7 min" },
-    { title: "Common Error Solutions", category: "Troubleshooting", readTime: "12 min" }
+    { title: "Your First Asset Submission - Step by Step", category: "Getting Started", readTime: "8 min" },
+    { title: "Required Documentation for Different Assets", category: "Asset Submission", readTime: "12 min" },
+    { title: "Understanding Your Loan Terms", category: "Loans & Repayment", readTime: "6 min" },
+    { title: "Bridge Transaction Tutorial: ETH to ICP", category: "Cross-Chain Bridge", readTime: "10 min" },
+    { title: "Identity Verification (KYC) Process", category: "Security & Verification", readTime: "7 min" },
+    { title: "What Happens When Loans Expire", category: "Loans & Repayment", readTime: "5 min" },
+    { title: "Acceptable Asset Types and Categories", category: "Asset Submission", readTime: "4 min" },
+    { title: "Transaction Failed: Common Causes and Solutions", category: "Troubleshooting", readTime: "9 min" },
+    { title: "Early Repayment Benefits and Discounts", category: "Loans & Repayment", readTime: "3 min" },
+    { title: "Photography Guidelines for Asset Submission", category: "Asset Submission", readTime: "6 min" },
+    { title: "Wallet Connection Issues", category: "Troubleshooting", readTime: "8 min" },
+    { title: "Loan Extension Options and Fees", category: "Loans & Repayment", readTime: "4 min" }
   ];
 
   return (
@@ -154,17 +232,20 @@ export default function HelpCenter() {
 
         {/* Help Categories */}
         <div className="mb-16">
-          <h2 className="text-3xl font-bold text-center mb-8">Browse by Category</h2>
+          <h2 className="text-3xl font-bold text-center mb-4">Browse by Category</h2>
+          <p className="text-center text-muted-foreground mb-8 max-w-3xl mx-auto">
+            Explore comprehensive guides organized by topic to find exactly what you need
+          </p>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {categories.map((category, index) => (
-              <Card key={index} className="hover:shadow-lg transition-shadow cursor-pointer" data-testid={`category-${index}`}>
+              <Card key={index} className="hover:shadow-lg transition-all duration-300 cursor-pointer group hover:border-primary/50" data-testid={`category-${index}`}>
                 <CardHeader className="pb-4">
                   <div className="flex items-center space-x-4">
-                    <div className={`p-3 rounded-lg ${category.color}`}>
+                    <div className={`p-3 rounded-lg ${category.color} group-hover:scale-110 transition-transform duration-300`}>
                       {category.icon}
                     </div>
                     <div>
-                      <CardTitle className="text-lg">{category.title}</CardTitle>
+                      <CardTitle className="text-lg group-hover:text-primary transition-colors">{category.title}</CardTitle>
                       <Badge variant="secondary" className="mt-1">
                         {category.articleCount} articles
                       </Badge>
@@ -172,29 +253,50 @@ export default function HelpCenter() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-sm text-muted-foreground">{category.description}</p>
+                  <p className="text-sm text-muted-foreground mb-4">{category.description}</p>
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Featured Articles:</p>
+                    <ul className="text-xs text-muted-foreground space-y-1">
+                      {category.articles.slice(0, 3).map((article, articleIndex) => (
+                        <li key={articleIndex} className="flex items-center space-x-2">
+                          <div className="w-1 h-1 bg-primary rounded-full"></div>
+                          <span className="truncate">{article}</span>
+                        </li>
+                      ))}
+                      {category.articles.length > 3 && (
+                        <li className="text-primary font-medium">
+                          +{category.articles.length - 3} more articles
+                        </li>
+                      )}
+                    </ul>
+                  </div>
                 </CardContent>
               </Card>
             ))}
           </div>
         </div>
 
-        {/* Quick Links */}
+        {/* Popular Articles */}
         <div className="mb-16">
-          <h2 className="text-3xl font-bold text-center mb-8">Popular Articles</h2>
-          <div className="grid md:grid-cols-2 gap-4">
+          <h2 className="text-3xl font-bold text-center mb-4">Popular Articles</h2>
+          <p className="text-center text-muted-foreground mb-8 max-w-3xl mx-auto">
+            Most read guides and tutorials to help you get the most out of your RWA pawn experience
+          </p>
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
             {quickLinks.map((link, index) => (
-              <Card key={index} className="hover:shadow-md transition-shadow cursor-pointer" data-testid={`quick-link-${index}`}>
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <BookOpen className="w-5 h-5 text-primary" />
-                      <div>
-                        <h4 className="font-semibold">{link.title}</h4>
-                        <p className="text-sm text-muted-foreground">{link.category}</p>
+              <Card key={index} className="hover:shadow-md transition-shadow cursor-pointer group" data-testid={`quick-link-${index}`}>
+                <CardContent className="p-4">
+                  <div className="flex items-start space-x-3">
+                    <div className="p-2 rounded-lg bg-primary/10 group-hover:bg-primary/20 transition-colors">
+                      <BookOpen className="w-4 h-4 text-primary" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-medium text-sm leading-snug mb-1 group-hover:text-primary transition-colors">{link.title}</h4>
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs text-muted-foreground">{link.category}</p>
+                        <Badge variant="outline" className="text-xs">{link.readTime}</Badge>
                       </div>
                     </div>
-                    <Badge variant="outline">{link.readTime}</Badge>
                   </div>
                 </CardContent>
               </Card>
