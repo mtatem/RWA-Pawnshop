@@ -429,20 +429,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Reset login attempts on successful login
         await storage.resetLoginAttempts(user.id);
         
-        // Create session (similar to Replit Auth but for traditional users)
-        // For now, we'll return user data - proper session handling would be implemented here
-        res.json({
-          success: true,
-          user: {
-            id: user.id,
+        // Create session for traditional auth users (compatible with isAuthenticated middleware)
+        const sessionUser = {
+          claims: {
+            sub: user.id,
             email: user.email,
-            firstName: user.firstName,
-            lastName: user.lastName,
-            username: user.username,
-            emailVerified: user.emailVerified,
-            accountStatus: user.accountStatus
+            first_name: user.firstName,
+            last_name: user.lastName,
+            profile_image_url: user.profileImageUrl
           },
-          timestamp: new Date().toISOString()
+          // For traditional auth, set a long expiry (24 hours from now)
+          expires_at: Math.floor(Date.now() / 1000) + (24 * 60 * 60),
+          // Traditional auth doesn't use refresh tokens
+          refresh_token: null,
+          access_token: null
+        };
+        
+        // Log the user in using passport session
+        req.logIn(sessionUser, (err) => {
+          if (err) {
+            console.error('Session creation error:', err);
+            return res.status(500).json({
+              success: false,
+              error: 'Failed to create session',
+              code: 'SESSION_ERROR',
+              timestamp: new Date().toISOString()
+            });
+          }
+          
+          res.json({
+            success: true,
+            user: {
+              id: user.id,
+              email: user.email,
+              firstName: user.firstName,
+              lastName: user.lastName,
+              username: user.username,
+              emailVerified: user.emailVerified,
+              accountStatus: user.accountStatus,
+              isAdmin: user.isAdmin || false
+            },
+            timestamp: new Date().toISOString()
+          });
         });
         
       } catch (error) {
@@ -849,6 +877,138 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     }
   );
+
+  // Update user profile image
+  app.patch("/api/user/profile-image", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub as string;
+      const { profileImageUrl } = req.body;
+      
+      if (!profileImageUrl || typeof profileImageUrl !== 'string') {
+        return res.status(400).json({
+          success: false,
+          error: "Profile image URL is required",
+          code: 'MISSING_IMAGE_URL',
+          timestamp: new Date().toISOString()
+        });
+      }
+      
+      const updatedUser = await storage.updateUser(userId, { profileImageUrl });
+      
+      if (!updatedUser) {
+        return res.status(404).json({
+          success: false,
+          error: "User not found",
+          code: 'USER_NOT_FOUND',
+          timestamp: new Date().toISOString()
+        });
+      }
+      
+      console.log('Profile image updated successfully:', {
+        userId,
+        imageUrl: profileImageUrl,
+        timestamp: new Date().toISOString(),
+        ip: req.ip
+      });
+      
+      res.json(successResponse(updatedUser, 'Profile image updated successfully'));
+    } catch (error) {
+      console.error("Error updating profile image:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to update profile image",
+        code: 'INTERNAL_ERROR',
+        timestamp: new Date().toISOString()
+      });
+    }
+  });
+
+  // Update user profile
+  app.patch("/api/user/profile", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub as string;
+      const updateData = req.body;
+      
+      // Remove any fields that shouldn't be updated directly
+      delete updateData.id;
+      delete updateData.createdAt;
+      delete updateData.updatedAt;
+      delete updateData.isAdmin;
+      
+      if (Object.keys(updateData).length === 0) {
+        return res.status(400).json({
+          success: false,
+          error: "No valid fields to update",
+          code: 'NO_UPDATE_DATA',
+          timestamp: new Date().toISOString()
+        });
+      }
+      
+      const updatedUser = await storage.updateUser(userId, updateData);
+      
+      if (!updatedUser) {
+        return res.status(404).json({
+          success: false,
+          error: "User not found",
+          code: 'USER_NOT_FOUND',
+          timestamp: new Date().toISOString()
+        });
+      }
+      
+      console.log('User profile updated successfully:', {
+        userId,
+        updatedFields: Object.keys(updateData),
+        timestamp: new Date().toISOString(),
+        ip: req.ip
+      });
+      
+      res.json(successResponse(updatedUser, 'Profile updated successfully'));
+    } catch (error) {
+      console.error("Error updating user profile:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to update profile",
+        code: 'INTERNAL_ERROR',
+        timestamp: new Date().toISOString()
+      });
+    }
+  });
+
+  // Upload endpoint for profile images
+  app.post("/api/upload", isAuthenticated, upload.single('file'), async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      if (!req.file) {
+        return res.status(400).json({ error: "No file provided" });
+      }
+      
+      // Validate file type (images only)
+      if (!req.file.mimetype.startsWith('image/')) {
+        return res.status(400).json({ error: "Only image files are allowed" });
+      }
+      
+      // Generate unique filename
+      const timestamp = Date.now();
+      const extension = req.file.originalname.split('.').pop();
+      const filename = `profile-images/${userId}-${timestamp}.${extension}`;
+      
+      // For now, return a placeholder URL since object storage integration needs more setup
+      const imageUrl = `/api/files/${filename}`;
+      
+      console.log(`Profile image uploaded: ${filename} for user ${userId}`);
+      
+      res.json({
+        success: true,
+        uploadURL: imageUrl,
+        url: imageUrl,
+        filename: filename
+      });
+    } catch (error) {
+      console.error("Profile image upload error:", error);
+      res.status(500).json({ error: "Upload failed" });
+    }
+  });
 
   // KYC Information endpoints
   app.get("/api/user/kyc", isAuthenticated, async (req: any, res) => {

@@ -20,7 +20,13 @@ import {
   X,
   CheckCircle,
   AlertCircle,
-  Clock
+  Clock,
+  Package,
+  Upload,
+  FileText,
+  DollarSign,
+  Calendar,
+  Plus
 } from "lucide-react";
 
 import Navigation from "@/components/navigation";
@@ -40,6 +46,12 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/queryClient";
 import type { User } from "@shared/schema";
+import Uppy from '@uppy/core';
+import Dashboard from '@uppy/dashboard';
+import AwsS3 from '@uppy/aws-s3';
+import { DashboardModal } from '@uppy/react';
+import '@uppy/core/dist/style.min.css';
+import '@uppy/dashboard/dist/style.min.css';
 
 // Password change form schema
 const passwordChangeSchema = z.object({
@@ -69,6 +81,22 @@ const profileUpdateSchema = z.object({
 type PasswordChangeForm = z.infer<typeof passwordChangeSchema>;
 type ProfileUpdateForm = z.infer<typeof profileUpdateSchema>;
 
+// Pawn asset form schema
+const pawnAssetSchema = z.object({
+  assetName: z.string().min(1, "Asset name is required").max(100, "Asset name too long"),
+  category: z.enum(["watches", "jewelry", "electronics", "art", "collectibles", "other"], {
+    required_error: "Category is required"
+  }),
+  estimatedValue: z.string().min(1, "Estimated value is required").refine(
+    (val) => !isNaN(parseFloat(val)) && parseFloat(val) > 0,
+    "Must be a valid positive number"
+  ),
+  description: z.string().optional(),
+  walletAddress: z.string().min(1, "Wallet address is required")
+});
+
+type PawnAssetForm = z.infer<typeof pawnAssetSchema>;
+
 interface WalletBinding {
   id: string;
   walletType: string;
@@ -89,6 +117,35 @@ interface UserActivity {
   createdAt: string;
 }
 
+interface RwaSubmission {
+  id: string;
+  userId: string;
+  assetName: string;
+  category: string;
+  estimatedValue: string;
+  description?: string;
+  status: string;
+  adminNotes?: string;
+  reviewedBy?: string;
+  reviewedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface PawnLoan {
+  id: string;
+  userId: string;
+  submissionId: string;
+  loanAmount: string;
+  assetValue: string;
+  fee: string;
+  status: string;
+  expiryDate: string;
+  redeemedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export default function Profile() {
   const { user, isLoading: userLoading } = useAuth();
   const { toast } = useToast();
@@ -99,6 +156,8 @@ export default function Profile() {
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showImageUpload, setShowImageUpload] = useState(false);
+  const [showPawnForm, setShowPawnForm] = useState(false);
 
   // Profile form
   const profileForm = useForm<ProfileUpdateForm>({
@@ -155,6 +214,30 @@ export default function Profile() {
     enabled: !!user
   });
 
+  // Fetch user's RWA submissions
+  const { data: rwaSubmissions, isLoading: submissionsLoading } = useQuery<RwaSubmission[]>({
+    queryKey: ["/api/rwa-submissions/user", user?.id],
+    queryFn: async () => {
+      if (!user?.id) throw new Error("User ID required");
+      const response = await fetch(`/api/rwa-submissions/user/${user.id}`);
+      if (!response.ok) throw new Error("Failed to fetch submissions");
+      return response.json();
+    },
+    enabled: !!user?.id
+  });
+
+  // Fetch user's pawn loans
+  const { data: pawnLoans, isLoading: loansLoading } = useQuery<PawnLoan[]>({
+    queryKey: ["/api/pawn-loans/user", user?.id],
+    queryFn: async () => {
+      if (!user?.id) throw new Error("User ID required");
+      const response = await fetch(`/api/pawn-loans/user/${user.id}`);
+      if (!response.ok) throw new Error("Failed to fetch loans");
+      return response.json();
+    },
+    enabled: !!user?.id
+  });
+
   // Profile update mutation
   const updateProfileMutation = useMutation({
     mutationFn: async (data: ProfileUpdateForm) => {
@@ -206,6 +289,125 @@ export default function Profile() {
 
   const onPasswordSubmit = (data: PasswordChangeForm) => {
     changePasswordMutation.mutate(data);
+  };
+
+  // Image upload with Uppy
+  const [uppy] = useState(() => {
+    return new Uppy({
+      restrictions: {
+        maxFileSize: 5 * 1024 * 1024, // 5MB
+        maxNumberOfFiles: 1,
+        allowedFileTypes: ['image/*']
+      }
+    }).use(AwsS3, {
+      endpoint: '/api/upload',
+      allowedMetaFields: ['name', 'type']
+    });
+  });
+
+  // Profile image upload mutation
+  const uploadImageMutation = useMutation({
+    mutationFn: async (imageUrl: string) => {
+      const response = await apiRequest("PATCH", "/api/user/profile-image", { 
+        profileImageUrl: imageUrl 
+      });
+      return response;
+    },
+    onSuccess: () => {
+      toast({
+        title: "Profile Image Updated",
+        description: "Your profile image has been successfully updated.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      setShowImageUpload(false);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Upload Failed",
+        description: error.message || "Failed to update profile image. Please try again.",
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Pawn loan redemption mutation
+  const redeemLoanMutation = useMutation({
+    mutationFn: async (loanId: string) => {
+      const response = await apiRequest("PATCH", `/api/pawn-loans/${loanId}/redeem`, {});
+      return response;
+    },
+    onSuccess: () => {
+      toast({
+        title: "Asset Redeemed",
+        description: "Your asset has been successfully redeemed.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/pawn-loans/user", user?.id] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Redemption Failed",
+        description: error.message || "Failed to redeem asset. Please try again.",
+        variant: "destructive",
+      });
+    }
+  });
+
+  // New RWA submission mutation
+  const submitRwaMutation = useMutation({
+    mutationFn: async (rwaData: any) => {
+      const response = await apiRequest("POST", "/api/rwa-submissions", rwaData);
+      return response;
+    },
+    onSuccess: () => {
+      toast({
+        title: "RWA Submitted",
+        description: "Your asset has been submitted for review.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/rwa-submissions/user", user?.id] });
+      setShowPawnForm(false);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Submission Failed",
+        description: error.message || "Failed to submit asset. Please try again.",
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Handle Uppy upload complete
+  useEffect(() => {
+    const handleComplete = (result: any) => {
+      if (result.successful && result.successful.length > 0) {
+        const uploadedFile = result.successful[0];
+        const imageUrl = uploadedFile.response?.uploadURL || uploadedFile.meta?.url;
+        if (imageUrl) {
+          uploadImageMutation.mutate(imageUrl);
+        }
+      }
+    };
+    
+    uppy.on('complete', handleComplete);
+    
+    return () => {
+      uppy.off('complete', handleComplete);
+    };
+  }, [uppy, uploadImageMutation]);
+
+  // Pawn asset form
+  const pawnForm = useForm<PawnAssetForm>({
+    resolver: zodResolver(pawnAssetSchema),
+    defaultValues: {
+      assetName: "",
+      category: "other",
+      estimatedValue: "",
+      description: "",
+      walletAddress: ""
+    }
+  });
+
+  const onPawnSubmit = (data: PawnAssetForm) => {
+    submitRwaMutation.mutate(data);
   };
 
   const getStatusBadge = (status: string) => {
@@ -308,15 +510,28 @@ export default function Profile() {
                   {getStatusBadge(user.verificationStatus || "unverified")}
                 </div>
               </div>
+              
+              <div className="ml-4">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setShowImageUpload(true)}
+                  className="rounded-full"
+                  data-testid="button-upload-image"
+                >
+                  <Camera className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           </div>
 
           {/* Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="profile" data-testid="tab-profile">Profile</TabsTrigger>
               <TabsTrigger value="security" data-testid="tab-security">Security</TabsTrigger>
               <TabsTrigger value="wallets" data-testid="tab-wallets">Wallets</TabsTrigger>
+              <TabsTrigger value="assets" data-testid="tab-assets">Assets</TabsTrigger>
               <TabsTrigger value="activity" data-testid="tab-activity">Activity</TabsTrigger>
             </TabsList>
 
@@ -694,6 +909,147 @@ export default function Profile() {
               </Card>
             </TabsContent>
 
+            {/* Assets Tab */}
+            <TabsContent value="assets" className="space-y-6">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h3 className="text-lg font-semibold">Your Assets</h3>
+                  <p className="text-muted-foreground">Manage your pawned and submitted assets</p>
+                </div>
+                <Button
+                  onClick={() => setShowPawnForm(true)}
+                  data-testid="button-pawn-new-asset"
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Pawn New Asset
+                </Button>
+              </div>
+
+              {/* Pawned Assets (Active Loans) */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Active Pawn Loans</CardTitle>
+                  <CardDescription>
+                    Assets currently used as collateral for loans
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {loansLoading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                    </div>
+                  ) : !pawnLoans || pawnLoans.length === 0 ? (
+                    <div className="text-center py-8">
+                      <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                      <p className="text-muted-foreground mb-4">No active pawn loans</p>
+                      <Button
+                        onClick={() => setShowPawnForm(true)}
+                        data-testid="button-pawn-first-asset"
+                      >
+                        Pawn Your First Asset
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {pawnLoans.filter(loan => loan.status === 'active').map((loan) => {
+                        const submission = rwaSubmissions?.find(sub => sub.id === loan.submissionId);
+                        const isExpiring = new Date(loan.expiryDate) < new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+                        
+                        return (
+                          <div key={loan.id} className={`p-4 border rounded-lg ${isExpiring ? 'border-orange-300 bg-orange-50' : ''}`}>
+                            <div className="flex justify-between items-start">
+                              <div className="space-y-2">
+                                <h4 className="font-semibold">{submission?.assetName || 'Unknown Asset'}</h4>
+                                <p className="text-sm text-muted-foreground">{submission?.category}</p>
+                                <div className="flex items-center space-x-4 text-sm">
+                                  <span className="flex items-center">
+                                    <DollarSign className="h-4 w-4 mr-1" />
+                                    Loan: ${loan.loanAmount}
+                                  </span>
+                                  <span className="flex items-center">
+                                    <FileText className="h-4 w-4 mr-1" />
+                                    Value: ${loan.assetValue}
+                                  </span>
+                                  <span className="flex items-center">
+                                    <Calendar className="h-4 w-4 mr-1" />
+                                    Expires: {new Date(loan.expiryDate).toLocaleDateString()}
+                                  </span>
+                                </div>
+                                {isExpiring && (
+                                  <Alert className="mt-2">
+                                    <AlertCircle className="h-4 w-4" />
+                                    <AlertDescription>
+                                      This loan expires soon. Redeem your asset to avoid it going to marketplace.
+                                    </AlertDescription>
+                                  </Alert>
+                                )}
+                              </div>
+                              <Button
+                                onClick={() => redeemLoanMutation.mutate(loan.id)}
+                                disabled={redeemLoanMutation.isPending}
+                                data-testid={`button-redeem-${loan.id}`}
+                              >
+                                {redeemLoanMutation.isPending ? 'Redeeming...' : 'Unpawn Asset'}
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Submitted Assets (Pending Review) */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Pending Submissions</CardTitle>
+                  <CardDescription>
+                    Assets submitted for review that haven't been approved yet
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {submissionsLoading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                    </div>
+                  ) : !rwaSubmissions || rwaSubmissions.filter(sub => sub.status === 'pending').length === 0 ? (
+                    <div className="text-center py-8">
+                      <Clock className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                      <p className="text-muted-foreground">No pending submissions</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {rwaSubmissions.filter(sub => sub.status === 'pending').map((submission) => (
+                        <div key={submission.id} className="p-4 border rounded-lg bg-yellow-50">
+                          <div className="space-y-2">
+                            <div className="flex justify-between items-start">
+                              <h4 className="font-semibold">{submission.assetName}</h4>
+                              <Badge className="bg-yellow-500 text-white">Pending Review</Badge>
+                            </div>
+                            <p className="text-sm text-muted-foreground">{submission.category}</p>
+                            <div className="flex items-center space-x-4 text-sm">
+                              <span className="flex items-center">
+                                <DollarSign className="h-4 w-4 mr-1" />
+                                Estimated Value: ${submission.estimatedValue}
+                              </span>
+                              <span className="flex items-center">
+                                <Calendar className="h-4 w-4 mr-1" />
+                                Submitted: {new Date(submission.createdAt).toLocaleDateString()}
+                              </span>
+                            </div>
+                            {submission.description && (
+                              <p className="text-sm text-muted-foreground mt-2">{submission.description}</p>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
             {/* Activity Tab */}
             <TabsContent value="activity" className="space-y-6">
               <Card>
@@ -764,6 +1120,140 @@ export default function Profile() {
           </Tabs>
         </div>
       </section>
+      
+      {/* Image Upload Modal */}
+      <DashboardModal
+        uppy={uppy}
+        open={showImageUpload}
+        onRequestClose={() => setShowImageUpload(false)}
+        plugins={['ImageEditor']}
+        metaFields={[
+          { id: 'name', name: 'Name', placeholder: 'File name' },
+        ]}
+        proudlyDisplayPoweredByUppy={false}
+      />
+      
+      {/* Pawn Asset Form Modal */}
+      <Dialog open={showPawnForm} onOpenChange={setShowPawnForm}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Pawn New Asset</DialogTitle>
+          </DialogHeader>
+          <Form {...pawnForm}>
+            <form onSubmit={pawnForm.handleSubmit(onPawnSubmit)} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={pawnForm.control}
+                  name="assetName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Asset Name</FormLabel>
+                      <FormControl>
+                        <Input {...field} placeholder="e.g., Rolex Submariner" data-testid="input-asset-name" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={pawnForm.control}
+                  name="category"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Category</FormLabel>
+                      <FormControl>
+                        <select {...field} className="w-full px-3 py-2 border border-input rounded-md" data-testid="select-category">
+                          <option value="watches">Watches</option>
+                          <option value="jewelry">Jewelry</option>
+                          <option value="electronics">Electronics</option>
+                          <option value="art">Art</option>
+                          <option value="collectibles">Collectibles</option>
+                          <option value="other">Other</option>
+                        </select>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={pawnForm.control}
+                  name="estimatedValue"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Estimated Value ($)</FormLabel>
+                      <FormControl>
+                        <Input {...field} type="number" step="0.01" placeholder="e.g., 5000" data-testid="input-estimated-value" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={pawnForm.control}
+                  name="walletAddress"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Wallet Address</FormLabel>
+                      <FormControl>
+                        <Input {...field} placeholder="Your wallet address" data-testid="input-wallet-address" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              
+              <FormField
+                control={pawnForm.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Description (Optional)</FormLabel>
+                    <FormControl>
+                      <textarea
+                        {...field}
+                        rows={3}
+                        className="w-full px-3 py-2 border border-input rounded-md"
+                        placeholder="Additional details about your asset..."
+                        data-testid="textarea-description"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <div className="flex justify-end space-x-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowPawnForm(false)}
+                  data-testid="button-cancel-pawn"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={submitRwaMutation.isPending}
+                  data-testid="button-submit-pawn"
+                >
+                  {submitRwaMutation.isPending ? (
+                    "Submitting..."
+                  ) : (
+                    <>
+                      <Upload className="mr-2 h-4 w-4" />
+                      Submit for Review
+                    </>
+                  )}
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
       
       <Footer />
     </div>
