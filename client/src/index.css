@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 :root {
-  --background: #090909;
+  --background: #000000;
   --foreground: #ebebeb;
   --card: #101011;
   --card-foreground: hsl(0, 0%, 100%);
@@ -52,7 +52,7 @@
 }
 
 .dark {
-  --background: hsl(20, 14%, 4%);
+  --background: #000000;
   --foreground: hsl(45, 25%, 91%);
   --card: hsl(20, 14%, 8%);
   --card-foreground: hsl(45, 25%, 85%);
