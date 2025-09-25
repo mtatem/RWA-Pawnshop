@@ -24,6 +24,10 @@ const getStripePublicKey = () => {
     console.error('VITE_STRIPE_PUBLIC_KEY environment variable is not set');
     return null;
   }
+  if (key.startsWith('sk_')) {
+    console.error('VITE_STRIPE_PUBLIC_KEY contains a secret key! Use a publishable key (pk_) instead.');
+    return null;
+  }
   return key;
 };
 
