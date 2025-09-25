@@ -171,9 +171,10 @@ function BuyTab() {
     setIsInitializingPayment(true);
     
     try {
-      const data = await apiRequest("POST", "/api/rwapawn/create-payment-intent", { 
+      const response = await apiRequest("POST", "/api/rwapawn/create-payment-intent", { 
         amount: totalCost 
       });
+      const data = await response.json();
       
       setClientSecret(data.clientSecret);
       setPurchaseId(data.purchaseId);
