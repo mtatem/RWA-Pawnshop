@@ -257,7 +257,7 @@ export default function Login() {
               <Button
                 variant="outline"
                 className="w-full"
-                onClick={() => window.location.href = '/api/auth/login'}
+                onClick={() => window.location.href = '/api/login'}
                 data-testid="button-replit-auth"
               >
                 Replit Auth (OAuth)

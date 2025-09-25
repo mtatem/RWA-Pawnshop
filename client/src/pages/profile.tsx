@@ -217,24 +217,12 @@ export default function Profile() {
   // Fetch user's RWA submissions
   const { data: rwaSubmissions, isLoading: submissionsLoading } = useQuery<RwaSubmission[]>({
     queryKey: ["/api/rwa-submissions/user", user?.id],
-    queryFn: async () => {
-      if (!user?.id) throw new Error("User ID required");
-      const response = await fetch(`/api/rwa-submissions/user/${user.id}`);
-      if (!response.ok) throw new Error("Failed to fetch submissions");
-      return response.json();
-    },
     enabled: !!user?.id
   });
 
   // Fetch user's pawn loans
   const { data: pawnLoans, isLoading: loansLoading } = useQuery<PawnLoan[]>({
     queryKey: ["/api/pawn-loans/user", user?.id],
-    queryFn: async () => {
-      if (!user?.id) throw new Error("User ID required");
-      const response = await fetch(`/api/pawn-loans/user/${user.id}`);
-      if (!response.ok) throw new Error("Failed to fetch loans");
-      return response.json();
-    },
     enabled: !!user?.id
   });
 
@@ -938,7 +926,7 @@ export default function Profile() {
                     <div className="flex items-center justify-center py-8">
                       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
                     </div>
-                  ) : !pawnLoans || pawnLoans.length === 0 ? (
+                  ) : !pawnLoans || pawnLoans.filter(loan => loan.status === 'active').length === 0 ? (
                     <div className="text-center py-8">
                       <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                       <p className="text-muted-foreground mb-4">No active pawn loans</p>
