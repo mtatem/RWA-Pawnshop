@@ -473,14 +473,14 @@ export default function Token() {
                     <div className="space-y-2">
                       <Label htmlFor="from-currency">From Currency</Label>
                       <Select data-testid="select-from-currency">
-                        <SelectTrigger>
+                        <SelectTrigger className="bg-black text-white border-input">
                           <SelectValue placeholder="Select cryptocurrency" />
                         </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="ETH">Ethereum (ETH)</SelectItem>
-                          <SelectItem value="BTC">Bitcoin (BTC)</SelectItem>
-                          <SelectItem value="ICP">Internet Computer (ICP)</SelectItem>
-                          <SelectItem value="USDC">USD Coin (USDC)</SelectItem>
+                        <SelectContent className="bg-black text-white border-input">
+                          <SelectItem value="ETH" className="bg-black text-white hover:bg-gray-800">Ethereum (ETH)</SelectItem>
+                          <SelectItem value="BTC" className="bg-black text-white hover:bg-gray-800">Bitcoin (BTC)</SelectItem>
+                          <SelectItem value="ICP" className="bg-black text-white hover:bg-gray-800">Internet Computer (ICP)</SelectItem>
+                          <SelectItem value="USDC" className="bg-black text-white hover:bg-gray-800">USD Coin (USDC)</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -566,14 +566,14 @@ export default function Token() {
                       <div className="space-y-2">
                         <Label htmlFor="staking-tier">Staking Tier</Label>
                         <Select data-testid="select-staking-tier">
-                          <SelectTrigger>
+                          <SelectTrigger className="bg-black text-white border-input">
                             <SelectValue placeholder="Select lock period" />
                           </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="1">Tier 1 - 30 days (3% APY)</SelectItem>
-                            <SelectItem value="2">Tier 2 - 60 days (6% APY)</SelectItem>
-                            <SelectItem value="3">Tier 3 - 90 days (9% APY)</SelectItem>
-                            <SelectItem value="4">Tier 4 - 180 days (12% APY)</SelectItem>
+                          <SelectContent className="bg-black text-white border-input">
+                            <SelectItem value="1" className="bg-black text-white hover:bg-gray-800">Tier 1 - 30 days (3% APY)</SelectItem>
+                            <SelectItem value="2" className="bg-black text-white hover:bg-gray-800">Tier 2 - 60 days (6% APY)</SelectItem>
+                            <SelectItem value="3" className="bg-black text-white hover:bg-gray-800">Tier 3 - 90 days (9% APY)</SelectItem>
+                            <SelectItem value="4" className="bg-black text-white hover:bg-gray-800">Tier 4 - 180 days (12% APY)</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
