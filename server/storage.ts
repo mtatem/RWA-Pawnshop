@@ -88,6 +88,9 @@ import {
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, lt, gte, sql } from "drizzle-orm";
+import bcrypt from "bcryptjs";
+import { randomUUID } from "crypto";
+import { EncryptionService } from "./encryption-service";
 
 export interface IStorage {
   // User operations (required for Replit Auth)

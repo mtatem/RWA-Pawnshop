@@ -1719,9 +1719,20 @@ export type FraudDetectionConfig = z.infer<typeof fraudDetectionConfigSchema>;
 export type BatchDocumentAnalysis = z.infer<typeof batchDocumentAnalysisSchema>;
 export type DocumentSearch = z.infer<typeof documentSearchSchema>;
 
+// MFA/TOTP Setup types
+export const totpSetupSchema = z.object({
+  secret: z.string(),
+  qrCodeUrl: z.string(),
+  manualEntryKey: z.string(),
+  backupCodes: z.array(z.string())
+});
+
+export const mfaVerificationSchema = z.object({
+  token: z.string().min(6, 'Token must be at least 6 characters'),
+  type: z.enum(['totp', 'backup']).optional()
+});
+
 // KYC types
-export type KycInformation = typeof kycInformation.$inferSelect;
-export type InsertKycInformation = typeof kycInformation.$inferInsert;
 
 // Admin Management types
 export type AdminAction = typeof adminActions.$inferSelect;
