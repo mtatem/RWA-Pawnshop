@@ -2,10 +2,14 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import type { RequestHandler } from "express";
 
-// Admin credentials - in production, these should be in environment variables
-const ADMIN_USERNAME = "mtatem";
-const ADMIN_PASSWORD_HASH = bcrypt.hashSync("Matthew7272", 10);
-const JWT_SECRET = process.env.SESSION_SECRET || "fallback-secret-key";
+// Admin credentials - loaded from secure environment variables
+if (!process.env.ADMIN_USERNAME || !process.env.ADMIN_PASSWORD || !process.env.JWT_SECRET) {
+  throw new Error('Missing required admin credentials: ADMIN_USERNAME, ADMIN_PASSWORD, and JWT_SECRET must be set');
+}
+
+const ADMIN_USERNAME = process.env.ADMIN_USERNAME;
+const ADMIN_PASSWORD_HASH = bcrypt.hashSync(process.env.ADMIN_PASSWORD, 12); // Increased rounds for better security
+const JWT_SECRET = process.env.JWT_SECRET;
 
 export interface AdminUser {
   username: string;
