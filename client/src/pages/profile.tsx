@@ -1151,7 +1151,7 @@ export default function Profile() {
                     <FormItem>
                       <FormLabel>Category</FormLabel>
                       <FormControl>
-                        <select {...field} className="w-full px-3 py-2 border border-input rounded-md" data-testid="select-category">
+                        <select {...field} className="w-full px-3 py-2 border border-input rounded-md bg-black text-white" data-testid="select-category">
                           <option value="watches">Watches</option>
                           <option value="jewelry">Jewelry</option>
                           <option value="electronics">Electronics</option>
