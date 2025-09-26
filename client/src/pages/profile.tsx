@@ -46,6 +46,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/queryClient";
 import type { User } from "@shared/schema";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import Uppy from '@uppy/core';
 import Dashboard from '@uppy/dashboard';
 import AwsS3 from '@uppy/aws-s3';
@@ -97,6 +98,27 @@ const pawnAssetSchema = z.object({
 
 type PawnAssetForm = z.infer<typeof pawnAssetSchema>;
 
+// KYC form schema
+const kycSchema = z.object({
+  documentType: z.enum(["passport", "drivers_license", "national_id"], {
+    required_error: "Document type is required"
+  }),
+  fullName: z.string().min(1, "Full name is required").max(100, "Full name too long"),
+  documentNumber: z.string().min(1, "Document number is required").max(50, "Document number too long"),
+  documentCountry: z.string().min(2, "Country code required").max(3, "Invalid country code"),
+  dateOfBirth: z.string().min(1, "Date of birth is required"),
+  nationality: z.string().min(1, "Nationality is required"),
+  occupation: z.string().min(1, "Occupation is required"),
+  sourceOfFunds: z.enum(["employment", "business", "investment", "inheritance", "other"], {
+    required_error: "Source of funds is required"
+  }),
+  annualIncome: z.enum(["under_25k", "25k_50k", "50k_100k", "100k_250k", "250k_500k", "over_500k"], {
+    required_error: "Annual income range is required"
+  })
+});
+
+type KYCForm = z.infer<typeof kycSchema>;
+
 interface WalletBinding {
   id: string;
   walletType: string;
@@ -115,6 +137,17 @@ interface UserActivity {
   location?: string;
   success: boolean;
   createdAt: string;
+}
+
+interface KYCInformation {
+  id: string;
+  userId: string;
+  documentType: string;
+  documentCountry: string;
+  status: string;
+  submittedAt: string;
+  reviewedAt?: string;
+  rejectionReason?: string;
 }
 
 interface RwaSubmission {
@@ -226,6 +259,28 @@ export default function Profile() {
     enabled: !!user?.id
   });
 
+  // Fetch user's KYC information
+  const { data: kycInfo, isLoading: kycLoading, error: kycError } = useQuery<KYCInformation>({
+    queryKey: ["/api/user/kyc", user?.id],
+    enabled: !!user?.id
+  });
+
+  // KYC form
+  const kycForm = useForm<KYCForm>({
+    resolver: zodResolver(kycSchema),
+    defaultValues: {
+      documentType: "passport",
+      fullName: "",
+      documentNumber: "",
+      documentCountry: "US",
+      dateOfBirth: "",
+      nationality: "",
+      occupation: "",
+      sourceOfFunds: "employment",
+      annualIncome: "under_25k"
+    }
+  });
+
   // Profile update mutation
   const updateProfileMutation = useMutation({
     mutationFn: async (data: ProfileUpdateForm) => {
@@ -271,12 +326,67 @@ export default function Profile() {
     }
   });
 
+  // KYC submission mutation
+  const submitKYCMutation = useMutation({
+    mutationFn: async (data: FormData) => {
+      const response = await fetch("/api/user/kyc", {
+        method: "POST",
+        body: data
+      });
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "KYC Submitted",
+        description: "Your KYC verification has been submitted for review.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/user/kyc", user?.id] });
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "KYC Submission Failed",
+        description: error.message || "Failed to submit KYC verification. Please try again.",
+        variant: "destructive",
+      });
+    }
+  });
+
   const onProfileSubmit = (data: ProfileUpdateForm) => {
     updateProfileMutation.mutate(data);
   };
 
   const onPasswordSubmit = (data: PasswordChangeForm) => {
     changePasswordMutation.mutate(data);
+  };
+
+  const onKYCSubmit = (data: KYCForm) => {
+    const formData = new FormData();
+    Object.entries(data).forEach(([key, value]) => {
+      formData.append(key, value);
+    });
+    submitKYCMutation.mutate(formData);
+  };
+
+  const getKYCStatusBadge = (status: string) => {
+    switch (status) {
+      case "completed":
+        return <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100">Verified</Badge>;
+      case "pending":
+        return <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100">Under Review</Badge>;
+      case "failed":
+      case "rejected":
+        return <Badge className="bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100">Rejected</Badge>;
+      default:
+        return <Badge className="bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-100">Not Started</Badge>;
+    }
+  };
+
+  const canPawnAssets = () => {
+    return user?.kycStatus === "completed";
   };
 
   // Image upload with Uppy
@@ -515,9 +625,10 @@ export default function Profile() {
 
           {/* Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-5">
+            <TabsList className="grid w-full grid-cols-6">
               <TabsTrigger value="profile" data-testid="tab-profile">Profile</TabsTrigger>
               <TabsTrigger value="security" data-testid="tab-security">Security</TabsTrigger>
+              <TabsTrigger value="kyc" data-testid="tab-kyc">KYC</TabsTrigger>
               <TabsTrigger value="wallets" data-testid="tab-wallets">Wallets</TabsTrigger>
               <TabsTrigger value="assets" data-testid="tab-assets">Assets</TabsTrigger>
               <TabsTrigger value="activity" data-testid="tab-activity">Activity</TabsTrigger>
@@ -842,6 +953,245 @@ export default function Profile() {
               </Card>
             </TabsContent>
 
+            {/* KYC Tab */}
+            <TabsContent value="kyc" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <Shield className="h-5 w-5" />
+                    <span>KYC Verification</span>
+                  </CardTitle>
+                  <CardDescription>
+                    Complete your identity verification to enable asset pawning features
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {kycLoading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                    </div>
+                  ) : kycInfo ? (
+                    <div className="space-y-6">
+                      {/* Current KYC Status */}
+                      <div className="flex items-center justify-between p-4 border rounded-lg">
+                        <div className="space-y-1">
+                          <div className="flex items-center space-x-2">
+                            <Shield className="h-4 w-4" />
+                            <span className="font-medium">Verification Status</span>
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            Document Type: {kycInfo.documentType.replace('_', ' ').toUpperCase()}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            Submitted: {new Date(kycInfo.submittedAt).toLocaleDateString()}
+                          </p>
+                          {kycInfo.rejectionReason && (
+                            <p className="text-sm text-red-600 dark:text-red-400">
+                              Rejection Reason: {kycInfo.rejectionReason}
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex flex-col items-end space-y-2">
+                          {getKYCStatusBadge(kycInfo.status)}
+                        </div>
+                      </div>
+
+                      {/* Resubmit if rejected */}
+                      {kycInfo.status === "rejected" && (
+                        <Alert>
+                          <AlertCircle className="h-4 w-4" />
+                          <AlertDescription>
+                            Your verification was rejected. Please update your information and resubmit.
+                          </AlertDescription>
+                        </Alert>
+                      )}
+                    </div>
+                  ) : (
+                    /* KYC Submission Form */
+                    <Form {...kycForm}>
+                      <form onSubmit={kycForm.handleSubmit(onKYCSubmit)} className="space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <FormField
+                            control={kycForm.control}
+                            name="documentType"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Document Type</FormLabel>
+                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                  <FormControl>
+                                    <SelectTrigger data-testid="select-document-type">
+                                      <SelectValue placeholder="Select document type" />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    <SelectItem value="passport">Passport</SelectItem>
+                                    <SelectItem value="drivers_license">Driver's License</SelectItem>
+                                    <SelectItem value="national_id">National ID</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          <FormField
+                            control={kycForm.control}
+                            name="fullName"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Full Legal Name</FormLabel>
+                                <FormControl>
+                                  <Input {...field} data-testid="input-full-name" placeholder="Enter your full legal name" />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          <FormField
+                            control={kycForm.control}
+                            name="documentNumber"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Document Number</FormLabel>
+                                <FormControl>
+                                  <Input {...field} data-testid="input-document-number" placeholder="Enter document number" />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          <FormField
+                            control={kycForm.control}
+                            name="documentCountry"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Document Country</FormLabel>
+                                <FormControl>
+                                  <Input {...field} data-testid="input-document-country" placeholder="US" />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          <FormField
+                            control={kycForm.control}
+                            name="dateOfBirth"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Date of Birth</FormLabel>
+                                <FormControl>
+                                  <Input {...field} type="date" data-testid="input-date-of-birth" />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          <FormField
+                            control={kycForm.control}
+                            name="nationality"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Nationality</FormLabel>
+                                <FormControl>
+                                  <Input {...field} data-testid="input-nationality" placeholder="Enter your nationality" />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          <FormField
+                            control={kycForm.control}
+                            name="occupation"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Occupation</FormLabel>
+                                <FormControl>
+                                  <Input {...field} data-testid="input-occupation" placeholder="Enter your occupation" />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          <FormField
+                            control={kycForm.control}
+                            name="sourceOfFunds"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Source of Funds</FormLabel>
+                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                  <FormControl>
+                                    <SelectTrigger data-testid="select-source-of-funds">
+                                      <SelectValue placeholder="Select source of funds" />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    <SelectItem value="employment">Employment</SelectItem>
+                                    <SelectItem value="business">Business</SelectItem>
+                                    <SelectItem value="investment">Investment</SelectItem>
+                                    <SelectItem value="inheritance">Inheritance</SelectItem>
+                                    <SelectItem value="other">Other</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          <FormField
+                            control={kycForm.control}
+                            name="annualIncome"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Annual Income Range</FormLabel>
+                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                  <FormControl>
+                                    <SelectTrigger data-testid="select-annual-income">
+                                      <SelectValue placeholder="Select income range" />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    <SelectItem value="under_25k">Under $25,000</SelectItem>
+                                    <SelectItem value="25k_50k">$25,000 - $50,000</SelectItem>
+                                    <SelectItem value="50k_100k">$50,000 - $100,000</SelectItem>
+                                    <SelectItem value="100k_250k">$100,000 - $250,000</SelectItem>
+                                    <SelectItem value="250k_500k">$250,000 - $500,000</SelectItem>
+                                    <SelectItem value="over_500k">Over $500,000</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+
+                        <Alert>
+                          <AlertCircle className="h-4 w-4" />
+                          <AlertDescription>
+                            <strong>Important:</strong> You must complete KYC verification before you can pawn assets on our platform. This helps us comply with regulatory requirements and ensures the security of all transactions.
+                          </AlertDescription>
+                        </Alert>
+
+                        <Button 
+                          type="submit" 
+                          className="w-full" 
+                          disabled={submitKYCMutation.isPending}
+                          data-testid="button-submit-kyc"
+                        >
+                          {submitKYCMutation.isPending ? "Submitting..." : "Submit KYC Verification"}
+                        </Button>
+                      </form>
+                    </Form>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
             {/* Wallets Tab */}
             <TabsContent value="wallets" className="space-y-6">
               <Card>
@@ -873,8 +1223,8 @@ export default function Profile() {
                               <span className="font-medium">{wallet.walletType}</span>
                               {wallet.isPrimary && <Badge>Primary</Badge>}
                             </div>
-                            <p className="text-sm text-muted-foreground font-mono">
-                              {wallet.walletAddress.slice(0, 16)}...
+                            <p className="text-sm text-muted-foreground font-mono break-all">
+                              {wallet.walletAddress}
                             </p>
                             <p className="text-xs text-muted-foreground">
                               Connected {new Date(wallet.createdAt).toLocaleDateString()}
