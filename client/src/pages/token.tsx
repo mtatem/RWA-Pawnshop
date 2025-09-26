@@ -34,9 +34,11 @@ const getStripePublicKey = () => {
 const stripePromise = getStripePublicKey() ? loadStripe(getStripePublicKey()!) : null;
 
 // RWAPAWN configuration
-const RWAPAWN_EXCHANGE_RATE = 100; // $1 USD = 100 RWAPAWN tokens
-const MIN_PURCHASE_USD = 10;
-const MAX_PURCHASE_USD = 10000;
+// Total Supply: 10 billion tokens at $0.25 per token
+const RWAPAWN_EXCHANGE_RATE = 4; // $1 USD = 4 RWAPAWN tokens ($0.25 per token)
+const MIN_PURCHASE_USD = 10; // $10 minimum (40 tokens)
+const MAX_PURCHASE_USD = 10000; // $10,000 maximum (40,000 tokens)
+const TOTAL_RWAPAWN_SUPPLY = 10000000000; // 10 billion tokens
 
 // Payment form component
 function PaymentForm({ amount, purchaseId, onSuccess, onError }: { 
