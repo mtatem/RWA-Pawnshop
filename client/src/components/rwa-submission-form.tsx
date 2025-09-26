@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Upload, FileText, Image, Tag, Wallet, DollarSign, TrendingUp } from "lucide-react";
+import { Upload, FileText, Image, Tag, Wallet, DollarSign, TrendingUp, Shield, CheckCircle, Clock, AlertCircle } from "lucide-react";
 import { PricingDisplay } from "./pricing-display";
 import DocumentUpload from "./document-upload";
 import { Card } from "@/components/ui/card";
@@ -12,6 +12,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { insertRwaSubmissionSchema } from "@shared/schema";
@@ -185,6 +187,11 @@ export default function RwaSubmissionForm() {
         throw new Error('Please log in to submit an RWA');
       }
       
+      // Check KYC verification requirement
+      if (user.kycStatus !== "completed") {
+        throw new Error('KYC verification is required before submitting assets for pawning. Please complete your identity verification in your profile.');
+      }
+      
       if (!isConnected || !wallet) {
         throw new Error('Please connect your ICP wallet to submit an RWA');
       }
@@ -268,6 +275,41 @@ export default function RwaSubmissionForm() {
         <Upload className="mr-2 sm:mr-3 text-primary h-5 w-5 sm:h-6 sm:w-6" />
         Submit RWA for Pawning
       </h3>
+
+      {/* KYC Status Indicator */}
+      {isAuthenticated && (
+        <div className="mb-4 sm:mb-6">
+          {user?.kycStatus === "completed" ? (
+            <Alert className="border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950">
+              <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+              <AlertDescription className="text-green-700 dark:text-green-300">
+                <span className="font-medium">✓ KYC Verified</span> - You can pawn assets
+              </AlertDescription>
+            </Alert>
+          ) : user?.kycStatus === "pending" ? (
+            <Alert className="border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-950">
+              <Clock className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
+              <AlertDescription className="text-yellow-700 dark:text-yellow-300">
+                <span className="font-medium">⏳ KYC Under Review</span> - Please wait for verification to complete before pawning assets
+              </AlertDescription>
+            </Alert>
+          ) : user?.kycStatus === "rejected" ? (
+            <Alert className="border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950">
+              <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
+              <AlertDescription className="text-red-700 dark:text-red-300">
+                <span className="font-medium">❌ KYC Rejected</span> - Please update your verification in your profile before pawning assets
+              </AlertDescription>
+            </Alert>
+          ) : (
+            <Alert className="border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950">
+              <Shield className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+              <AlertDescription className="text-blue-700 dark:text-blue-300">
+                <span className="font-medium">🔐 KYC Required</span> - Complete identity verification in your <a href="/profile" className="underline font-medium">profile</a> before pawning assets
+              </AlertDescription>
+            </Alert>
+          )}
+        </div>
+      )}
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit((data) => submitMutation.mutate(data))} className="space-y-4 sm:space-y-6">
@@ -623,13 +665,15 @@ export default function RwaSubmissionForm() {
           <Button
             type="submit"
             className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
-            disabled={submitMutation.isPending || !isAuthenticated || !isConnected || (wallet ? wallet.balance < 2 : false)}
+            disabled={submitMutation.isPending || !isAuthenticated || !isConnected || (wallet ? wallet.balance < 2 : false) || user?.kycStatus !== "completed"}
             data-testid="button-submit-rwa"
           >
             {submitMutation.isPending 
               ? "Submitting..." 
               : !isAuthenticated 
               ? "Please Login First" 
+              : user?.kycStatus !== "completed"
+              ? "Complete KYC Verification First"
               : !isConnected 
               ? "Connect ICP Wallet First" 
               : wallet && wallet.balance < 2 

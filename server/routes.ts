@@ -52,6 +52,7 @@ import {
   InputSanitizer 
 } from "./utils/validation";
 import { z } from "zod";
+import { requireAdminAuth } from "./admin-auth";
 
 // Initialize Stripe
 if (!process.env.STRIPE_SECRET_KEY) {
@@ -1239,6 +1240,137 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   );
 
+  // Admin KYC Management endpoints
+  app.get("/api/admin/kyc", rateLimitConfigs.api, requireAdminAuth, async (req: any, res) => {
+    try {
+      const { status, search } = req.query;
+      
+      // Get KYC submissions based on filters
+      const kycSubmissions = await storage.getAllKycSubmissions({
+        status: status !== 'all' ? status : undefined,
+        search
+      });
+      
+      // Calculate breakdown by status
+      const breakdown = {
+        byStatus: kycSubmissions.reduce((acc: any, kyc: any) => {
+          acc[kyc.status] = (acc[kyc.status] || 0) + 1;
+          return acc;
+        }, {})
+      };
+      
+      res.json(successResponse({
+        submissions: kycSubmissions,
+        totalCount: kycSubmissions.length,
+        breakdown
+      }));
+    } catch (error) {
+      console.error("Error fetching admin KYC data:", {
+        error: error instanceof Error ? error.message : error,
+        timestamp: new Date().toISOString(),
+        ip: req.ip
+      });
+      res.status(500).json({
+        success: false,
+        error: "Failed to fetch KYC data",
+        code: 'INTERNAL_ERROR',
+        timestamp: new Date().toISOString()
+      });
+    }
+  });
+
+  // Admin KYC Review endpoint
+  const kycReviewSchema = z.object({
+    status: z.enum(['completed', 'rejected']),
+    reviewNotes: z.string().min(1).max(1000),
+    rejectionReason: z.string().optional()
+  });
+
+  app.patch("/api/admin/kyc/:kycId/review", rateLimitConfigs.api, requireAdminAuth, async (req: any, res) => {
+    try {
+      const { kycId } = req.params;
+      const reviewData = kycReviewSchema.parse(req.body);
+      const adminUserId = req.user?.id || 'admin'; // Get admin user ID
+      
+      // Update KYC status and review information
+      const updatedKyc = await storage.updateKycStatus(
+        kycId, 
+        reviewData.status, 
+        reviewData.reviewNotes, 
+        adminUserId
+      );
+      
+      if (!updatedKyc) {
+        return res.status(404).json({
+          success: false,
+          error: "KYC submission not found",
+          code: 'KYC_NOT_FOUND',
+          timestamp: new Date().toISOString()
+        });
+      }
+      
+      // If rejected, update rejection reason
+      if (reviewData.status === 'rejected' && reviewData.rejectionReason) {
+        await storage.updateKycRejectionReason(kycId, reviewData.rejectionReason);
+      }
+      
+      // Update user's KYC status
+      await storage.updateUser(updatedKyc.userId, { 
+        kycStatus: reviewData.status === 'completed' ? 'completed' : 'failed' 
+      });
+      
+      // Log admin action
+      await storage.logUserActivity({
+        userId: adminUserId,
+        activityType: 'kyc_review',
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent'),
+        details: {
+          kycId,
+          targetUserId: updatedKyc.userId,
+          decision: reviewData.status,
+          hasRejectionReason: !!reviewData.rejectionReason
+        }
+      });
+      
+      console.log('KYC reviewed by admin:', {
+        adminUserId,
+        kycId,
+        targetUserId: updatedKyc.userId,
+        decision: reviewData.status,
+        timestamp: new Date().toISOString(),
+        ip: req.ip
+      });
+      
+      res.json(successResponse(updatedKyc, 'KYC review completed successfully'));
+    } catch (error) {
+      console.error("Error reviewing KYC:", {
+        kycId: req.params?.kycId,
+        error: error instanceof Error ? error.message : error,
+        stack: error instanceof Error ? error.stack : undefined,
+        timestamp: new Date().toISOString(),
+        ip: req.ip
+      });
+
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          success: false,
+          error: "Invalid review data",
+          details: error.errors,
+          code: 'VALIDATION_ERROR',
+          timestamp: new Date().toISOString()
+        });
+      }
+
+      res.status(500).json({
+        success: false,
+        error: "Failed to review KYC submission",
+        code: 'INTERNAL_ERROR',
+        timestamp: new Date().toISOString()
+      });
+    }
+  });
+
   // User Wallet Information endpoints
   app.get("/api/user/wallets", isAuthenticated, async (req: any, res) => {
     try {
@@ -1980,6 +2112,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/rwa-submissions", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub as string; // Derive userId from authenticated user
+      
+      // Check KYC verification requirement
+      const user = await storage.getUserById(userId);
+      if (!user || user.kycStatus !== "completed") {
+        return res.status(403).json({
+          success: false,
+          error: "KYC verification is required before submitting assets for pawning",
+          code: "KYC_REQUIRED",
+          timestamp: new Date().toISOString()
+        });
+      }
+      
       const submissionData = insertRwaSubmissionSchema.parse({
         ...req.body,
         userId // Override any client-provided userId

@@ -505,6 +505,16 @@ export default function Profile() {
   });
 
   const onPawnSubmit = (data: PawnAssetForm) => {
+    // Check KYC requirement before submission
+    if (!canPawnAssets()) {
+      toast({
+        title: "KYC Verification Required",
+        description: "You must complete your identity verification in the KYC tab before you can pawn assets.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     submitRwaMutation.mutate(data);
   };
 
@@ -1256,12 +1266,23 @@ export default function Profile() {
                 </div>
                 <Button
                   onClick={() => setShowPawnForm(true)}
+                  disabled={!canPawnAssets()}
                   data-testid="button-pawn-new-asset"
                 >
                   <Plus className="mr-2 h-4 w-4" />
                   Pawn New Asset
                 </Button>
               </div>
+
+              {/* KYC Requirement Warning */}
+              {!canPawnAssets() && (
+                <Alert>
+                  <Shield className="h-4 w-4" />
+                  <AlertDescription>
+                    <strong>KYC Verification Required:</strong> You must complete your identity verification in the KYC tab before you can pawn assets. This helps us comply with regulatory requirements.
+                  </AlertDescription>
+                </Alert>
+              )}
 
               {/* Pawned Assets (Active Loans) */}
               <Card>
@@ -1282,6 +1303,7 @@ export default function Profile() {
                       <p className="text-muted-foreground mb-4">No active pawn loans</p>
                       <Button
                         onClick={() => setShowPawnForm(true)}
+                        disabled={!canPawnAssets()}
                         data-testid="button-pawn-first-asset"
                       >
                         Pawn Your First Asset
