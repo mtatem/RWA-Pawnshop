@@ -16,6 +16,7 @@ import {
   walletBindIntentSchema,
   walletBindVerificationSchema,
   userUpdateSchema,
+  mfaVerificationSchema,
   paymentIntentSchema,
   assetPricingCache,
   bridgeEstimationSchema,
@@ -33,6 +34,7 @@ import {
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import bcrypt from "bcryptjs";
+import { MFAService } from "./mfa-service";
 
 // Import comprehensive validation middleware and utilities
 import { 
