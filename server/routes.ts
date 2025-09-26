@@ -57,10 +57,9 @@ if (!process.env.STRIPE_SECRET_KEY) {
 }
 
 // Validate that we have a secret key, not a publishable key
-// Temporarily disabled for testing - will need proper sk_ key for payments to work
-// if (process.env.STRIPE_SECRET_KEY.startsWith('pk_')) {
-//   throw new Error('STRIPE_SECRET_KEY contains a publishable key! Please use a secret key (starts with sk_)');
-// }
+if (process.env.STRIPE_SECRET_KEY.startsWith('pk_')) {
+  throw new Error('STRIPE_SECRET_KEY contains a publishable key! Please use a secret key (starts with sk_)');
+}
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
   apiVersion: "2025-08-27.basil",
@@ -1162,11 +1161,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await storage.updateUser(userId, { kycStatus: 'in_progress' });
         
         // Log KYC submission
-        await storage.logUserActivity(userId, 'kyc_submit', {
-          documentType: formData.documentType,
-          documentCountry: formData.documentCountry,
-          hasDocumentBack: !!documentBackImageFile
-        }, req.ip, req.get('User-Agent'));
+        await storage.logUserActivity({
+          userId,
+          activityType: 'kyc_submit',
+          ipAddress: req.ip,
+          userAgent: req.get('User-Agent'),
+          details: {
+            documentType: formData.documentType,
+            documentCountry: formData.documentCountry,
+            hasDocumentBack: !!documentBackImageFile
+          }
+        });
 
         console.log('KYC submitted successfully:', {
           userId,
