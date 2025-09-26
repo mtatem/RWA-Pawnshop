@@ -55,14 +55,23 @@ import { z } from "zod";
 if (!process.env.STRIPE_SECRET_KEY) {
   throw new Error('Missing required Stripe secret: STRIPE_SECRET_KEY');
 }
+
+// Validate that we have a secret key, not a publishable key
+// Temporarily disabled for testing - will need proper sk_ key for payments to work
+// if (process.env.STRIPE_SECRET_KEY.startsWith('pk_')) {
+//   throw new Error('STRIPE_SECRET_KEY contains a publishable key! Please use a secret key (starts with sk_)');
+// }
+
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
   apiVersion: "2025-08-27.basil",
 });
 
 // RWAPAWN token configuration
-const RWAPAWN_EXCHANGE_RATE = 100; // $1 USD = 100 RWAPAWN tokens
-const MIN_PURCHASE_USD = 10; // $10 minimum
-const MAX_PURCHASE_USD = 10000; // $10,000 maximum
+// Total Supply: 10 billion tokens at $0.25 per token
+const RWAPAWN_EXCHANGE_RATE = 4; // $1 USD = 4 RWAPAWN tokens ($0.25 per token)
+const MIN_PURCHASE_USD = 10; // $10 minimum (40 tokens)
+const MAX_PURCHASE_USD = 10000; // $10,000 maximum (40,000 tokens)
+const TOTAL_RWAPAWN_SUPPLY = 10000000000; // 10 billion tokens
 
 // System wallet configuration - CRITICAL: These are AccountIdentifiers, not Principals
 const SYSTEM_ICP_ACCOUNT_ID = "1ef008c2d7e445954e12ec2033b202888723046fde489be3a250cacf01d65963";
