@@ -48,8 +48,8 @@ export default function WhitepaperPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-white">1B RWAPAWN</div>
-              <div className="text-sm text-muted-foreground">Total token supply with strategic distribution</div>
+              <div className="text-2xl font-bold text-white">10B RWAPAWN</div>
+              <div className="text-sm text-muted-foreground">Total token supply at $0.25 USD per token</div>
             </CardContent>
           </Card>
 
@@ -223,23 +223,23 @@ export default function WhitepaperPage() {
                   <div className="space-y-3">
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Platform Liquidity Pool</span>
-                      <span className="text-white font-semibold">30% (300M)</span>
+                      <span className="text-white font-semibold">30% (3B)</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Development & Operations</span>
-                      <span className="text-white font-semibold">25% (250M)</span>
+                      <span className="text-white font-semibold">25% (2.5B)</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Community Rewards</span>
-                      <span className="text-white font-semibold">20% (200M)</span>
+                      <span className="text-white font-semibold">20% (2B)</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Public Sale</span>
-                      <span className="text-white font-semibold">15% (150M)</span>
+                      <span className="text-white font-semibold">15% (1.5B)</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Team & Advisors</span>
-                      <span className="text-white font-semibold">10% (100M)</span>
+                      <span className="text-white font-semibold">10% (1B)</span>
                     </div>
                   </div>
                 </div>
