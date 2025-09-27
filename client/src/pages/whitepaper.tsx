@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ExternalLink, Download, ArrowRight, Shield, TrendingUp, Users, Coins, Clock, Target, Globe, Award } from "lucide-react";
+import Footer from "@/components/footer";
 
 export default function WhitepaperPage() {
   const handleDownload = () => {
@@ -347,6 +348,8 @@ export default function WhitepaperPage() {
           </CardContent>
         </Card>
       </div>
+      
+      <Footer />
     </div>
   );
 }
