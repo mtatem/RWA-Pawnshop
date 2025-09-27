@@ -47,12 +47,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/queryClient";
 import type { User } from "@shared/schema";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import Uppy from '@uppy/core';
-import Dashboard from '@uppy/dashboard';
-import AwsS3 from '@uppy/aws-s3';
-import { DashboardModal } from '@uppy/react';
-import '@uppy/core/dist/style.min.css';
-import '@uppy/dashboard/dist/style.min.css';
+import { ObjectUploader } from '@/components/ObjectUploader';
 
 // Password change form schema
 const passwordChangeSchema = z.object({
@@ -195,7 +190,6 @@ export default function Profile() {
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [showImageUpload, setShowImageUpload] = useState(false);
   const [showPawnForm, setShowPawnForm] = useState(false);
   
   // MFA state management
@@ -484,19 +478,15 @@ export default function Profile() {
     return user?.kycStatus === "completed";
   };
 
-  // Image upload with Uppy
-  const [uppy] = useState(() => {
-    return new Uppy({
-      restrictions: {
-        maxFileSize: 5 * 1024 * 1024, // 5MB
-        maxNumberOfFiles: 1,
-        allowedFileTypes: ['image/*']
-      }
-    }).use(AwsS3, {
-      endpoint: '/api/upload',
-      allowedMetaFields: ['name', 'type']
-    });
-  });
+  // Handle upload parameters for ObjectUploader
+  const handleGetUploadParameters = async () => {
+    const response = await apiRequest("POST", "/api/objects/upload", {});
+    const data = await response.json();
+    return {
+      method: 'PUT' as const,
+      url: data.uploadURL,
+    };
+  };
 
   // Profile image upload mutation
   const uploadImageMutation = useMutation({
@@ -512,7 +502,6 @@ export default function Profile() {
         description: "Your profile image has been successfully updated.",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
-      setShowImageUpload(false);
     },
     onError: (error: any) => {
       toast({
@@ -569,23 +558,16 @@ export default function Profile() {
   });
 
   // Handle Uppy upload complete
-  useEffect(() => {
-    const handleComplete = (result: any) => {
-      if (result.successful && result.successful.length > 0) {
-        const uploadedFile = result.successful[0];
-        const imageUrl = uploadedFile.response?.uploadURL || uploadedFile.meta?.url;
-        if (imageUrl) {
-          uploadImageMutation.mutate(imageUrl);
-        }
+  // Handle successful upload completion
+  const handleUploadComplete = (result: any) => {
+    if (result.successful && result.successful.length > 0) {
+      const uploadedFile = result.successful[0];
+      const imageUrl = uploadedFile.uploadURL;
+      if (imageUrl) {
+        uploadImageMutation.mutate(imageUrl);
       }
-    };
-    
-    uppy.on('complete', handleComplete);
-    
-    return () => {
-      uppy.off('complete', handleComplete);
-    };
-  }, [uppy, uploadImageMutation]);
+    }
+  };
 
   // Pawn asset form
   const pawnForm = useForm<PawnAssetForm>({
@@ -715,15 +697,15 @@ export default function Profile() {
               </div>
               
               <div className="ml-4">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => setShowImageUpload(true)}
-                  className="rounded-full"
-                  data-testid="button-upload-image"
+                <ObjectUploader
+                  maxNumberOfFiles={1}
+                  maxFileSize={5 * 1024 * 1024} // 5MB
+                  onGetUploadParameters={handleGetUploadParameters}
+                  onComplete={handleUploadComplete}
+                  buttonClassName="rounded-full"
                 >
                   <Camera className="h-4 w-4" />
-                </Button>
+                </ObjectUploader>
               </div>
             </div>
           </div>
@@ -1582,16 +1564,6 @@ export default function Profile() {
       </section>
       
       {/* Image Upload Modal */}
-      <DashboardModal
-        uppy={uppy}
-        open={showImageUpload}
-        onRequestClose={() => setShowImageUpload(false)}
-        plugins={['ImageEditor']}
-        metaFields={[
-          { id: 'name', name: 'Name', placeholder: 'File name' },
-        ]}
-        proudlyDisplayPoweredByUppy={false}
-      />
       
       {/* Pawn Asset Form Modal */}
       <Dialog open={showPawnForm} onOpenChange={setShowPawnForm}>
