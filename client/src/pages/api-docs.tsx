@@ -67,12 +67,12 @@ export default function ApiDocs() {
 
   const sdkExamples = {
     javascript: `// Install the SDK
-npm install @icp-rwa-pawn/sdk
+npm install @rwapawn/sdk
 
 // Initialize the client
-import { ICPRWAPawn } from '@icp-rwa-pawn/sdk';
+import { RWAPawn } from '@rwapawn/sdk';
 
-const client = new ICPRWAPawn({
+const client = new RWAPawn({
   apiKey: 'your-api-key',
   environment: 'production' // or 'sandbox'
 });
@@ -91,10 +91,10 @@ const status = await client.submissions.get(submission.id);
 console.log('Status:', status.status);`,
 
     python: `# Install the SDK
-pip install icp-rwa-pawn-sdk
+pip install rwapawn-sdk
 
 # Initialize the client
-from icp_rwa_pawn import Client
+from rwapawn import Client
 
 client = Client(
     api_key='your-api-key',
@@ -115,7 +115,7 @@ status = client.submissions.get(submission.id)
 print(f'Status: {status.status}')`,
 
     curl: `# Submit an asset for pawning
-curl -X POST https://api.icp-rwa-pawn.com/api/rwa-submissions \\
+curl -X POST https://api.rwapawn.io/api/rwa-submissions \\
   -H "Authorization: Bearer YOUR_API_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -127,7 +127,7 @@ curl -X POST https://api.icp-rwa-pawn.com/api/rwa-submissions \\
   }'
 
 # Check submission status
-curl https://api.icp-rwa-pawn.com/api/rwa-submissions/123 \\
+curl https://api.rwapawn.io/api/rwa-submissions/123 \\
   -H "Authorization: Bearer YOUR_API_KEY"`
   };
 
@@ -193,7 +193,7 @@ curl https://api.icp-rwa-pawn.com/api/rwa-submissions/123 \\
             </CardHeader>
             <CardContent>
               <p className="text-sm font-mono bg-muted p-2 rounded">
-                https://api.icp-rwa-pawn.com
+                https://api.rwapawn.io
               </p>
             </CardContent>
           </Card>

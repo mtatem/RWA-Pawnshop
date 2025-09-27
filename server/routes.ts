@@ -30,7 +30,8 @@ import {
   insertRwapawnPurchaseSchema,
   userLoginSchema,
   forgotPasswordSchema,
-  resetPasswordSchema
+  resetPasswordSchema,
+  contactFormSchema
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import bcrypt from "bcryptjs";
@@ -142,6 +143,7 @@ import { db } from "./db";
 import { sql, eq, and } from "drizzle-orm";
 import { rwapawnPurchases } from "@shared/schema";
 import { verifyAdminCredentials, generateAdminToken } from "./admin-auth";
+import { emailService } from "./services/email-service";
 
 // Session management for traditional auth
 const TRADITIONAL_SESSION_DURATION = 7 * 24 * 60 * 60 * 1000; // 7 days
@@ -4277,6 +4279,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: 'Failed to update profile image' });
     }
   });
+
+  // Contact form submission endpoint
+  app.post('/api/contact',
+    rateLimitConfigs.api,
+    validateRequest(contactFormSchema, 'body'),
+    async (req, res) => {
+      try {
+        const formData = req.body;
+        
+        // Send email with contact form data
+        const emailSent = await emailService.sendContactFormSubmission(formData);
+        
+        if (emailSent) {
+          res.json({
+            success: true,
+            message: 'Your message has been sent successfully. We will get back to you soon!',
+            timestamp: new Date().toISOString()
+          });
+        } else {
+          // Email failed but don't reveal details to user
+          console.error('Contact form email failed for:', formData.email);
+          res.status(500).json({
+            success: false,
+            error: 'Failed to send message. Please try again later.',
+            code: 'EMAIL_SEND_FAILED',
+            timestamp: new Date().toISOString()
+          });
+        }
+        
+      } catch (error) {
+        console.error('Contact form submission error:', {
+          error: error instanceof Error ? error.message : error,
+          timestamp: new Date().toISOString(),
+          userAgent: req.get('User-Agent'),
+          ip: req.ip
+        });
+        res.status(500).json({
+          success: false,
+          error: 'Failed to process your message. Please try again later.',
+          code: 'INTERNAL_ERROR',
+          timestamp: new Date().toISOString()
+        });
+      }
+    }
+  );
 
   const httpServer = createServer(app);
   return httpServer;
