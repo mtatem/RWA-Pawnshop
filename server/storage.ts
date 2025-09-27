@@ -897,11 +897,11 @@ export class DatabaseStorage implements IStorage {
       
       // If email exists but with different ID, update that existing user's ID and data
       if (existingUserByEmail && existingUserByEmail.id !== userData.id) {
-        console.log(`Updating existing user ${existingUserByEmail.id} with new OAuth ID ${userData.id}`);
+        console.log(`Updating existing user ${existingUserByEmail.id} data without changing ID to preserve foreign key relationships`);
         const [user] = await db
           .update(users)
           .set({
-            id: userData.id,  // Update to new OAuth ID
+            // DO NOT UPDATE ID - this would break foreign key constraints
             firstName: userData.firstName,
             lastName: userData.lastName,
             profileImageUrl: userData.profileImageUrl,
