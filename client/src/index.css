@@ -2,6 +2,12 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Ensure black background for the entire page */
+html, body {
+  background-color: #000000 !important;
+  color: #ebebeb;
+}
+
 :root {
   --background: #000000;
   --foreground: #ebebeb;
