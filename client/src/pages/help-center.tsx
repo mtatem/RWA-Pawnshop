@@ -10,9 +10,11 @@ import { Search, HelpCircle, BookOpen, MessageCircle, Settings, Shield, Coins, A
 import { useState } from "react";
 import { Link } from "wouter";
 import { helpCategories, helpArticles, popularArticles, getArticlesByCategory } from "@/content/help";
+import ChatPopup from "@/components/chat-popup";
 
 export default function HelpCenter() {
   const [searchQuery, setSearchQuery] = useState("");
+  const [isChatOpen, setIsChatOpen] = useState(false);
 
   // Icon mapping for categories
   const getIcon = (iconName: string) => {
@@ -249,7 +251,12 @@ export default function HelpCenter() {
                   <span>Contact Support</span>
                 </Button>
               </Link>
-              <Button variant="outline" className="inline-flex items-center space-x-2" data-testid="live-chat">
+              <Button 
+                variant="outline" 
+                className="inline-flex items-center space-x-2" 
+                onClick={() => setIsChatOpen(true)}
+                data-testid="live-chat"
+              >
                 <MessageCircle className="w-4 h-4" />
                 <span>Start Live Chat</span>
               </Button>
@@ -262,6 +269,8 @@ export default function HelpCenter() {
       </div>
 
       <Footer />
+      
+      <ChatPopup isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />
     </div>
   );
 }

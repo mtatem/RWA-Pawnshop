@@ -4329,7 +4329,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Chat API endpoint
   app.post(
     '/api/chat',
-    rateLimitConfigs.moderate,
+    rateLimitConfigs.api,
     validateRequest(z.object({
       message: z.string().min(1).max(1000),
       conversationHistory: z.array(z.object({
