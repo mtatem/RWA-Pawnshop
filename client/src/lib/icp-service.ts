@@ -444,14 +444,52 @@ export class ICPWalletService {
       if (this.isPlugAvailable()) {
         const isConnected = await (window as any).ic.plug.isConnected();
         if (isConnected) {
-          return await this.connectPlug();
+          // Don't call requestConnect() again, just rebuild the wallet state
+          const principalId = await (window as any).ic.plug.getPrincipal();
+          const principal = Principal.fromText(principalId.toString());
+          const accountId = principalToAccountId(principal);
+          const accountIdHex = accountIdToHex(accountId);
+
+          // Get balance without triggering new connection
+          const balance = await this.getBalanceFromPlug(accountId);
+
+          this.wallet = {
+            principalId: principalId.toString(),
+            accountId: accountIdHex,
+            balance: balance,
+            connected: true,
+            walletType: 'plug',
+          };
+
+          return this.wallet;
         }
       }
 
       // Try to restore Internet Identity connection
       await this.initAuthClient();
       if (this.authClient && await this.authClient.isAuthenticated()) {
-        return await this.connectInternetIdentity();
+        const identity = this.authClient.getIdentity();
+        const principal = identity.getPrincipal();
+        
+        if (!principal.isAnonymous()) {
+          await this.initAgent(identity);
+          
+          const accountId = principalToAccountId(principal);
+          const accountIdHex = accountIdToHex(accountId);
+
+          // Get balance
+          const balance = await this.getBalanceFromLedger(accountId);
+
+          this.wallet = {
+            principalId: principal.toString(),
+            accountId: accountIdHex,
+            balance: balance,
+            connected: true,
+            walletType: 'internetIdentity',
+          };
+
+          return this.wallet;
+        }
       }
     } catch (error) {
       console.error('Error restoring connection:', error);
