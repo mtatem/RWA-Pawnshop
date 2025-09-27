@@ -1100,127 +1100,106 @@ export default function Profile() {
                       )}
                     </div>
                   ) : (
-                    /* Redirect to Dedicated KYC Page */
-                    <div className="space-y-6">
-                      <Alert>
-                        <Shield className="h-4 w-4" />
-                        <AlertDescription>
-                          <strong>Complete KYC Verification:</strong> To enable asset pawning on our platform, you'll need to complete identity verification including document uploads.
-                        </AlertDescription>
-                      </Alert>
+                    /* KYC Submission Form */
+                    <Form {...kycForm}>
+                      <form onSubmit={kycForm.handleSubmit(onKYCSubmit)} className="space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <FormField
+                            control={kycForm.control}
+                            name="documentType"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Document Type</FormLabel>
+                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                  <FormControl>
+                                    <SelectTrigger data-testid="select-document-type">
+                                      <SelectValue placeholder="Select document type" />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    <SelectItem value="passport">Passport</SelectItem>
+                                    <SelectItem value="drivers_license">Driver's License</SelectItem>
+                                    <SelectItem value="national_id">National ID</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
 
-                      <div className="text-center space-y-4 py-8">
-                        <div className="space-y-2">
-                          <h3 className="text-lg font-semibold">Identity Verification Required</h3>
-                          <p className="text-muted-foreground">
-                            Complete your KYC verification to unlock all platform features. You'll need to provide:
-                          </p>
-                        </div>
-                        
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                          <div className="flex flex-col items-center space-y-2 p-4 border rounded-lg">
-                            <FileText className="h-6 w-6 text-primary" />
-                            <div className="text-center">
-                              <p className="font-medium">Identity Document</p>
-                              <p className="text-muted-foreground">Passport, Driver's License, or National ID</p>
-                            </div>
-                          </div>
-                          
-                          <div className="flex flex-col items-center space-y-2 p-4 border rounded-lg">
-                            <Upload className="h-6 w-6 text-primary" />
-                            <div className="text-center">
-                              <p className="font-medium">Document Photos</p>
-                              <p className="text-muted-foreground">Clear photos of front and back</p>
-                            </div>
-                          </div>
-                          
-                          <div className="flex flex-col items-center space-y-2 p-4 border rounded-lg">
-                            <UserIcon className="h-6 w-6 text-primary" />
-                            <div className="text-center">
-                              <p className="font-medium">Selfie Verification</p>
-                              <p className="text-muted-foreground">Photo of yourself with the document</p>
-                            </div>
-                          </div>
-                        </div>
+                          <FormField
+                            control={kycForm.control}
+                            name="fullName"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Full Legal Name</FormLabel>
+                                <FormControl>
+                                  <Input {...field} data-testid="input-full-name" placeholder="Enter your full legal name" />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
 
-                        <Link href="/kyc">
-                          <Button 
-                            className="w-full md:w-auto px-8 py-3" 
-                            size="lg"
-                            data-testid="button-start-kyc"
-                          >
-                            <Shield className="h-4 w-4 mr-2" />
-                            Start KYC Verification
-                          </Button>
-                        </Link>
-                        
-                        <p className="text-xs text-muted-foreground">
-                          Verification typically takes 1-2 business days. Your information is encrypted and secure.
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
+                          <FormField
+                            control={kycForm.control}
+                            name="documentNumber"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Document Number</FormLabel>
+                                <FormControl>
+                                  <Input {...field} data-testid="input-document-number" placeholder="Enter document number" />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
 
-            {/* Wallets Tab */}
-            <TabsContent value="wallets" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Connected Wallets</CardTitle>
-                  <CardDescription>
-                    Manage your cryptocurrency wallet connections
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {walletsLoading ? (
-                    <div className="flex items-center justify-center py-8">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                    </div>
-                  ) : !walletBindings ? (
-                    <Alert>
-                      <AlertCircle className="h-4 w-4" />
-                      <AlertDescription>
-                        Failed to load wallet information. Please try refreshing the page.
-                      </AlertDescription>
-                    </Alert>
-                  ) : walletBindings.length > 0 ? (
-                    <div className="space-y-4">
-                      {walletBindings.map((wallet) => (
-                        <div key={wallet.id} className="flex items-center justify-between p-4 border rounded-lg">
-                          <div className="space-y-1">
-                            <div className="flex items-center space-x-2">
-                              <Wallet className="h-4 w-4" />
-                              <span className="font-medium">{wallet.walletType}</span>
-                              {wallet.isPrimary && <Badge>Primary</Badge>}
-                            </div>
-                            <p className="text-sm text-muted-foreground font-mono break-all">
-                              {wallet.walletAddress}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              Connected {new Date(wallet.createdAt).toLocaleDateString()}
-                            </p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-8">
-                      <Wallet className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                      <h3 className="text-lg font-semibold mb-2">No Wallets Connected</h3>
-                      <p className="text-muted-foreground mb-4">
-                        Connect your cryptocurrency wallet to enable trading and transactions.
-                      </p>
-                      <Button>Connect Wallet</Button>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
+                          <FormField
+                            control={kycForm.control}
+                            name="documentCountry"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Document Country</FormLabel>
+                                <FormControl>
+                                  <Input {...field} data-testid="input-document-country" placeholder="US" />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
 
-            {/* Settings Tab */}
-            <TabsContent value="settings" className="space-y-6">
+                          <FormField
+                            control={kycForm.control}
+                            name="dateOfBirth"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Date of Birth</FormLabel>
+                                <FormControl>
+                                  <Input {...field} type="date" data-testid="input-date-of-birth" />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          <FormField
+                            control={kycForm.control}
+                            name="nationality"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Nationality</FormLabel>
+                                <FormControl>
+                                  <Input {...field} data-testid="input-nationality" placeholder="Enter your nationality" />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          <FormField
+                            control={kycForm.control}
+                            name="occupation"
                             render={({ field }) => (
                               <FormItem>
                                 <FormLabel>Occupation</FormLabel>
