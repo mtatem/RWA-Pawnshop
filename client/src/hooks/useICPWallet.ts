@@ -55,7 +55,7 @@ export function useICPWallet(): UseICPWalletReturn {
         if (restoredWallet) {
           setWallet(restoredWallet);
           // Update user profile if authenticated and principal differs
-          if (isAuthenticated && user && user.principalId !== restoredWallet.principalId) {
+          if (isAuthenticated && user && (user as any).principalId !== restoredWallet.principalId) {
             await updateUserPrincipalMutation.mutateAsync(restoredWallet.principalId);
           }
         }

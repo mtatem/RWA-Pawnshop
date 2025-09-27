@@ -26,7 +26,11 @@ import {
   FileText,
   DollarSign,
   Calendar,
-  Plus
+  Plus,
+  Copy,
+  RefreshCw,
+  ExternalLink,
+  Coins
 } from "lucide-react";
 
 import Navigation from "@/components/navigation";
@@ -44,6 +48,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { useICPWallet } from "@/hooks/useICPWallet";
 import { apiRequest } from "@/lib/queryClient";
 import type { User } from "@shared/schema";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -184,6 +189,17 @@ export default function Profile() {
   const { user, isLoading: userLoading } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { 
+    wallet, 
+    isConnecting, 
+    isConnected, 
+    connectPlug, 
+    connectInternetIdentity, 
+    disconnect, 
+    refreshBalance,
+    isPlugAvailable,
+    error: walletError 
+  } = useICPWallet();
   
   const [activeTab, setActiveTab] = useState("profile");
   const [isEditing, setIsEditing] = useState(false);
@@ -1287,57 +1303,308 @@ export default function Profile() {
 
             {/* Wallets Tab */}
             <TabsContent value="wallets" className="space-y-6">
+              {/* Current Wallet Connection */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Connected Wallets</CardTitle>
-                  <CardDescription>
-                    Manage your cryptocurrency wallet connections
-                  </CardDescription>
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <CardTitle>Current Wallet</CardTitle>
+                      <CardDescription>
+                        Your currently connected ICP wallet
+                      </CardDescription>
+                    </div>
+                    {isConnected && (
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={refreshBalance}
+                        data-testid="button-refresh-balance"
+                      >
+                        <RefreshCw className="h-4 w-4 mr-2" />
+                        Refresh
+                      </Button>
+                    )}
+                  </div>
                 </CardHeader>
                 <CardContent>
-                  {walletsLoading ? (
+                  {isConnecting ? (
                     <div className="flex items-center justify-center py-8">
                       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                      <p className="ml-3">Connecting wallet...</p>
                     </div>
-                  ) : !walletBindings ? (
-                    <Alert>
-                      <AlertCircle className="h-4 w-4" />
-                      <AlertDescription>
-                        Failed to load wallet information. Please try refreshing the page.
-                      </AlertDescription>
-                    </Alert>
-                  ) : walletBindings.length > 0 ? (
+                  ) : isConnected && wallet ? (
                     <div className="space-y-4">
-                      {walletBindings.map((wallet) => (
-                        <div key={wallet.id} className="flex items-center justify-between p-4 border rounded-lg">
-                          <div className="space-y-1">
-                            <div className="flex items-center space-x-2">
-                              <Wallet className="h-4 w-4" />
-                              <span className="font-medium">{wallet.walletType}</span>
-                              {wallet.isPrimary && <Badge>Primary</Badge>}
+                      <div className="flex items-center justify-between p-4 border rounded-lg bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800">
+                        <div className="space-y-2">
+                          <div className="flex items-center space-x-3">
+                            <div className="p-2 bg-green-100 dark:bg-green-900/50 rounded-full">
+                              <Wallet className="h-5 w-5 text-green-600 dark:text-green-400" />
                             </div>
-                            <p className="text-sm text-muted-foreground font-mono break-all">
-                              {wallet.walletAddress}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              Connected {new Date(wallet.createdAt).toLocaleDateString()}
-                            </p>
+                            <div>
+                              <div className="flex items-center space-x-2">
+                                <span className="font-semibold text-green-800 dark:text-green-200">
+                                  {wallet.walletType === 'plug' ? 'Plug Wallet' : 'Internet Identity'}
+                                </span>
+                                <Badge className="bg-green-500 text-white">Connected</Badge>
+                              </div>
+                              <p className="text-sm text-green-700 dark:text-green-300">Ready for transactions</p>
+                            </div>
                           </div>
-                          <div className="flex items-center space-x-2">
-                            {getStatusBadge(wallet.bindingStatus)}
+                          
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                            <div className="space-y-1">
+                              <Label className="text-xs text-muted-foreground">Principal ID</Label>
+                              <div className="flex items-center space-x-2">
+                                <code className="text-xs bg-muted px-2 py-1 rounded font-mono break-all">
+                                  {wallet.principalId}
+                                </code>
+                                <Button 
+                                  size="sm" 
+                                  variant="ghost" 
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(wallet.principalId);
+                                    toast({ title: "Copied!", description: "Principal ID copied to clipboard" });
+                                  }}
+                                  data-testid="button-copy-principal"
+                                >
+                                  <Copy className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            </div>
+                            
+                            <div className="space-y-1">
+                              <Label className="text-xs text-muted-foreground">Account ID</Label>
+                              <div className="flex items-center space-x-2">
+                                <code className="text-xs bg-muted px-2 py-1 rounded font-mono break-all">
+                                  {wallet.accountId}
+                                </code>
+                                <Button 
+                                  size="sm" 
+                                  variant="ghost" 
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(wallet.accountId);
+                                    toast({ title: "Copied!", description: "Account ID copied to clipboard" });
+                                  }}
+                                  data-testid="button-copy-account"
+                                >
+                                  <Copy className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center justify-between pt-2 border-t">
+                            <div className="flex items-center space-x-2">
+                              <Coins className="h-5 w-5 text-blue-500" />
+                              <span className="font-semibold text-lg">{wallet.balance.toFixed(4)} ICP</span>
+                              <span className="text-sm text-muted-foreground">≈ ${(wallet.balance * 12.50).toFixed(2)} USD</span>
+                            </div>
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              onClick={disconnect}
+                              data-testid="button-disconnect-wallet"
+                            >
+                              Disconnect
+                            </Button>
                           </div>
                         </div>
-                      ))}
+                      </div>
                     </div>
                   ) : (
                     <div className="text-center py-8">
                       <Wallet className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                      <p className="text-muted-foreground mb-4">No wallets connected</p>
-                      <Button data-testid="button-connect-wallet">Connect Wallet</Button>
+                      <h3 className="font-semibold mb-2">No Wallet Connected</h3>
+                      <p className="text-muted-foreground mb-6">Connect your ICP wallet to view balance and manage assets</p>
+                      
+                      {walletError && (
+                        <Alert className="mb-4">
+                          <AlertCircle className="h-4 w-4" />
+                          <AlertDescription>{walletError}</AlertDescription>
+                        </Alert>
+                      )}
+                      
+                      <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                        {isPlugAvailable && (
+                          <Button 
+                            onClick={connectPlug}
+                            disabled={isConnecting}
+                            data-testid="button-connect-plug"
+                          >
+                            {isConnecting ? "Connecting..." : "Connect Plug Wallet"}
+                          </Button>
+                        )}
+                        <Button 
+                          variant="outline"
+                          onClick={connectInternetIdentity}
+                          disabled={isConnecting}
+                          data-testid="button-connect-ii"
+                        >
+                          {isConnecting ? "Connecting..." : "Connect Internet Identity"}
+                        </Button>
+                      </div>
+                      
+                      {!isPlugAvailable && (
+                        <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                          <p className="text-sm text-blue-700 dark:text-blue-300">
+                            Don't have Plug wallet? 
+                            <a 
+                              href="https://plugwallet.ooo/" 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="font-medium underline hover:no-underline"
+                            >
+                              Install it here <ExternalLink className="h-3 w-3 inline ml-1" />
+                            </a>
+                          </p>
+                        </div>
+                      )}
                     </div>
                   )}
                 </CardContent>
               </Card>
+              
+              {/* Wallet Assets & RWA Opportunities */}
+              {isConnected && wallet && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Wallet Assets & RWA Opportunities</CardTitle>
+                    <CardDescription>
+                      Real-world assets you can pawn and current wallet holdings
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid md:grid-cols-2 gap-6">
+                      {/* Available for Pawning */}
+                      <div className="space-y-3">
+                        <h4 className="font-semibold flex items-center">
+                          <Package className="h-4 w-4 mr-2 text-orange-500" />
+                          Available to Pawn
+                        </h4>
+                        {rwaSubmissions && rwaSubmissions.filter(sub => sub.status === 'approved' && !pawnLoans?.some(loan => loan.submissionId === sub.id && loan.status === 'active')).length > 0 ? (
+                          <div className="space-y-2">
+                            {rwaSubmissions
+                              .filter(sub => sub.status === 'approved' && !pawnLoans?.some(loan => loan.submissionId === sub.id && loan.status === 'active'))
+                              .slice(0, 3)
+                              .map((asset) => (
+                                <div key={asset.id} className="p-3 border rounded-lg bg-orange-50 dark:bg-orange-900/20">
+                                  <div className="flex justify-between items-start">
+                                    <div>
+                                      <p className="font-medium text-sm">{asset.assetName}</p>
+                                      <p className="text-xs text-muted-foreground">{asset.category}</p>
+                                      <p className="text-xs text-orange-600 dark:text-orange-400">
+                                        Max loan: ${Math.floor(Number(asset.estimatedValue) * 0.7)}
+                                      </p>
+                                    </div>
+                                    <Button size="sm" variant="outline" onClick={() => setShowPawnForm(true)}>
+                                      Pawn
+                                    </Button>
+                                  </div>
+                                </div>
+                              ))
+                            }
+                          </div>
+                        ) : (
+                          <div className="text-center py-4 text-muted-foreground">
+                            <Package className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                            <p className="text-sm">No approved assets available for pawning</p>
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Current Holdings */}
+                      <div className="space-y-3">
+                        <h4 className="font-semibold flex items-center">
+                          <Coins className="h-4 w-4 mr-2 text-blue-500" />
+                          Current Holdings
+                        </h4>
+                        <div className="space-y-2">
+                          <div className="p-3 border rounded-lg">
+                            <div className="flex justify-between items-center">
+                              <div className="flex items-center space-x-2">
+                                <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full flex items-center justify-center">
+                                  <span className="text-white text-xs font-bold">ICP</span>
+                                </div>
+                                <div>
+                                  <p className="font-medium">Internet Computer</p>
+                                  <p className="text-xs text-muted-foreground">ICP</p>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <p className="font-semibold">{wallet.balance.toFixed(4)}</p>
+                                <p className="text-xs text-muted-foreground">≈ ${(wallet.balance * 12.50).toFixed(2)}</p>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div className="text-center py-4 text-muted-foreground">
+                            <p className="text-xs">Additional token support coming soon</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Quick Actions */}
+                    <div className="mt-6 pt-4 border-t">
+                      <h4 className="font-semibold mb-3">Quick Actions</h4>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <Button variant="outline" size="sm" onClick={() => setShowPawnForm(true)} disabled={!canPawnAssets()}>
+                          <Plus className="h-4 w-4 mr-2" />
+                          Pawn Asset
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => setActiveTab('assets')}>
+                          <Package className="h-4 w-4 mr-2" />
+                          View Assets
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={refreshBalance}>
+                          <RefreshCw className="h-4 w-4 mr-2" />
+                          Refresh
+                        </Button>
+                        <Button variant="outline" size="sm" disabled>
+                          <ExternalLink className="h-4 w-4 mr-2" />
+                          Explorer
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+              
+              {/* Historical Wallet Bindings */}
+              {walletBindings && walletBindings.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Wallet History</CardTitle>
+                    <CardDescription>
+                      Previously connected wallets and their status
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {walletBindings.map((binding) => (
+                        <div key={binding.id} className="flex items-center justify-between p-3 border rounded-lg">
+                          <div className="space-y-1">
+                            <div className="flex items-center space-x-2">
+                              <Wallet className="h-4 w-4" />
+                              <span className="font-medium">{binding.walletType}</span>
+                              {binding.isPrimary && <Badge>Primary</Badge>}
+                            </div>
+                            <p className="text-sm text-muted-foreground font-mono break-all">
+                              {binding.walletAddress}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              Connected {new Date(binding.createdAt).toLocaleDateString()}
+                            </p>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            {getStatusBadge(binding.bindingStatus)}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </TabsContent>
 
             {/* Assets Tab */}
