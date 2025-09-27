@@ -53,6 +53,8 @@ import {
 } from "./utils/validation";
 import { z } from "zod";
 import { requireAdminAuth } from "./admin-auth";
+import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
+import { ObjectPermission } from "./objectAcl";
 
 // Initialize Stripe
 if (!process.env.STRIPE_SECRET_KEY) {
@@ -4243,6 +4245,80 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Target admin actions fetch error:", error);
       res.status(500).json({ error: "Failed to fetch admin actions for target" });
+    }
+  });
+
+  // OBJECT STORAGE ROUTES FOR PROFILE IMAGES
+
+  // Get upload URL for profile images
+  app.post('/api/objects/upload', isAuthenticated, async (req: any, res) => {
+    try {
+      const objectStorageService = new ObjectStorageService();
+      const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+      res.json({ uploadURL });
+    } catch (error) {
+      console.error('Error getting upload URL:', error);
+      res.status(500).json({ error: 'Failed to get upload URL' });
+    }
+  });
+
+  // Serve private objects (like profile images) with authentication
+  app.get('/objects/:objectPath(*)', isAuthenticated, async (req: any, res) => {
+    const userId = req.user?.claims?.sub;
+    const objectStorageService = new ObjectStorageService();
+    try {
+      const objectFile = await objectStorageService.getObjectEntityFile(req.path);
+      const canAccess = await objectStorageService.canAccessObjectEntity({
+        objectFile,
+        userId: userId,
+        requestedPermission: ObjectPermission.READ,
+      });
+      if (!canAccess) {
+        return res.sendStatus(401);
+      }
+      objectStorageService.downloadObject(objectFile, res);
+    } catch (error) {
+      console.error('Error checking object access:', error);
+      if (error instanceof ObjectNotFoundError) {
+        return res.sendStatus(404);
+      }
+      return res.sendStatus(500);
+    }
+  });
+
+  // Update user profile image
+  app.patch('/api/user/profile-image', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub as string;
+      const { profileImageUrl } = req.body;
+
+      if (!profileImageUrl) {
+        return res.status(400).json({ error: 'Profile image URL is required' });
+      }
+
+      const objectStorageService = new ObjectStorageService();
+      
+      // Set ACL policy for the uploaded image (public so others can view profile)
+      const objectPath = await objectStorageService.trySetObjectEntityAclPolicy(
+        profileImageUrl,
+        {
+          owner: userId,
+          visibility: 'public', // Profile images should be public
+        }
+      );
+
+      // Update user profile in database
+      await storage.updateUser(userId, { profileImageUrl: objectPath });
+
+      res.json({
+        success: true,
+        message: 'Profile image updated successfully',
+        profileImageUrl: objectPath,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('Error updating profile image:', error);
+      res.status(500).json({ error: 'Failed to update profile image' });
     }
   });
 
