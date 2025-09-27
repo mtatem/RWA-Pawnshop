@@ -243,10 +243,12 @@ export default function HelpCenter() {
               Can't find what you're looking for? Our support team is here to help you with any questions or issues you might have.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button className="inline-flex items-center space-x-2" data-testid="contact-support">
-                <MessageCircle className="w-4 h-4" />
-                <span>Contact Support</span>
-              </Button>
+              <Link href="/contact-us">
+                <Button className="inline-flex items-center space-x-2" data-testid="contact-support">
+                  <MessageCircle className="w-4 h-4" />
+                  <span>Contact Support</span>
+                </Button>
+              </Link>
               <Button variant="outline" className="inline-flex items-center space-x-2" data-testid="live-chat">
                 <MessageCircle className="w-4 h-4" />
                 <span>Start Live Chat</span>
