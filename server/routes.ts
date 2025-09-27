@@ -1267,50 +1267,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   );
 
-  // Update user profile image
-  app.patch("/api/user/profile-image", isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub as string;
-      const { profileImageUrl } = req.body;
-      
-      if (!profileImageUrl || typeof profileImageUrl !== 'string') {
-        return res.status(400).json({
-          success: false,
-          error: "Profile image URL is required",
-          code: 'MISSING_IMAGE_URL',
-          timestamp: new Date().toISOString()
-        });
-      }
-      
-      const updatedUser = await storage.updateUser(userId, { profileImageUrl });
-      
-      if (!updatedUser) {
-        return res.status(404).json({
-          success: false,
-          error: "User not found",
-          code: 'USER_NOT_FOUND',
-          timestamp: new Date().toISOString()
-        });
-      }
-      
-      console.log('Profile image updated successfully:', {
-        userId,
-        imageUrl: profileImageUrl,
-        timestamp: new Date().toISOString(),
-        ip: req.ip
-      });
-      
-      res.json(successResponse(updatedUser, 'Profile image updated successfully'));
-    } catch (error) {
-      console.error("Error updating profile image:", error);
-      res.status(500).json({
-        success: false,
-        error: "Failed to update profile image",
-        code: 'INTERNAL_ERROR',
-        timestamp: new Date().toISOString()
-      });
-    }
-  });
 
   // Update user profile
   app.patch("/api/user/profile", isAuthenticated, async (req: any, res) => {

@@ -5,6 +5,7 @@ import logoImage from "@assets/rwa1_1758232271312.png";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useICPWallet } from "@/hooks/useICPWallet";
@@ -184,10 +185,15 @@ export default function Navigation() {
                 <Link href="/profile">
                   <Button
                     variant="outline"
-                    className="text-xs sm:text-sm px-2 sm:px-3 h-8 sm:h-9"
+                    className="text-xs sm:text-sm px-2 sm:px-3 h-8 sm:h-9 flex items-center"
                     data-testid="button-user-profile"
                   >
-                  <User className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+                  <Avatar className="h-5 w-5 sm:h-6 sm:w-6 mr-1 sm:mr-2">
+                    <AvatarImage src={user?.profileImageUrl || ""} />
+                    <AvatarFallback className="text-xs">
+                      {(user?.firstName?.[0] || user?.username?.[0] || "U").toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
                   <span className="hidden sm:inline">{user?.firstName || user?.username || "User"}</span>
                   <span className="sm:hidden">{user?.firstName?.slice(0, 4) || user?.username?.slice(0, 4) || "User"}</span>
                   </Button>
