@@ -71,6 +71,7 @@ export class ObjectStorageService {
           "tool and set PRIVATE_OBJECT_DIR env var."
       );
     }
+    console.log('📁 PRIVATE_OBJECT_DIR:', dir);
     return dir;
   }
 
@@ -197,13 +198,24 @@ export class ObjectStorageService {
       objectEntityDir = `${objectEntityDir}/`;
     }
   
+    // Debug logging to understand the path mismatch
+    console.log('🔧 Object Storage Debug:', {
+      rawPath,
+      rawObjectPath,
+      objectEntityDir,
+      startsWithCheck: rawObjectPath.startsWith(objectEntityDir)
+    });
+  
     if (!rawObjectPath.startsWith(objectEntityDir)) {
+      console.log('❌ Path mismatch - returning original path:', rawObjectPath);
       return rawObjectPath;
     }
   
     // Extract the entity ID from the path
     const entityId = rawObjectPath.slice(objectEntityDir.length);
-    return `/objects/${entityId}`;
+    const normalizedPath = `/objects/${entityId}`;
+    console.log('✅ Path normalized:', normalizedPath);
+    return normalizedPath;
   }
 
   // Tries to set the ACL policy for the object entity and return the normalized path.
@@ -211,11 +223,17 @@ export class ObjectStorageService {
     rawPath: string,
     aclPolicy: ObjectAclPolicy
   ): Promise<string> {
+    console.log('🎯 trySetObjectEntityAclPolicy called with rawPath:', rawPath);
+    
     const normalizedPath = this.normalizeObjectEntityPath(rawPath);
+    console.log('🎯 normalizeObjectEntityPath returned:', normalizedPath);
+    
     if (!normalizedPath.startsWith("/")) {
+      console.log('❌ Normalized path does not start with /, returning original:', normalizedPath);
       return normalizedPath;
     }
 
+    console.log('✅ Setting ACL policy for normalized path:', normalizedPath);
     const objectFile = await this.getObjectEntityFile(normalizedPath);
     await setObjectAclPolicy(objectFile, aclPolicy);
     return normalizedPath;
