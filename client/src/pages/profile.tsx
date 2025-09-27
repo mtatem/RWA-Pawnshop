@@ -564,6 +564,7 @@ export default function Profile() {
       const uploadedFile = result.successful[0];
       const imageUrl = uploadedFile.uploadURL;
       if (imageUrl) {
+        // The backend will normalize the GCS URL to our app's object path
         uploadImageMutation.mutate(imageUrl);
       }
     }
