@@ -385,7 +385,7 @@ export default function KycManagement() {
                 </p>
                 <p className="text-sm text-muted-foreground">{selectedKyc.user?.email}</p>
                 <p className="text-sm text-muted-foreground">
-                  Document: {selectedKyc.documentType.replace('_', ' ').toUpperCase()} ({selectedKyc.documentCountry})
+                  Document: {selectedKyc?.documentType?.replace('_', ' ').toUpperCase() || 'Not specified'} ({selectedKyc?.documentCountry || 'N/A'})
                 </p>
               </div>
 
