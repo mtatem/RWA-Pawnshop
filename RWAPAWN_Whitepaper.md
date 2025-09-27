@@ -132,48 +132,49 @@ Users can stake RWAPAWN tokens to earn consistent returns while supporting platf
 
 ### Token Supply Structure
 
-**Total Supply**: 1,000,000,000 RWAPAWN tokens
+**Total Supply**: 10,000,000,000 RWAPAWN tokens
+**Initial Token Price**: $0.25 USD per RWAPAWN
 **Token Standard**: ICP native token with cross-chain bridge compatibility
 **Decimal Places**: 8 (following ICP standard)
 
 ### Token Distribution
 
-**Development & Operations (25% - 250M tokens)**
+**Development & Operations (25% - 2.5B tokens)**
 - Platform development and maintenance
 - Security audits and compliance
 - Technology infrastructure
 - Team compensation
 - Vested over 4 years with 1-year cliff
 
-**Liquidity Pool (30% - 300M tokens)**
+**Liquidity Pool (30% - 3B tokens)**
 - Main pawn shop lending wallet
 - Emergency liquidity reserves
 - Cross-chain bridge operations
 - Market maker provisions
 - Locked for 6 months, then gradually released based on platform metrics
 
-**Community & Ecosystem (20% - 200M tokens)**
+**Community & Ecosystem (20% - 2B tokens)**
 - User acquisition incentives
 - Community rewards programs
 - Partner integrations
 - Educational initiatives
 - Marketing and business development
 
-**Public Sale (15% - 150M tokens)**
+**Public Sale (15% - 1.5B tokens)**
 - Initial DEX offering
 - Exchange listings
 - Public investment rounds
 - Price discovery mechanisms
 - Available at token launch
 
-**Advisors & Partners (5% - 50M tokens)**
+**Advisors & Partners (5% - 500M tokens)**
 - Strategic advisors compensation
 - Business development partnerships
 - Technical advisory board
 - Industry expert consultations
 - Vested over 2 years with 6-month cliff
 
-**Treasury Reserve (5% - 50M tokens)**
+**Treasury Reserve (5% - 500M tokens)**
 - Long-term platform sustainability
 - Unforeseen market conditions
 - Strategic opportunities
@@ -183,16 +184,16 @@ Users can stake RWAPAWN tokens to earn consistent returns while supporting platf
 ### Token Release Schedule
 
 **Year 1**: 40% of total supply released
-- Public sale: 100% (150M tokens)
-- Community: 50% (100M tokens)
-- Liquidity: 33% (100M tokens)
-- Development: 12.5% (31.25M tokens)
+- Public sale: 100% (1.5B tokens)
+- Community: 50% (1B tokens)
+- Liquidity: 33% (1B tokens)
+- Development: 12.5% (312.5M tokens)
 
 **Year 2**: Additional 30% released
-- Community: 50% (100M tokens)
-- Liquidity: 33% (100M tokens)
-- Development: 25% (62.5M tokens)
-- Advisors: 50% (25M tokens)
+- Community: 50% (1B tokens)
+- Liquidity: 33% (1B tokens)
+- Development: 25% (625M tokens)
+- Advisors: 50% (250M tokens)
 
 **Years 3-4**: Remaining 30% released
 - Development team vesting completion
@@ -217,7 +218,7 @@ Users can stake RWAPAWN tokens to earn consistent returns while supporting platf
 - 1 RWAPAWN = 1 voting power (base)
 - Staked tokens receive 1.5x voting multiplier
 - Long-term stakes (6+ months) receive 2x multiplier
-- Proposal creation requires minimum 100,000 RWAPAWN stake
+- Proposal creation requires minimum 1,000,000 RWAPAWN stake
 
 ---
 
