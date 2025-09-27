@@ -284,7 +284,7 @@ export default function KYC() {
 
   if (userLoading) {
     return (
-      <div className="min-h-screen">
+      <div className="min-h-screen bg-black">
         <Navigation />
         <div className="flex items-center justify-center min-h-[60vh]">
           <div className="text-center">
@@ -299,7 +299,7 @@ export default function KYC() {
 
   if (!user) {
     return (
-      <div className="min-h-screen">
+      <div className="min-h-screen bg-black">
         <Navigation />
         <div className="flex items-center justify-center min-h-[60vh]">
           <Card className="w-full max-w-md p-8 text-center">
@@ -323,7 +323,7 @@ export default function KYC() {
   // If KYC already exists and is not rejected
   if (kycInfo && kycInfo.status !== 'rejected') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
+      <div className="min-h-screen bg-black">
         <Navigation />
         
         <section className="py-8 px-4 sm:px-6 lg:px-8">
@@ -435,7 +435,7 @@ export default function KYC() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
+    <div className="min-h-screen bg-black">
       <Navigation />
       
       <section className="py-8 px-4 sm:px-6 lg:px-8">
