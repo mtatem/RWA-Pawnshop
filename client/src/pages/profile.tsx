@@ -353,7 +353,7 @@ export default function Profile() {
   const mfaSetupMutation = useMutation({
     mutationFn: async () => {
       const response = await apiRequest("POST", "/api/mfa/setup");
-      return response;
+      return response.json();
     },
     onSuccess: (data) => {
       setMfaSetupData(data.data);
@@ -376,7 +376,7 @@ export default function Profile() {
   const mfaEnableMutation = useMutation({
     mutationFn: async (data: MfaVerifyForm) => {
       const response = await apiRequest("POST", "/api/mfa/enable", data);
-      return response;
+      return response.json();
     },
     onSuccess: () => {
       setShowMfaSetup(false);

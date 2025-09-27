@@ -127,11 +127,11 @@ export interface IStorage {
   revokeWalletBinding(id: string): Promise<WalletBinding>;
   
   // MFA operations
-  createMfaToken(tokenData: InsertMfaToken): Promise<MfaToken>;
-  getMfaTokens(userId: string, tokenType: string): Promise<MfaToken[]>;
-  useMfaToken(tokenId: string): Promise<MfaToken>;
-  updateMfaTokenStatus(tokenId: string, status: string): Promise<MfaToken>;
-  getUnusedBackupCodes(userId: string): Promise<MfaToken[]>;
+  storeMfaSetup(userId: string, encryptedSecret: string, backupCodes: string[]): Promise<void>;
+  getMfaSetup(userId: string): Promise<{ secret: string | null, backupCodes: string[] }>;
+  enableMfa(userId: string): Promise<void>;
+  disableMfa(userId: string): Promise<void>;
+  useBackupCode(userId: string, codeToRemove: string): Promise<boolean>;
   
   // User activity logging
   logUserActivity(activityData: InsertUserActivityLog): Promise<UserActivityLog>;
@@ -669,76 +669,121 @@ export class DatabaseStorage implements IStorage {
   }
 
   // MFA operations
-  async createMfaToken(tokenData: InsertMfaToken): Promise<MfaToken> {
+  async storeMfaSetup(userId: string, encryptedSecret: string, backupCodes: string[]): Promise<void> {
     try {
-      const [token] = await db.insert(mfaTokens).values(tokenData).returning();
-      return token;
-    } catch (error) {
-      throw new Error('MFA functionality not yet available - database schema needs migration');
-    }
-  }
-
-  async getMfaTokens(userId: string, tokenType: string): Promise<MfaToken[]> {
-    try {
-      const tokens = await db.select().from(mfaTokens)
-        .where(and(
-          eq(mfaTokens.userId, userId),
-          eq(mfaTokens.tokenType, tokenType),
-          eq(mfaTokens.isUsed, false)
-        ))
-        .orderBy(desc(mfaTokens.createdAt));
-      return tokens;
-    } catch (error) {
-      return [];
-    }
-  }
-
-  async useMfaToken(tokenId: string): Promise<MfaToken> {
-    try {
-      const [token] = await db.update(mfaTokens)
+      // Import MFAService for proper encryption/hashing
+      const { MFAService } = await import('./mfa-service');
+      
+      // Hash backup codes before storage (security requirement)
+      const hashedBackupCodes = await MFAService.hashBackupCodes(backupCodes);
+      
+      await db.update(users)
         .set({
-          isUsed: true,
-          usedAt: new Date()
+          mfaSecretEncrypted: encryptedSecret, // Secret should already be encrypted by caller
+          mfaBackupCodesHash: JSON.stringify(hashedBackupCodes), // Store hashed codes
+          updatedAt: new Date()
         })
-        .where(eq(mfaTokens.id, tokenId))
-        .returning();
-      return token;
+        .where(eq(users.id, userId));
     } catch (error) {
-      throw new Error('MFA functionality not yet available - database schema needs migration');
-    }
-  }
-
-  async updateMfaTokenStatus(tokenId: string, status: string): Promise<MfaToken> {
-    try {
-      const [token] = await db.update(mfaTokens)
-        .set({
-          status: status
-        })
-        .where(eq(mfaTokens.id, tokenId))
-        .returning();
-      return token;
-    } catch (error) {
-      throw new Error('MFA functionality not yet available - database schema needs migration');
-    }
-  }
-
-  async getUnusedBackupCodes(userId: string): Promise<MfaToken[]> {
-    try {
-      const codes = await db.select().from(mfaTokens)
-        .where(and(
-          eq(mfaTokens.userId, userId),
-          eq(mfaTokens.tokenType, 'backup_code'),
-          eq(mfaTokens.isUsed, false),
-          // Ensure codes haven't expired
-          sql`(${mfaTokens.expiresAt} IS NULL OR ${mfaTokens.expiresAt} > NOW())`
-        ))
-        .orderBy(desc(mfaTokens.createdAt));
-      return codes;
-    } catch (error: any) {
-      if (error?.code === '42703' || error?.message?.includes('table') || error?.message?.includes('does not exist')) {
-        return [];
-      }
       throw error;
+    }
+  }
+
+  async getMfaSetup(userId: string): Promise<{ secret: string | null, backupCodes: string[] }> {
+    try {
+      const [user] = await db.select({
+        mfaSecretEncrypted: users.mfaSecretEncrypted,
+        mfaBackupCodesHash: users.mfaBackupCodesHash
+      })
+      .from(users)
+      .where(eq(users.id, userId));
+      
+      if (!user) {
+        return { secret: null, backupCodes: [] };
+      }
+      
+      // Return encrypted secret and hashed codes for verification
+      // Note: secret remains encrypted, backup codes remain hashed for security
+      const hashedBackupCodes = user.mfaBackupCodesHash ? JSON.parse(user.mfaBackupCodesHash) : [];
+      return {
+        secret: user.mfaSecretEncrypted, // Return encrypted secret for verification
+        backupCodes: hashedBackupCodes // Return hashed codes for verification
+      };
+    } catch (error) {
+      return { secret: null, backupCodes: [] };
+    }
+  }
+
+  async enableMfa(userId: string): Promise<void> {
+    try {
+      await db.update(users)
+        .set({
+          mfaEnabled: true,
+          updatedAt: new Date()
+        })
+        .where(eq(users.id, userId));
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async disableMfa(userId: string): Promise<void> {
+    try {
+      await db.update(users)
+        .set({
+          mfaEnabled: false,
+          mfaSecretEncrypted: null,
+          mfaBackupCodesHash: null,
+          updatedAt: new Date()
+        })
+        .where(eq(users.id, userId));
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async useBackupCode(userId: string, codeToRemove: string): Promise<boolean> {
+    try {
+      const { MFAService } = await import('./mfa-service');
+      const setup = await this.getMfaSetup(userId);
+      
+      if (!setup.backupCodes.length) {
+        return false;
+      }
+      
+      // Verify the backup code against hashed codes
+      const isValidCode = await MFAService.verifyBackupCode(setup.backupCodes, codeToRemove);
+      if (!isValidCode) {
+        return false;
+      }
+      
+      // Find and remove the used backup code from hashed codes
+      const updatedHashedCodes = [];
+      let codeRemoved = false;
+      
+      for (const hashedCode of setup.backupCodes) {
+        const bcrypt = await import('bcryptjs');
+        const matches = await bcrypt.compare(codeToRemove.replace(/\s/g, '').toUpperCase(), hashedCode);
+        
+        if (matches && !codeRemoved) {
+          // Skip this code (remove it)
+          codeRemoved = true;
+        } else {
+          // Keep this code
+          updatedHashedCodes.push(hashedCode);
+        }
+      }
+      
+      await db.update(users)
+        .set({
+          mfaBackupCodesHash: JSON.stringify(updatedHashedCodes),
+          updatedAt: new Date()
+        })
+        .where(eq(users.id, userId));
+      
+      return true;
+    } catch (error) {
+      return false;
     }
   }
 
@@ -831,34 +876,67 @@ export class DatabaseStorage implements IStorage {
   }
 
   async upsertUser(userData: any): Promise<User> {
-    // First, check if user exists to preserve admin status
-    const existingUser = await this.getUser(userData.id);
-    
-    const [user] = await db
-      .insert(users)
-      .values({
-        id: userData.id,
-        email: userData.email,
-        firstName: userData.firstName,
-        lastName: userData.lastName,
-        profileImageUrl: userData.profileImageUrl,
-      })
-      .onConflictDoUpdate({
-        target: users.id,
-        set: {
+    try {
+      // First, check if user exists by ID to preserve admin status
+      const existingUserById = await this.getUser(userData.id);
+      
+      // Also check if user exists by email (for OAuth scenarios)
+      const existingUserByEmail = userData.email ? await this.getUserByEmail(userData.email) : null;
+      
+      // If email exists but with different ID, update that existing user's ID and data
+      if (existingUserByEmail && existingUserByEmail.id !== userData.id) {
+        console.log(`Updating existing user ${existingUserByEmail.id} with new OAuth ID ${userData.id}`);
+        const [user] = await db
+          .update(users)
+          .set({
+            id: userData.id,  // Update to new OAuth ID
+            firstName: userData.firstName,
+            lastName: userData.lastName,
+            profileImageUrl: userData.profileImageUrl,
+            // Preserve existing admin status and other data
+            updatedAt: new Date(),
+          })
+          .where(eq(users.email, userData.email))
+          .returning();
+        
+        console.log(`User ${userData.id} upserted (email merge) - admin status: ${user.isAdmin}`);
+        return user;
+      }
+      
+      // Standard upsert by ID
+      const [user] = await db
+        .insert(users)
+        .values({
+          id: userData.id,
           email: userData.email,
           firstName: userData.firstName,
           lastName: userData.lastName,
           profileImageUrl: userData.profileImageUrl,
-          // Preserve existing admin status - CRITICAL for admin functionality
-          isAdmin: existingUser?.isAdmin ?? false,
-          updatedAt: new Date(),
-        },
-      })
-      .returning();
-    
-    console.log(`User ${userData.id} upserted - admin status: ${user.isAdmin}`);
-    return user;
+        })
+        .onConflictDoUpdate({
+          target: users.id,
+          set: {
+            email: userData.email,
+            firstName: userData.firstName,
+            lastName: userData.lastName,
+            profileImageUrl: userData.profileImageUrl,
+            // Preserve existing admin status - CRITICAL for admin functionality
+            isAdmin: existingUserById?.isAdmin ?? false,
+            updatedAt: new Date(),
+          },
+        })
+        .returning();
+      
+      console.log(`User ${userData.id} upserted - admin status: ${user.isAdmin}`);
+      return user;
+    } catch (error: any) {
+      console.error('Error in upsertUser:', {
+        userData,
+        error: error.message,
+        code: error.code
+      });
+      throw error;
+    }
   }
 
   // RWA Submission operations
