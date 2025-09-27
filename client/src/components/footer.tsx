@@ -1,7 +1,11 @@
-import { Coins } from "lucide-react";
+import { Coins, MessageCircle } from "lucide-react";
 import logoImage from "@assets/rwa1_1758232271312.png";
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import ChatPopup from "@/components/chat-popup";
 
 export default function Footer() {
+  const [isChatOpen, setIsChatOpen] = useState(false);
   const footerLinks = {
     platform: [
       { label: "How it Works", href: "/how-it-works" },
@@ -29,12 +33,22 @@ export default function Footer() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
           {/* Brand */}
           <div className="sm:col-span-2 lg:col-span-1 mb-6 sm:mb-0">
-            <div className="mb-3 sm:mb-4">
+            <div className="mb-3 sm:mb-4 flex items-center gap-4">
               <img 
                 src={logoImage} 
                 alt="RWA Pawnshop" 
-                className="h-10 w-auto sm:h-12 object-contain mb-3"
+                className="h-10 w-auto sm:h-12 object-contain"
               />
+              <Button 
+                variant="outline" 
+                size="sm"
+                className="inline-flex items-center space-x-2" 
+                onClick={() => setIsChatOpen(true)}
+                data-testid="footer-live-chat"
+              >
+                <MessageCircle className="w-4 h-4" />
+                <span>Start Live Chat</span>
+              </Button>
             </div>
             <p className="text-xs sm:text-sm text-muted-foreground">RWAPAWN is the worlds first Real World Assets Pawnshop on the ICP Blockchain. Once approved, receive up to 70% of your asset's value as an instant ICP loan directly to your connected wallet. Get immediate access to funds without selling your valuable assets.</p>
           </div>
@@ -98,6 +112,8 @@ export default function Footer() {
           <p>&copy; 2025 ICP RWA Pawn. All rights reserved. Powered by Internet Computer Protocol.</p>
         </div>
       </div>
+      
+      <ChatPopup isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />
     </footer>
   );
 }
