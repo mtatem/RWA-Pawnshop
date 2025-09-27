@@ -47,7 +47,7 @@ export default function ContactUs() {
       icon: <Mail className="w-8 h-8 text-green-500" />,
       title: "Email Support",
       description: "Send us a detailed message about your issue",
-      availability: "support@icp-rwa-pawn.com",
+      availability: "info@rwapawn.io",
       responseTime: "Within 2 hours",
       action: "Send Email",
       color: "bg-green-500/10 border-green-500/20"
@@ -56,7 +56,7 @@ export default function ContactUs() {
       icon: <Phone className="w-8 h-8 text-purple-500" />,
       title: "Phone Support",
       description: "Speak directly with our support specialists",
-      availability: "+1 (555) 123-PAWN",
+      availability: "772-834-5081",
       responseTime: "Mon-Fri 9AM-6PM PST",
       action: "Call Now",
       color: "bg-purple-500/10 border-purple-500/20"
@@ -74,28 +74,14 @@ export default function ContactUs() {
 
   const offices = [
     {
-      name: "Headquarters",
-      address: "123 Blockchain Avenue, Suite 456",
-      city: "San Francisco, CA 94105",
+      name: "RWAPAWN Headquarters",
+      address: "4406 SE Graham Dr.",
+      city: "Stuart, Florida 34997",
       country: "United States",
-      phone: "+1 (555) 123-PAWN",
-      email: "headquarters@icp-rwa-pawn.com"
-    },
-    {
-      name: "European Office",
-      address: "45 Crypto Street, Floor 3",
-      city: "London, EC2A 4DP",
-      country: "United Kingdom", 
-      phone: "+44 20 1234 5678",
-      email: "europe@icp-rwa-pawn.com"
-    },
-    {
-      name: "Asia Pacific Office",
-      address: "88 Digital Plaza, Level 12",
-      city: "Singapore 048624",
-      country: "Singapore",
-      phone: "+65 6123 4567",
-      email: "apac@icp-rwa-pawn.com"
+      phone: "772-834-5081",
+      email: "info@rwapawn.io",
+      contact: "Matt Tatem",
+      role: "Support and Technical Assistance"
     }
   ];
 
@@ -285,6 +271,14 @@ export default function ContactUs() {
                         <Mail className="w-4 h-4" />
                         <span>{office.email}</span>
                       </p>
+                      {office.contact && (
+                        <p className="flex items-center space-x-2 pt-2">
+                          <span className="font-medium">Contact: {office.contact}</span>
+                        </p>
+                      )}
+                      {office.role && (
+                        <p className="ml-6 text-xs">{office.role}</p>
+                      )}
                     </div>
                   </div>
                 ))}
