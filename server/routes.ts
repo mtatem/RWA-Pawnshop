@@ -56,6 +56,7 @@ import { z } from "zod";
 import { requireAdminAuth } from "./admin-auth";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { ObjectPermission } from "./objectAcl";
+import { processChat, ChatMessage } from "./services/chat-service";
 
 // Initialize Stripe
 if (!process.env.STRIPE_SECRET_KEY) {
@@ -4319,6 +4320,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
           success: false,
           error: 'Failed to process your message. Please try again later.',
           code: 'INTERNAL_ERROR',
+          timestamp: new Date().toISOString()
+        });
+      }
+    }
+  );
+
+  // Chat API endpoint
+  app.post(
+    '/api/chat',
+    rateLimitConfigs.moderate,
+    validateRequest(z.object({
+      message: z.string().min(1).max(1000),
+      conversationHistory: z.array(z.object({
+        role: z.enum(['user', 'assistant']),
+        content: z.string(),
+        timestamp: z.string().datetime()
+      })).optional().default([])
+    })),
+    async (req, res) => {
+      try {
+        const { message, conversationHistory } = req.body;
+        
+        // Convert timestamp strings back to Date objects
+        const history: ChatMessage[] = conversationHistory.map((msg: any) => ({
+          ...msg,
+          timestamp: new Date(msg.timestamp)
+        }));
+        
+        const response = await processChat(message, history);
+        
+        res.json({
+          success: response.success,
+          message: response.message,
+          timestamp: new Date().toISOString(),
+          ...(response.error && { error: response.error })
+        });
+      } catch (error) {
+        console.error('Chat API error:', error);
+        res.status(500).json({
+          success: false,
+          error: 'Failed to process chat message. Please try again.',
           timestamp: new Date().toISOString()
         });
       }
