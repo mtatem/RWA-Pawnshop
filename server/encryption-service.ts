@@ -74,7 +74,7 @@ export class EncryptionService {
       
       const key = this.deriveKey(salt);
       
-      const decipher = crypto.createDecipheriv(this.ALGORITHM, key, iv);
+      const decipher = crypto.createDecipheriv(this.ALGORITHM, key, iv, { authTagLength: this.TAG_LENGTH });
       decipher.setAAD(Buffer.from('additional-auth-data'));
       decipher.setAuthTag(tag);
       
