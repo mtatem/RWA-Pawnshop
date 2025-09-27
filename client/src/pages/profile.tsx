@@ -1240,7 +1240,7 @@ export default function Profile() {
                                       <SelectValue placeholder="Select source of funds" />
                                     </SelectTrigger>
                                   </FormControl>
-                                  <SelectContent className="bg-black dark:bg-black text-white dark:text-white">
+                                  <SelectContent className="bg-gray-900 dark:bg-gray-900 text-white dark:text-white border-gray-700">
                                     <SelectItem value="employment">Employment</SelectItem>
                                     <SelectItem value="business">Business</SelectItem>
                                     <SelectItem value="investment">Investment</SelectItem>
@@ -1265,7 +1265,7 @@ export default function Profile() {
                                       <SelectValue placeholder="Select income range" />
                                     </SelectTrigger>
                                   </FormControl>
-                                  <SelectContent className="bg-black dark:bg-black text-white dark:text-white">
+                                  <SelectContent className="bg-gray-900 dark:bg-gray-900 text-white dark:text-white border-gray-700">
                                     <SelectItem value="under_25k">Under $25,000</SelectItem>
                                     <SelectItem value="25k_50k">$25,000 - $50,000</SelectItem>
                                     <SelectItem value="50k_100k">$50,000 - $100,000</SelectItem>
