@@ -225,7 +225,7 @@ export default function Profile() {
         lastName: user.lastName || "",
         username: user.username || "",
         email: user.email || "",
-        phone: user.phone || "",
+        phone: user.phoneEncrypted || "",
         city: user.city || "",
         state: user.state || "",
         country: user.country || "",
