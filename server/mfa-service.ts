@@ -102,18 +102,26 @@ export class MFAService {
    * Encrypt TOTP secret for database storage
    */
   private static encryptSecret(secret: string): string {
-    const cipher = crypto.createCipher('aes-256-cbc', this.ENCRYPTION_KEY);
+    const iv = crypto.randomBytes(16); // Generate random IV
+    const cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(this.ENCRYPTION_KEY, 'hex'), iv);
     let encrypted = cipher.update(secret, 'utf8', 'hex');
     encrypted += cipher.final('hex');
-    return encrypted;
+    return iv.toString('hex') + ':' + encrypted; // Prepend IV to encrypted data
   }
 
   /**
    * Decrypt TOTP secret from database
    */
   private static decryptSecret(encryptedSecret: string): string {
-    const decipher = crypto.createDecipher('aes-256-cbc', this.ENCRYPTION_KEY);
-    let decrypted = decipher.update(encryptedSecret, 'hex', 'utf8');
+    const parts = encryptedSecret.split(':');
+    if (parts.length !== 2) {
+      throw new Error('Invalid encrypted secret format');
+    }
+    
+    const iv = Buffer.from(parts[0], 'hex');
+    const encrypted = parts[1];
+    const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(this.ENCRYPTION_KEY, 'hex'), iv);
+    let decrypted = decipher.update(encrypted, 'hex', 'utf8');
     decrypted += decipher.final('utf8');
     return decrypted;
   }
