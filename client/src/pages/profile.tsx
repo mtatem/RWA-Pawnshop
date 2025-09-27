@@ -1166,100 +1166,61 @@ export default function Profile() {
 
             {/* Wallets Tab */}
             <TabsContent value="wallets" className="space-y-6">
-                            name="documentType"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Document Type</FormLabel>
-                                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                  <FormControl>
-                                    <SelectTrigger data-testid="select-document-type">
-                                      <SelectValue placeholder="Select document type" />
-                                    </SelectTrigger>
-                                  </FormControl>
-                                  <SelectContent>
-                                    <SelectItem value="passport">Passport</SelectItem>
-                                    <SelectItem value="drivers_license">Driver's License</SelectItem>
-                                    <SelectItem value="national_id">National ID</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
+              <Card>
+                <CardHeader>
+                  <CardTitle>Connected Wallets</CardTitle>
+                  <CardDescription>
+                    Manage your cryptocurrency wallet connections
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {walletsLoading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                    </div>
+                  ) : !walletBindings ? (
+                    <Alert>
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>
+                        Failed to load wallet information. Please try refreshing the page.
+                      </AlertDescription>
+                    </Alert>
+                  ) : walletBindings.length > 0 ? (
+                    <div className="space-y-4">
+                      {walletBindings.map((wallet) => (
+                        <div key={wallet.id} className="flex items-center justify-between p-4 border rounded-lg">
+                          <div className="space-y-1">
+                            <div className="flex items-center space-x-2">
+                              <Wallet className="h-4 w-4" />
+                              <span className="font-medium">{wallet.walletType}</span>
+                              {wallet.isPrimary && <Badge>Primary</Badge>}
+                            </div>
+                            <p className="text-sm text-muted-foreground font-mono break-all">
+                              {wallet.walletAddress}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              Connected {new Date(wallet.createdAt).toLocaleDateString()}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <Wallet className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                      <h3 className="text-lg font-semibold mb-2">No Wallets Connected</h3>
+                      <p className="text-muted-foreground mb-4">
+                        Connect your cryptocurrency wallet to enable trading and transactions.
+                      </p>
+                      <Button>Connect Wallet</Button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
 
-                          <FormField
-                            control={kycForm.control}
-                            name="fullName"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Full Legal Name</FormLabel>
-                                <FormControl>
-                                  <Input {...field} data-testid="input-full-name" placeholder="Enter your full legal name" />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-
-                          <FormField
-                            control={kycForm.control}
-                            name="documentNumber"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Document Number</FormLabel>
-                                <FormControl>
-                                  <Input {...field} data-testid="input-document-number" placeholder="Enter document number" />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-
-                          <FormField
-                            control={kycForm.control}
-                            name="documentCountry"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Document Country</FormLabel>
-                                <FormControl>
-                                  <Input {...field} data-testid="input-document-country" placeholder="US" />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-
-                          <FormField
-                            control={kycForm.control}
-                            name="dateOfBirth"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Date of Birth</FormLabel>
-                                <FormControl>
-                                  <Input {...field} type="date" data-testid="input-date-of-birth" />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-
-                          <FormField
-                            control={kycForm.control}
-                            name="nationality"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Nationality</FormLabel>
-                                <FormControl>
-                                  <Input {...field} data-testid="input-nationality" placeholder="Enter your nationality" />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-
-                          <FormField
-                            control={kycForm.control}
-                            name="occupation"
+            {/* Settings Tab */}
+            <TabsContent value="settings" className="space-y-6">
                             render={({ field }) => (
                               <FormItem>
                                 <FormLabel>Occupation</FormLabel>
