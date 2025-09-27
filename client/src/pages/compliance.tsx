@@ -385,21 +385,21 @@ export default function Compliance() {
                 <div>
                   <h4 className="font-semibold mb-2">Chief Compliance Officer</h4>
                   <p className="text-sm text-muted-foreground">
-                    compliance@icp-rwa-pawn.com<br/>
+                    compliance@rwapawn.io<br/>
                     +1 (555) 123-4567
                   </p>
                 </div>
                 <div>
                   <h4 className="font-semibold mb-2">AML/BSA Officer</h4>
                   <p className="text-sm text-muted-foreground">
-                    aml@icp-rwa-pawn.com<br/>
+                    aml@rwapawn.io<br/>
                     +1 (555) 123-4568
                   </p>
                 </div>
                 <div>
                   <h4 className="font-semibold mb-2">Data Protection Officer</h4>
                   <p className="text-sm text-muted-foreground">
-                    privacy@icp-rwa-pawn.com<br/>
+                    privacy@rwapawn.io<br/>
                     +1 (555) 123-4569
                   </p>
                 </div>
