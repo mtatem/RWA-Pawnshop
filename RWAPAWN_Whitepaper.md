@@ -607,10 +607,10 @@ The combination of proven technology, experienced leadership, and community-firs
 *This whitepaper is subject to updates and revisions as the platform evolves. Always refer to the latest version available on our official website and documentation.*
 
 **Contact Information**
-- Website: [https://icp-rwa-pawn.com]
-- Documentation: [https://docs.icp-rwa-pawn.com]
+- Website: [https://rwapawn.io]
+- Documentation: [https://docs.rwapawn.io]
 - Community: [https://discord.gg/rwapawn]
-- Email: team@icp-rwa-pawn.com
+- Email: info@rwapawn.io
 
 **Legal Disclaimer**
 This whitepaper is for informational purposes only and does not constitute an offer or solicitation to sell shares or securities. Please consult with qualified financial and legal advisors before making any investment decisions.

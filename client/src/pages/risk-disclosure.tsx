@@ -326,7 +326,7 @@ export default function RiskDisclosure() {
                   <h4 className="font-semibold text-foreground mb-2">Contact Information</h4>
                   <p>
                     Questions regarding this Risk Disclosure should be directed to: <br/>
-                    Email: risk@icp-rwa-pawn.com <br/>
+                    Email: risk@rwapawn.io <br/>
                     This disclosure is effective as of January 1, 2025.
                   </p>
                 </div>

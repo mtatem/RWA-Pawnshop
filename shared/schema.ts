@@ -1771,3 +1771,35 @@ export type ForgotPassword = z.infer<typeof forgotPasswordSchema>;
 export type ResetPassword = z.infer<typeof resetPasswordSchema>;
 export type ChangePassword = z.infer<typeof changePasswordSchema>;
 export type MfaSetup = z.infer<typeof mfaSetupSchema>;
+
+// Contact form schema
+export const contactFormSchema = z.object({
+  name: z.string()
+    .min(1, 'Name is required')
+    .max(100, 'Name too long')
+    .transform(val => sanitizeText(val, 100))
+    .refine(val => val.length > 0, 'Name cannot be empty after sanitization'),
+  email: z.string()
+    .email('Invalid email address')
+    .max(320, 'Email address too long')
+    .transform(val => val.toLowerCase().trim()),
+  subject: z.string()
+    .min(1, 'Subject is required')
+    .max(200, 'Subject too long')
+    .transform(val => sanitizeText(val, 200))
+    .refine(val => val.length > 0, 'Subject cannot be empty after sanitization'),
+  category: z.enum(['general', 'assets', 'account', 'security', 'technical', 'billing'], {
+    required_error: 'Category is required',
+    invalid_type_error: 'Invalid category'
+  }),
+  message: z.string()
+    .min(10, 'Message must be at least 10 characters')
+    .max(2000, 'Message too long')
+    .transform(val => sanitizeText(val, 2000))
+    .refine(val => val.length >= 10, 'Message must be at least 10 characters after sanitization'),
+  priority: z.enum(['low', 'normal', 'high', 'critical'], {
+    required_error: 'Priority is required'
+  }).default('normal')
+});
+
+export type ContactForm = z.infer<typeof contactFormSchema>;

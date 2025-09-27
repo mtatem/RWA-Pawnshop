@@ -222,7 +222,7 @@ Your continued use of the Platform after policy changes constitutes acceptance o
       title: "9. Contact Information and Complaints",
       content: `9.1 Privacy Contact
 For privacy-related questions or concerns, contact us at:
-• Email: privacy@icp-rwa-pawn.com
+• Email: privacy@rwapawn.io
 • Address: [Data Protection Officer Address]
 • Phone: [Privacy Contact Number]
 
@@ -336,7 +336,7 @@ This Privacy Policy is effective as of January 1, 2025, and was last updated on 
                   We're committed to protecting your privacy and answering any questions you may have.
                 </p>
                 <p className="text-sm text-blue-700 dark:text-blue-300">
-                  Contact our Privacy Team: <strong>privacy@icp-rwa-pawn.com</strong>
+                  Contact our Privacy Team: <strong>privacy@rwapawn.io</strong>
                 </p>
               </div>
             </CardContent>

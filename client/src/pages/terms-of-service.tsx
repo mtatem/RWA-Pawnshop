@@ -155,7 +155,7 @@ The Platform operates as an intermediary between asset owners seeking liquidity 
       title: "15. Contact Information",
       content: `For questions about these Terms of Service, please contact us at:
 
-Email: legal@icp-rwa-pawn.com
+Email: legal@rwapawn.io
 Address: [Company Address]
 
 These Terms are effective as of January 1, 2025, and were last updated on January 1, 2025.`
