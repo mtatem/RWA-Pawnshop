@@ -655,43 +655,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         }
 
-        // Clean up any existing pending setups for this user
-        const existingPendingTokens = await storage.getMfaTokens(userId, 'totp');
-        for (const token of existingPendingTokens) {
-          if (token.status === 'pending_setup') {
-            await storage.useMfaToken(token.id);
-          }
-        }
-
         // Generate TOTP setup
         const totpSetup = await MFAService.generateTOTPSetup(user.email || `user_${userId}@example.com`);
         
-        // Hash backup codes for security
-        const hashedBackupCodes = await MFAService.hashBackupCodes(totpSetup.backupCodes);
-        
-        // SECURITY FIX: Store TOTP secret server-side with pending status
-        const setupExpiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
-        
-        await storage.createMfaToken({
-          userId,
-          tokenType: 'totp',
-          tokenValueHash: totpSetup.secret, // Store encrypted secret server-side
-          status: 'pending_setup',
-          isUsed: false,
-          expiresAt: setupExpiresAt
-        });
-
-        // Store backup codes with pending status
-        for (const hashedCode of hashedBackupCodes) {
-          await storage.createMfaToken({
-            userId,
-            tokenType: 'backup_code',
-            tokenValueHash: hashedCode,
-            status: 'pending_setup',
-            isUsed: false,
-            expiresAt: setupExpiresAt
-          });
-        }
+        // SECURITY FIX: Store TOTP secret and backup codes server-side with proper encryption
+        await storage.storeMfaSetup(userId, totpSetup.secret, totpSetup.backupCodes);
 
         // Only return data needed for user setup - NO SECRET EXPOSURE
         res.json({
@@ -700,7 +668,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
             qrCodeUrl: totpSetup.qrCodeUrl,
             manualEntryKey: totpSetup.manualEntryKey,
             backupCodes: totpSetup.backupCodes, // Return unhashed codes for user to save
-            setupExpiresAt: setupExpiresAt.toISOString()
           },
           timestamp: new Date().toISOString()
         });
@@ -750,26 +717,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         }
 
-        // SECURITY FIX: Fetch pending setup data from server instead of trusting client
-        const pendingTotpTokens = await storage.getMfaTokens(userId, 'totp');
-        const pendingTotpToken = pendingTotpTokens.find(token => 
-          token.status === 'pending_setup' && 
-          !token.isUsed && 
-          token.expiresAt && 
-          new Date(token.expiresAt) > new Date()
-        );
-
-        if (!pendingTotpToken) {
+        // SECURITY FIX: Fetch stored setup data from server instead of trusting client
+        const mfaSetup = await storage.getMfaSetup(userId);
+        if (!mfaSetup.secret) {
           return res.status(400).json({
             success: false,
-            error: 'No pending MFA setup found or setup has expired. Please start the setup process again.',
+            error: 'No MFA setup found. Please start the setup process first.',
             code: 'NO_PENDING_SETUP',
             timestamp: new Date().toISOString()
           });
         }
 
         // Verify TOTP token against server-stored secret
-        const isValidToken = MFAService.verifyTOTP(pendingTotpToken.tokenValueHash, totpToken);
+        const isValidToken = MFAService.verifyTOTP(mfaSetup.secret, totpToken);
         if (!isValidToken) {
           return res.status(400).json({
             success: false,
@@ -779,32 +739,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         }
 
-        // Get pending backup codes
-        const pendingBackupTokens = await storage.getMfaTokens(userId, 'backup_code');
-        const validPendingBackupCodes = pendingBackupTokens.filter(token =>
-          token.status === 'pending_setup' &&
-          !token.isUsed &&
-          token.expiresAt &&
-          new Date(token.expiresAt) > new Date()
-        );
-
-        // Activate all pending tokens (change status from pending_setup to active)
-        await storage.updateMfaTokenStatus(pendingTotpToken.id, 'active');
-        for (const backupToken of validPendingBackupCodes) {
-          await storage.updateMfaTokenStatus(backupToken.id, 'active');
-        }
-
-        // Clean up any expired or unused pending tokens
-        const allPendingTokens = await storage.getMfaTokens(userId, 'totp');
-        const allPendingBackupCodes = await storage.getMfaTokens(userId, 'backup_code');
-        for (const token of [...allPendingTokens, ...allPendingBackupCodes]) {
-          if (token.status === 'pending_setup' && token.id !== pendingTotpToken.id) {
-            await storage.useMfaToken(token.id);
-          }
-        }
-
         // Enable MFA for the user
-        await storage.updateUser(userId, { mfaEnabled: true });
+        await storage.enableMfa(userId);
 
         // Log the activity
         await storage.logUserActivity({
@@ -817,7 +753,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         res.json({
           success: true,
-          message: 'MFA has been successfully enabled for your account',
+          data: {
+            message: 'MFA has been successfully enabled for your account',
+            mfaEnabled: true,
+            backupCodesRemaining: mfaSetup.backupCodes.length
+          },
           timestamp: new Date().toISOString()
         });
         
