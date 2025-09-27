@@ -1100,12 +1100,72 @@ export default function Profile() {
                       )}
                     </div>
                   ) : (
-                    /* KYC Submission Form */
-                    <Form {...kycForm}>
-                      <form onSubmit={kycForm.handleSubmit(onKYCSubmit)} className="space-y-6">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                          <FormField
-                            control={kycForm.control}
+                    /* Redirect to Dedicated KYC Page */
+                    <div className="space-y-6">
+                      <Alert>
+                        <Shield className="h-4 w-4" />
+                        <AlertDescription>
+                          <strong>Complete KYC Verification:</strong> To enable asset pawning on our platform, you'll need to complete identity verification including document uploads.
+                        </AlertDescription>
+                      </Alert>
+
+                      <div className="text-center space-y-4 py-8">
+                        <div className="space-y-2">
+                          <h3 className="text-lg font-semibold">Identity Verification Required</h3>
+                          <p className="text-muted-foreground">
+                            Complete your KYC verification to unlock all platform features. You'll need to provide:
+                          </p>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                          <div className="flex flex-col items-center space-y-2 p-4 border rounded-lg">
+                            <FileText className="h-6 w-6 text-primary" />
+                            <div className="text-center">
+                              <p className="font-medium">Identity Document</p>
+                              <p className="text-muted-foreground">Passport, Driver's License, or National ID</p>
+                            </div>
+                          </div>
+                          
+                          <div className="flex flex-col items-center space-y-2 p-4 border rounded-lg">
+                            <Upload className="h-6 w-6 text-primary" />
+                            <div className="text-center">
+                              <p className="font-medium">Document Photos</p>
+                              <p className="text-muted-foreground">Clear photos of front and back</p>
+                            </div>
+                          </div>
+                          
+                          <div className="flex flex-col items-center space-y-2 p-4 border rounded-lg">
+                            <UserIcon className="h-6 w-6 text-primary" />
+                            <div className="text-center">
+                              <p className="font-medium">Selfie Verification</p>
+                              <p className="text-muted-foreground">Photo of yourself with the document</p>
+                            </div>
+                          </div>
+                        </div>
+
+                        <Link href="/kyc">
+                          <Button 
+                            className="w-full md:w-auto px-8 py-3" 
+                            size="lg"
+                            data-testid="button-start-kyc"
+                          >
+                            <Shield className="h-4 w-4 mr-2" />
+                            Start KYC Verification
+                          </Button>
+                        </Link>
+                        
+                        <p className="text-xs text-muted-foreground">
+                          Verification typically takes 1-2 business days. Your information is encrypted and secure.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Wallets Tab */}
+            <TabsContent value="wallets" className="space-y-6">
                             name="documentType"
                             render={({ field }) => (
                               <FormItem>
