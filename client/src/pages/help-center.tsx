@@ -8,126 +8,29 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Search, HelpCircle, BookOpen, MessageCircle, Settings, Shield, Coins, ArrowRightLeft } from "lucide-react";
 import { useState } from "react";
+import { Link } from "wouter";
+import { helpCategories, helpArticles, popularArticles, getArticlesByCategory } from "@/content/help";
 
 export default function HelpCenter() {
   const [searchQuery, setSearchQuery] = useState("");
 
-  const categories = [
-    {
-      icon: <HelpCircle className="w-8 h-8 text-primary" />,
-      title: "Getting Started",
-      description: "Complete guide to setting up your account and making your first pawn",
-      articleCount: 8,
-      color: "bg-blue-500/10 text-blue-600",
-      articles: [
-        "Creating Your RWA Pawn Account",
-        "Connecting Your ICP Wallet",
-        "Understanding Loan Terms and Interest Rates",
-        "Platform Overview: Dashboard Navigation",
-        "Your First Asset Submission - Step by Step",
-        "Reading Your Loan Agreement",
-        "Setting Up Two-Factor Authentication",
-        "Account Verification Requirements"
-      ]
-    },
-    {
-      icon: <Coins className="w-8 h-8 text-primary" />,
-      title: "Asset Submission",
-      description: "Everything about submitting, documenting, and managing your assets",
-      articleCount: 12,
-      color: "bg-green-500/10 text-green-600",
-      articles: [
-        "Acceptable Asset Types and Categories",
-        "Required Documentation for Different Assets",
-        "Photography Guidelines for Asset Submission",
-        "Certificate of Authenticity Requirements",
-        "Asset Valuation Process Explained",
-        "Express vs Standard Processing Options",
-        "Editing or Withdrawing Pending Submissions",
-        "Asset Condition Assessment Criteria",
-        "Insurance and Asset Protection",
-        "Multiple Asset Submissions",
-        "Resubmission After Rejection",
-        "Asset Storage and Pickup Procedures"
-      ]
-    },
-    {
-      icon: <Shield className="w-8 h-8 text-primary" />,
-      title: "Security & Verification",
-      description: "Keep your account secure and complete identity verification",
-      articleCount: 9,
-      color: "bg-purple-500/10 text-purple-600",
-      articles: [
-        "Identity Verification (KYC) Process",
-        "Document Upload Security Best Practices",
-        "Recognizing Phishing and Scam Attempts",
-        "Two-Factor Authentication Setup",
-        "Secure Wallet Connection Guidelines",
-        "Privacy Policy and Data Protection",
-        "Suspicious Activity Monitoring",
-        "Password Security Recommendations",
-        "Account Recovery Procedures"
-      ]
-    },
-    {
-      icon: <ArrowRightLeft className="w-8 h-8 text-primary" />,
-      title: "Cross-Chain Bridge",
-      description: "Convert between ETH/USDC and ICP using our secure bridge",
-      articleCount: 7,
-      color: "bg-orange-500/10 text-orange-600",
-      articles: [
-        "Bridge Transaction Tutorial: ETH to ICP",
-        "Bridge Transaction Tutorial: ICP to ETH",
-        "Understanding Bridge Fees and Processing Times",
-        "Supported Tokens and Networks",
-        "Transaction Monitoring and Status Updates",
-        "Failed Bridge Transaction Recovery",
-        "MetaMask Integration for Bridge Transactions"
-      ]
-    },
-    {
-      icon: <Settings className="w-8 h-8 text-primary" />,
-      title: "Loans & Repayment",
-      description: "Managing active loans, repayments, and loan extensions",
-      articleCount: 10,
-      color: "bg-red-500/10 text-red-600",
-      articles: [
-        "Understanding Your Loan Terms",
-        "Making Loan Payments and Repayments",
-        "Early Repayment Benefits and Discounts",
-        "Loan Extension Options and Fees",
-        "What Happens When Loans Expire",
-        "Marketplace Process for Unredeemed Assets",
-        "Loan History and Payment Records",
-        "Interest Calculation and Payment Schedules",
-        "Partial Payments and Payment Plans",
-        "Loan Default Consequences"
-      ]
-    },
-    {
-      icon: <MessageCircle className="w-8 h-8 text-primary" />,
-      title: "Troubleshooting",
-      description: "Solutions to common issues and technical problems",
-      articleCount: 14,
-      color: "bg-yellow-500/10 text-yellow-600",
-      articles: [
-        "Transaction Failed: Common Causes and Solutions",
-        "Wallet Connection Issues",
-        "Asset Submission Upload Problems",
-        "Email Notification Not Received",
-        "Account Login and Password Issues",
-        "Bridge Transaction Stuck or Delayed",
-        "Missing Loan Payments or Incorrect Balances",
-        "Document Upload Size and Format Issues",
-        "Browser Compatibility and Cache Issues",
-        "Mobile App vs Web Platform Differences",
-        "Customer Support Contact Methods",
-        "Platform Maintenance and Downtime",
-        "Gas Fee Issues on Ethereum Network",
-        "ICP Network Congestion Solutions"
-      ]
-    }
-  ];
+  // Icon mapping for categories
+  const getIcon = (iconName: string) => {
+    const iconMap = {
+      "HelpCircle": <HelpCircle className="w-8 h-8 text-primary" />,
+      "Coins": <Coins className="w-8 h-8 text-primary" />,
+      "Shield": <Shield className="w-8 h-8 text-primary" />,
+      "ArrowRightLeft": <ArrowRightLeft className="w-8 h-8 text-primary" />,
+      "Settings": <Settings className="w-8 h-8 text-primary" />,
+      "MessageCircle": <MessageCircle className="w-8 h-8 text-primary" />
+    };
+    return iconMap[iconName as keyof typeof iconMap] || <HelpCircle className="w-8 h-8 text-primary" />;
+  };
+
+  // Get popular articles with their full data
+  const popularArticleData = popularArticles.map(slug => 
+    helpArticles.find(article => article.slug === slug)
+  ).filter(Boolean).slice(0, 12);
 
   const faqs = {
     general: [
@@ -182,21 +85,6 @@ export default function HelpCenter() {
     ]
   };
 
-  const quickLinks = [
-    { title: "Your First Asset Submission - Step by Step", category: "Getting Started", readTime: "8 min" },
-    { title: "Required Documentation for Different Assets", category: "Asset Submission", readTime: "12 min" },
-    { title: "Understanding Your Loan Terms", category: "Loans & Repayment", readTime: "6 min" },
-    { title: "Bridge Transaction Tutorial: ETH to ICP", category: "Cross-Chain Bridge", readTime: "10 min" },
-    { title: "Identity Verification (KYC) Process", category: "Security & Verification", readTime: "7 min" },
-    { title: "What Happens When Loans Expire", category: "Loans & Repayment", readTime: "5 min" },
-    { title: "Acceptable Asset Types and Categories", category: "Asset Submission", readTime: "4 min" },
-    { title: "Transaction Failed: Common Causes and Solutions", category: "Troubleshooting", readTime: "9 min" },
-    { title: "Early Repayment Benefits and Discounts", category: "Loans & Repayment", readTime: "3 min" },
-    { title: "Photography Guidelines for Asset Submission", category: "Asset Submission", readTime: "6 min" },
-    { title: "Wallet Connection Issues", category: "Troubleshooting", readTime: "8 min" },
-    { title: "Loan Extension Options and Fees", category: "Loans & Repayment", readTime: "4 min" }
-  ];
-
   return (
     <div className="min-h-screen bg-black">
       <Navigation />
@@ -237,42 +125,47 @@ export default function HelpCenter() {
             Explore comprehensive guides organized by topic to find exactly what you need
           </p>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {categories.map((category, index) => (
-              <Card key={index} className="hover:shadow-lg transition-all duration-300 cursor-pointer group hover:border-primary/50" data-testid={`category-${index}`}>
-                <CardHeader className="pb-4">
-                  <div className="flex items-center space-x-4">
-                    <div className={`p-3 rounded-lg ${category.color} group-hover:scale-110 transition-transform duration-300`}>
-                      {category.icon}
+            {helpCategories.map((category, index) => {
+              const categoryArticles = getArticlesByCategory(category.slug);
+              return (
+                <Card key={category.id} className="hover:shadow-lg transition-all duration-300 cursor-pointer group hover:border-primary/50" data-testid={`category-${index}`}>
+                  <CardHeader className="pb-4">
+                    <div className="flex items-center space-x-4">
+                      <div className={`p-3 rounded-lg ${category.color} group-hover:scale-110 transition-transform duration-300`}>
+                        {getIcon(category.icon)}
+                      </div>
+                      <div>
+                        <CardTitle className="text-lg group-hover:text-primary transition-colors">{category.title}</CardTitle>
+                        <Badge variant="secondary" className="mt-1">
+                          {categoryArticles.length} articles
+                        </Badge>
+                      </div>
                     </div>
-                    <div>
-                      <CardTitle className="text-lg group-hover:text-primary transition-colors">{category.title}</CardTitle>
-                      <Badge variant="secondary" className="mt-1">
-                        {category.articleCount} articles
-                      </Badge>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-muted-foreground mb-4">{category.description}</p>
+                    <div className="space-y-1">
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Featured Articles:</p>
+                      <ul className="text-xs text-muted-foreground space-y-1">
+                        {categoryArticles.slice(0, 3).map((article, articleIndex) => (
+                          <li key={article.id} className="flex items-center space-x-2">
+                            <div className="w-1 h-1 bg-primary rounded-full"></div>
+                            <Link href={`/help/${article.categorySlug}/${article.slug}`} className="truncate hover:text-primary transition-colors">
+                              {article.title}
+                            </Link>
+                          </li>
+                        ))}
+                        {categoryArticles.length > 3 && (
+                          <li className="text-primary font-medium">
+                            +{categoryArticles.length - 3} more articles
+                          </li>
+                        )}
+                      </ul>
                     </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground mb-4">{category.description}</p>
-                  <div className="space-y-1">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Featured Articles:</p>
-                    <ul className="text-xs text-muted-foreground space-y-1">
-                      {category.articles.slice(0, 3).map((article, articleIndex) => (
-                        <li key={articleIndex} className="flex items-center space-x-2">
-                          <div className="w-1 h-1 bg-primary rounded-full"></div>
-                          <span className="truncate">{article}</span>
-                        </li>
-                      ))}
-                      {category.articles.length > 3 && (
-                        <li className="text-primary font-medium">
-                          +{category.articles.length - 3} more articles
-                        </li>
-                      )}
-                    </ul>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         </div>
 
@@ -283,23 +176,25 @@ export default function HelpCenter() {
             Most read guides and tutorials to help you get the most out of your RWA pawn experience
           </p>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {quickLinks.map((link, index) => (
-              <Card key={index} className="hover:shadow-md transition-shadow cursor-pointer group" data-testid={`quick-link-${index}`}>
-                <CardContent className="p-4">
-                  <div className="flex items-start space-x-3">
-                    <div className="p-2 rounded-lg bg-primary/10 group-hover:bg-primary/20 transition-colors">
-                      <BookOpen className="w-4 h-4 text-primary" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h4 className="font-medium text-sm leading-snug mb-1 group-hover:text-primary transition-colors">{link.title}</h4>
-                      <div className="flex items-center justify-between">
-                        <p className="text-xs text-muted-foreground">{link.category}</p>
-                        <Badge variant="outline" className="text-xs">{link.readTime}</Badge>
+            {popularArticleData.map((article, index) => (
+              <Link key={article!.id} href={`/help/${article!.categorySlug}/${article!.slug}`}>
+                <Card className="hover:shadow-md transition-shadow cursor-pointer group" data-testid={`quick-link-${index}`}>
+                  <CardContent className="p-4">
+                    <div className="flex items-start space-x-3">
+                      <div className="p-2 rounded-lg bg-primary/10 group-hover:bg-primary/20 transition-colors">
+                        <BookOpen className="w-4 h-4 text-primary" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-medium text-sm leading-snug mb-1 group-hover:text-primary transition-colors">{article!.title}</h4>
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs text-muted-foreground">{article!.category}</p>
+                          <Badge variant="outline" className="text-xs">{article!.readTime}</Badge>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
+              </Link>
             ))}
           </div>
         </div>
