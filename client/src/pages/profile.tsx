@@ -382,7 +382,11 @@ export default function Profile() {
       setShowMfaSetup(false);
       setMfaSetupData(null);
       mfaForm.reset();
+      
+      // Force refresh user data to update MFA status immediately
       queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      queryClient.refetchQueries({ queryKey: ["/api/auth/user"] });
+      
       toast({
         title: "MFA Enabled",
         description: "Two-factor authentication has been successfully enabled for your account.",

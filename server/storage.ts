@@ -671,14 +671,11 @@ export class DatabaseStorage implements IStorage {
   // MFA operations
   async storeMfaSetup(userId: string, encryptedSecret: string, backupCodes: string[]): Promise<void> {
     try {
-      console.log('MFA Setup - Starting storage for user:', userId);
-      
       // Import MFAService for proper encryption/hashing
       const { MFAService } = await import('./mfa-service');
       
       // Hash backup codes before storage (security requirement)
       const hashedBackupCodes = await MFAService.hashBackupCodes(backupCodes);
-      console.log('MFA Setup - Hashed backup codes count:', hashedBackupCodes.length);
       
       const result = await db.update(users)
         .set({
@@ -689,13 +686,9 @@ export class DatabaseStorage implements IStorage {
         .where(eq(users.id, userId))
         .returning({ id: users.id });
       
-      console.log('MFA Setup - Storage result:', result);
-      
       if (result.length === 0) {
         throw new Error('User not found or update failed');
       }
-      
-      console.log('MFA Setup - Successfully stored for user:', userId);
     } catch (error) {
       console.error('MFA Setup - Storage error:', {
         userId,
