@@ -42,11 +42,11 @@ export default function Footer() {
               <Button 
                 variant="outline" 
                 size="sm"
-                className="inline-flex items-center space-x-2 bg-white text-black border-2 border-black hover:bg-gray-50" 
+                className="inline-flex items-center space-x-2 bg-white text-black border-2 border-black hover:bg-gray-50 hover:text-red-500" 
                 onClick={() => setIsChatOpen(true)}
                 data-testid="footer-live-chat"
               >
-                <MessageCircle className="w-4 h-4 text-black" />
+                <MessageCircle className="w-4 h-4 text-black hover:text-red-500" />
                 <span>Start Live Chat</span>
               </Button>
             </div>
