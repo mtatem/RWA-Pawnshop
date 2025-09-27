@@ -384,6 +384,7 @@ export default function Profile() {
       mfaForm.reset();
       
       // Force refresh user data to update MFA status immediately
+      queryClient.clear(); // Clear all cache to ensure fresh data
       queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
       queryClient.refetchQueries({ queryKey: ["/api/auth/user"] });
       
