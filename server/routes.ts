@@ -1420,7 +1420,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     dateOfBirth: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
     nationality: z.string().min(1).max(100),
     occupation: z.string().min(1).max(100),
-    sourceOfFunds: z.enum(['employment', 'business_ownership', 'investments', 'inheritance', 'savings', 'pension', 'other']),
+    sourceOfFunds: z.string()
+      .transform((val) => {
+        // Handle legacy "business" value by mapping it to "business_ownership"
+        if (val === 'business') return 'business_ownership';
+        return val;
+      })
+      .pipe(z.enum(['employment', 'business_ownership', 'investments', 'inheritance', 'savings', 'pension', 'other'])),
     annualIncome: z.enum(['under_25k', '25k_50k', '50k_100k', '100k_250k', '250k_500k', 'over_500k'])
   });
 
@@ -1468,15 +1474,100 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         }
 
-        // For now, store file names as placeholders (in production, these would be uploaded to secure storage)
+        // Upload files to object storage
+        const objectStorageService = new ObjectStorageService();
         const documentImageFile = req.files.documentImage[0];
         const documentBackImageFile = req.files.documentBackImage?.[0];
         const selfieImageFile = req.files.selfieImage[0];
 
-        // Encrypt sensitive PII data before storage
-        const documentImageKey = `document_${userId}_${Date.now()}`;
-        const documentBackImageKey = documentBackImageFile ? `document_back_${userId}_${Date.now()}` : null;
-        const selfieImageKey = `selfie_${userId}_${Date.now()}`;
+        // Upload document image
+        const documentImageObjectId = `kyc/${userId}/document_${Date.now()}_${documentImageFile.originalname}`;
+        const documentImageUploadUrl = await objectStorageService.generateSignedUploadUrl(documentImageObjectId);
+        
+        // Upload the file to object storage
+        const documentImageResponse = await fetch(documentImageUploadUrl.uploadURL, {
+          method: 'PUT',
+          body: documentImageFile.buffer,
+          headers: {
+            'Content-Type': documentImageFile.mimetype,
+          },
+        });
+        
+        if (!documentImageResponse.ok) {
+          throw new Error('Failed to upload document image');
+        }
+
+        // Set ACL policy for document image (private, admin access only)
+        const documentImagePath = await objectStorageService.trySetObjectEntityAclPolicy(
+          documentImageUploadUrl.uploadURL.split('?')[0], // Remove query parameters
+          {
+            owner: userId,
+            visibility: 'private',
+            aclRules: [{
+              group: { type: 'admin' },
+              permission: ObjectPermission.READ
+            }]
+          }
+        );
+
+        // Upload document back image if provided
+        let documentBackImagePath = null;
+        if (documentBackImageFile) {
+          const documentBackImageObjectId = `kyc/${userId}/document_back_${Date.now()}_${documentBackImageFile.originalname}`;
+          const documentBackImageUploadUrl = await objectStorageService.generateSignedUploadUrl(documentBackImageObjectId);
+          
+          const documentBackImageResponse = await fetch(documentBackImageUploadUrl.uploadURL, {
+            method: 'PUT',
+            body: documentBackImageFile.buffer,
+            headers: {
+              'Content-Type': documentBackImageFile.mimetype,
+            },
+          });
+          
+          if (!documentBackImageResponse.ok) {
+            throw new Error('Failed to upload document back image');
+          }
+
+          documentBackImagePath = await objectStorageService.trySetObjectEntityAclPolicy(
+            documentBackImageUploadUrl.uploadURL.split('?')[0],
+            {
+              owner: userId,
+              visibility: 'private',
+              aclRules: [{
+                group: { type: 'admin' },
+                permission: ObjectPermission.READ
+              }]
+            }
+          );
+        }
+
+        // Upload selfie image
+        const selfieImageObjectId = `kyc/${userId}/selfie_${Date.now()}_${selfieImageFile.originalname}`;
+        const selfieImageUploadUrl = await objectStorageService.generateSignedUploadUrl(selfieImageObjectId);
+        
+        const selfieImageResponse = await fetch(selfieImageUploadUrl.uploadURL, {
+          method: 'PUT',
+          body: selfieImageFile.buffer,
+          headers: {
+            'Content-Type': selfieImageFile.mimetype,
+          },
+        });
+        
+        if (!selfieImageResponse.ok) {
+          throw new Error('Failed to upload selfie image');
+        }
+
+        const selfieImagePath = await objectStorageService.trySetObjectEntityAclPolicy(
+          selfieImageUploadUrl.uploadURL.split('?')[0],
+          {
+            owner: userId,
+            visibility: 'private',
+            aclRules: [{
+              group: { type: 'admin' },
+              permission: ObjectPermission.READ
+            }]
+          }
+        );
 
         // Prepare KYC data with both plaintext (for schema validation) and encrypted fields (for storage)
         const kycData = {
@@ -1491,15 +1582,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           sourceOfFunds: formData.sourceOfFunds,
           annualIncome: formData.annualIncome,
           status: 'pending',
-          // Encrypted fields for secure storage
+          // Encrypted fields for secure storage (storing object paths instead of keys)
           documentNumberEncrypted: formData.documentNumber, // TODO: Add proper encryption in production
           fullNameEncrypted: formData.fullName, // TODO: Add proper encryption in production
           dateOfBirthEncrypted: formData.dateOfBirth, // TODO: Add proper encryption in production
           nationalityEncrypted: formData.nationality, // TODO: Add proper encryption in production
           occupationEncrypted: formData.occupation, // TODO: Add proper encryption in production
-          documentImageKeyEncrypted: documentImageKey, // TODO: Add proper encryption in production
-          documentBackImageKeyEncrypted: documentBackImageKey, // TODO: Add proper encryption in production
-          selfieImageKeyEncrypted: selfieImageKey // TODO: Add proper encryption in production
+          documentImageKeyEncrypted: documentImagePath,
+          documentBackImageKeyEncrypted: documentBackImagePath,
+          selfieImageKeyEncrypted: selfieImagePath
         };
 
         // Create KYC information
