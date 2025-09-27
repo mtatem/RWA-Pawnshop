@@ -312,7 +312,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         }
         
-        res.json(successResponse(user));
+        // Transform user object to match frontend expectations
+        const transformedUser = {
+          ...user,
+          isMfaEnabled: user.mfaEnabled // Map mfaEnabled to isMfaEnabled for frontend compatibility
+        };
+        
+        res.json(successResponse(transformedUser));
       } catch (error) {
         console.error("Error fetching user:", {
           userId: req.user?.claims?.sub,
