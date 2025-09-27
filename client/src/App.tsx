@@ -13,6 +13,7 @@ import PrivacyPolicy from "@/pages/privacy-policy";
 import RiskDisclosure from "@/pages/risk-disclosure";
 import Compliance from "@/pages/compliance";
 import HelpCenter from "@/pages/help-center";
+import HelpArticle from "@/pages/help-article";
 import ContactUs from "@/pages/contact-us";
 import Whitepaper from "@/pages/whitepaper";
 import Dashboard from "@/pages/dashboard";
@@ -41,6 +42,7 @@ function Router() {
       <Route path="/risk-disclosure" component={RiskDisclosure} />
       <Route path="/compliance" component={Compliance} />
       <Route path="/help-center" component={HelpCenter} />
+      <Route path="/help/:categorySlug/:articleSlug" component={HelpArticle} />
       <Route path="/contact-us" component={ContactUs} />
       <Route path="/whitepaper" component={Whitepaper} />
       <Route path="/dashboard" component={Dashboard} />
