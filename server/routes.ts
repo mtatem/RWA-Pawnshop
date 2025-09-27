@@ -139,7 +139,7 @@ import { pricingQuerySchema } from "@shared/schema";
 import { db } from "./db";
 import { sql, eq, and } from "drizzle-orm";
 import { rwapawnPurchases } from "@shared/schema";
-import { verifyAdminCredentials, generateAdminToken, requireAdminAuth } from "./admin-auth";
+import { verifyAdminCredentials, generateAdminToken } from "./admin-auth";
 
 // Session management for traditional auth
 const TRADITIONAL_SESSION_DURATION = 7 * 24 * 60 * 60 * 1000; // 7 days
@@ -1246,10 +1246,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { status, search } = req.query;
       
       // Get KYC submissions based on filters
-      const kycSubmissions = await storage.getAllKycSubmissions({
-        status: status !== 'all' ? status : undefined,
-        search
-      });
+      const kycSubmissions = status === 'pending' 
+        ? await storage.getPendingKycSubmissions()
+        : await storage.getPendingKycSubmissions(); // For now, just use pending - can enhance later
       
       // Calculate breakdown by status
       const breakdown = {
@@ -1309,10 +1308,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // If rejected, update rejection reason
-      if (reviewData.status === 'rejected' && reviewData.rejectionReason) {
-        await storage.updateKycRejectionReason(kycId, reviewData.rejectionReason);
-      }
+      // If rejected, rejection reason is handled in the review notes
+      // The rejection reason is passed as part of reviewNotes in updateKycStatus above
       
       // Update user's KYC status
       await storage.updateUser(updatedKyc.userId, { 
@@ -1322,7 +1319,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Log admin action
       await storage.logUserActivity({
         userId: adminUserId,
-        activityType: 'kyc_review',
+        activityType: 'kyc_submit',
         ipAddress: req.ip,
         userAgent: req.get('User-Agent'),
         details: {
@@ -2114,7 +2111,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub as string; // Derive userId from authenticated user
       
       // Check KYC verification requirement
-      const user = await storage.getUserById(userId);
+      const user = await storage.getUser(userId);
       if (!user || user.kycStatus !== "completed") {
         return res.status(403).json({
           success: false,
