@@ -231,7 +231,7 @@ export default function Profile() {
         lastName: user.lastName || "",
         username: user.username || "",
         email: user.email || "",
-        phone: "",
+        phone: user.phone || "",
         city: user.city || "",
         state: user.state || "",
         country: user.country || "",
@@ -310,12 +310,16 @@ export default function Profile() {
       const response = await apiRequest("PATCH", "/api/user/profile", data);
       return response;
     },
-    onSuccess: () => {
+    onSuccess: async (data) => {
       toast({
         title: "Profile Updated",
         description: "Your profile has been successfully updated.",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      
+      // Force immediate data refresh and form sync
+      await queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      await queryClient.refetchQueries({ queryKey: ["/api/auth/user"] });
+      
       setIsEditing(false);
     },
     onError: (error: any) => {
@@ -1086,10 +1090,10 @@ export default function Profile() {
                             <span className="font-medium">Verification Status</span>
                           </div>
                           <p className="text-sm text-muted-foreground">
-                            Document Type: {kycInfo.documentType.replace('_', ' ').toUpperCase()}
+                            Document Type: {kycInfo?.documentType?.replace('_', ' ').toUpperCase() || 'Not specified'}
                           </p>
                           <p className="text-sm text-muted-foreground">
-                            Submitted: {new Date(kycInfo.submittedAt).toLocaleDateString()}
+                            Submitted: {kycInfo?.submittedAt ? new Date(kycInfo.submittedAt).toLocaleDateString() : 'Not submitted'}
                           </p>
                           {kycInfo.rejectionReason && (
                             <p className="text-sm text-red-600 dark:text-red-400">
@@ -1236,7 +1240,7 @@ export default function Profile() {
                                       <SelectValue placeholder="Select source of funds" />
                                     </SelectTrigger>
                                   </FormControl>
-                                  <SelectContent>
+                                  <SelectContent className="bg-black dark:bg-black text-white dark:text-white">
                                     <SelectItem value="employment">Employment</SelectItem>
                                     <SelectItem value="business">Business</SelectItem>
                                     <SelectItem value="investment">Investment</SelectItem>
@@ -1261,7 +1265,7 @@ export default function Profile() {
                                       <SelectValue placeholder="Select income range" />
                                     </SelectTrigger>
                                   </FormControl>
-                                  <SelectContent>
+                                  <SelectContent className="bg-black dark:bg-black text-white dark:text-white">
                                     <SelectItem value="under_25k">Under $25,000</SelectItem>
                                     <SelectItem value="25k_50k">$25,000 - $50,000</SelectItem>
                                     <SelectItem value="50k_100k">$50,000 - $100,000</SelectItem>
