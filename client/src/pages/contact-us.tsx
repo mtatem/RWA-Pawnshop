@@ -1,5 +1,6 @@
 import Navigation from "@/components/navigation";
 import Footer from "@/components/footer";
+import ChatPopup from "@/components/chat-popup";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,9 +26,11 @@ import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { Link } from "wouter";
 
 export default function ContactUs() {
   const { toast } = useToast();
+  const [isChatOpen, setIsChatOpen] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -157,30 +160,54 @@ export default function ContactUs() {
 
         {/* Contact Methods */}
         <div className="grid md:grid-cols-3 gap-6 mb-16">
-          {contactMethods.map((method, index) => (
-            <Card key={index} className={`${method.color} hover:shadow-lg transition-shadow`} data-testid={`contact-method-${index}`}>
-              <CardHeader className="pb-4">
-                <div className="flex items-center space-x-4">
-                  <div className="flex items-center justify-center w-12 h-12 bg-white/20 rounded-full">
-                    {method.icon}
+          {contactMethods.map((method, index) => {
+            const getButtonProps = () => {
+              if (method.action === "Start Chat") {
+                return {
+                  onClick: () => setIsChatOpen(true),
+                  "data-testid": "button-start-chat"
+                };
+              } else if (method.action === "Send Email") {
+                return {
+                  as: "a",
+                  href: "mailto:info@rwapawn.io",
+                  "data-testid": "button-email-support"
+                };
+              } else if (method.action === "Call Now") {
+                return {
+                  as: "a",
+                  href: "tel:7728345081",
+                  "data-testid": "button-call-now"
+                };
+              }
+              return {};
+            };
+            
+            return (
+              <Card key={index} className={`${method.color} hover:shadow-lg transition-shadow`} data-testid={`contact-method-${index}`}>
+                <CardHeader className="pb-4">
+                  <div className="flex items-center space-x-4">
+                    <div className="flex items-center justify-center w-12 h-12 bg-white/20 rounded-full">
+                      {method.icon}
+                    </div>
+                    <div>
+                      <CardTitle className="text-lg">{method.title}</CardTitle>
+                      <Badge variant="secondary" className="mt-1">
+                        {method.responseTime}
+                      </Badge>
+                    </div>
                   </div>
-                  <div>
-                    <CardTitle className="text-lg">{method.title}</CardTitle>
-                    <Badge variant="secondary" className="mt-1">
-                      {method.responseTime}
-                    </Badge>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <p className="text-sm text-muted-foreground">{method.description}</p>
-                <p className="font-semibold text-sm">{method.availability}</p>
-                <Button className="w-full" variant="outline">
-                  {method.action}
-                </Button>
-              </CardContent>
-            </Card>
-          ))}
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <p className="text-sm text-muted-foreground">{method.description}</p>
+                  <p className="font-semibold text-sm">{method.availability}</p>
+                  <Button className="w-full" variant="outline" {...getButtonProps()}>
+                    {method.action}
+                  </Button>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
 
         <div className="grid lg:grid-cols-2 gap-12 mb-16">
@@ -368,20 +395,26 @@ export default function ContactUs() {
               about asset submission, loans, security, and more.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button variant="outline" className="inline-flex items-center space-x-2" data-testid="visit-help-center">
-                <HelpCircle className="w-4 h-4" />
-                <span>Visit Help Center</span>
-              </Button>
-              <Button variant="outline" className="inline-flex items-center space-x-2" data-testid="view-faqs">
-                <MessageCircle className="w-4 h-4" />
-                <span>View FAQs</span>
-              </Button>
+              <Link href="/help-center">
+                <Button variant="outline" className="inline-flex items-center space-x-2" data-testid="visit-help-center">
+                  <HelpCircle className="w-4 h-4" />
+                  <span>Visit Help Center</span>
+                </Button>
+              </Link>
+              <Link href="/help-center">
+                <Button variant="outline" className="inline-flex items-center space-x-2" data-testid="view-faqs">
+                  <MessageCircle className="w-4 h-4" />
+                  <span>View FAQs</span>
+                </Button>
+              </Link>
             </div>
           </CardContent>
         </Card>
       </div>
 
       <Footer />
+      
+      <ChatPopup isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />
     </div>
   );
 }
