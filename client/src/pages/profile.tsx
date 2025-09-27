@@ -79,8 +79,14 @@ const profileUpdateSchema = z.object({
   postalCode: z.string().optional()
 });
 
+// MFA-related schemas
+const mfaVerifySchema = z.object({
+  totpToken: z.string().min(6, "TOTP token must be 6 digits").max(6, "TOTP token must be 6 digits")
+});
+
 type PasswordChangeForm = z.infer<typeof passwordChangeSchema>;
 type ProfileUpdateForm = z.infer<typeof profileUpdateSchema>;
+type MfaVerifyForm = z.infer<typeof mfaVerifySchema>;
 
 // Pawn asset form schema
 const pawnAssetSchema = z.object({
@@ -191,6 +197,15 @@ export default function Profile() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [showImageUpload, setShowImageUpload] = useState(false);
   const [showPawnForm, setShowPawnForm] = useState(false);
+  
+  // MFA state management
+  const [showMfaSetup, setShowMfaSetup] = useState(false);
+  const [mfaSetupData, setMfaSetupData] = useState<{
+    qrCodeUrl: string;
+    manualEntryKey: string;
+    backupCodes: string[];
+    setupExpiresAt: string;
+  } | null>(null);
 
   // Profile form
   const profileForm = useForm<ProfileUpdateForm>({
@@ -232,6 +247,14 @@ export default function Profile() {
       currentPassword: "",
       newPassword: "",
       confirmPassword: ""
+    }
+  });
+
+  // MFA verification form
+  const mfaForm = useForm<MfaVerifyForm>({
+    resolver: zodResolver(mfaVerifySchema),
+    defaultValues: {
+      totpToken: ""
     }
   });
 
@@ -326,6 +349,54 @@ export default function Profile() {
     }
   });
 
+  // MFA setup mutation
+  const mfaSetupMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/api/mfa/setup");
+      return response;
+    },
+    onSuccess: (data) => {
+      setMfaSetupData(data.data);
+      setShowMfaSetup(true);
+      toast({
+        title: "MFA Setup Started",
+        description: "Scan the QR code with your authenticator app to continue.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "MFA Setup Failed",
+        description: error.message || "Failed to start MFA setup. Please try again.",
+        variant: "destructive",
+      });
+    }
+  });
+
+  // MFA enable mutation
+  const mfaEnableMutation = useMutation({
+    mutationFn: async (data: MfaVerifyForm) => {
+      const response = await apiRequest("POST", "/api/mfa/enable", data);
+      return response;
+    },
+    onSuccess: () => {
+      setShowMfaSetup(false);
+      setMfaSetupData(null);
+      mfaForm.reset();
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      toast({
+        title: "MFA Enabled",
+        description: "Two-factor authentication has been successfully enabled for your account.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "MFA Enable Failed",
+        description: error.message || "Failed to enable MFA. Please check your authenticator and try again.",
+        variant: "destructive",
+      });
+    }
+  });
+
   // KYC submission mutation
   const submitKYCMutation = useMutation({
     mutationFn: async (data: FormData) => {
@@ -369,6 +440,21 @@ export default function Profile() {
       formData.append(key, value);
     });
     submitKYCMutation.mutate(formData);
+  };
+
+  // MFA handler functions
+  const onMfaSetup = () => {
+    mfaSetupMutation.mutate();
+  };
+
+  const onMfaEnable = (data: MfaVerifyForm) => {
+    mfaEnableMutation.mutate(data);
+  };
+
+  const onMfaCancel = () => {
+    setShowMfaSetup(false);
+    setMfaSetupData(null);
+    mfaForm.reset();
   };
 
   const getKYCStatusBadge = (status: string) => {
@@ -923,8 +1009,13 @@ export default function Profile() {
                         {user.mfaEnabled ? "Enabled" : "Not enabled"}
                       </p>
                     </div>
-                    <Button variant="outline" data-testid="button-manage-mfa">
-                      {user.mfaEnabled ? "Manage" : "Enable"}
+                    <Button 
+                      variant="outline" 
+                      onClick={onMfaSetup}
+                      disabled={mfaSetupMutation.isPending}
+                      data-testid="button-manage-mfa"
+                    >
+                      {mfaSetupMutation.isPending ? "Starting Setup..." : (user.mfaEnabled ? "Manage" : "Enable")}
                     </Button>
                   </div>
                 </CardContent>
@@ -1612,6 +1703,108 @@ export default function Profile() {
               </div>
             </form>
           </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* MFA Setup Modal */}
+      <Dialog open={showMfaSetup} onOpenChange={setShowMfaSetup}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Setup Two-Factor Authentication</DialogTitle>
+          </DialogHeader>
+          
+          {mfaSetupData && (
+            <div className="space-y-6">
+              {/* Step 1: QR Code */}
+              <div className="space-y-4">
+                <h3 className="font-medium">Step 1: Scan QR Code</h3>
+                <p className="text-sm text-muted-foreground">
+                  Scan this QR code with your authenticator app (Google Authenticator, Authy, etc.)
+                </p>
+                <div className="flex justify-center p-4 bg-white rounded-lg">
+                  <img 
+                    src={mfaSetupData.qrCodeUrl} 
+                    alt="MFA QR Code" 
+                    className="w-48 h-48"
+                    data-testid="img-mfa-qr-code"
+                  />
+                </div>
+                
+                {/* Manual Entry Key */}
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">Or enter this key manually:</p>
+                  <div className="p-3 bg-muted rounded-lg font-mono text-sm break-all" data-testid="text-manual-entry-key">
+                    {mfaSetupData.manualEntryKey}
+                  </div>
+                </div>
+              </div>
+
+              {/* Step 2: Backup Codes */}
+              <div className="space-y-4">
+                <h3 className="font-medium">Step 2: Save Backup Codes</h3>
+                <p className="text-sm text-muted-foreground">
+                  Save these backup codes in a secure location. You can use them to access your account if you lose your authenticator device.
+                </p>
+                <div className="grid grid-cols-2 gap-2 p-4 bg-muted rounded-lg font-mono text-sm">
+                  {mfaSetupData.backupCodes.map((code, index) => (
+                    <div key={index} className="text-center" data-testid={`backup-code-${index}`}>
+                      {code}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Step 3: Verification */}
+              <div className="space-y-4">
+                <h3 className="font-medium">Step 3: Verify Setup</h3>
+                <p className="text-sm text-muted-foreground">
+                  Enter the 6-digit code from your authenticator app to complete setup
+                </p>
+                
+                <Form {...mfaForm}>
+                  <form onSubmit={mfaForm.handleSubmit(onMfaEnable)} className="space-y-4">
+                    <FormField
+                      control={mfaForm.control}
+                      name="totpToken"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Verification Code</FormLabel>
+                          <FormControl>
+                            <Input
+                              {...field}
+                              placeholder="000000"
+                              maxLength={6}
+                              data-testid="input-totp-verification"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <div className="flex space-x-3">
+                      <Button 
+                        type="submit" 
+                        disabled={mfaEnableMutation.isPending}
+                        className="flex-1"
+                        data-testid="button-enable-mfa"
+                      >
+                        {mfaEnableMutation.isPending ? "Verifying..." : "Enable MFA"}
+                      </Button>
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        onClick={onMfaCancel}
+                        data-testid="button-cancel-mfa"
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </form>
+                </Form>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
       
