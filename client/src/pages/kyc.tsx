@@ -352,7 +352,7 @@ export default function KYC() {
                   <div className="space-y-2">
                     <Label>Document Type</Label>
                     <p className="text-sm text-muted-foreground capitalize">
-                      {kycInfo.documentType.replace('_', ' ')}
+                      {kycInfo?.documentType?.replace('_', ' ') || 'Not specified'}
                     </p>
                   </div>
                   
