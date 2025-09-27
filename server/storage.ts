@@ -130,6 +130,7 @@ export interface IStorage {
   createMfaToken(tokenData: InsertMfaToken): Promise<MfaToken>;
   getMfaTokens(userId: string, tokenType: string): Promise<MfaToken[]>;
   useMfaToken(tokenId: string): Promise<MfaToken>;
+  updateMfaTokenStatus(tokenId: string, status: string): Promise<MfaToken>;
   getUnusedBackupCodes(userId: string): Promise<MfaToken[]>;
   
   // User activity logging
@@ -698,6 +699,20 @@ export class DatabaseStorage implements IStorage {
         .set({
           isUsed: true,
           usedAt: new Date()
+        })
+        .where(eq(mfaTokens.id, tokenId))
+        .returning();
+      return token;
+    } catch (error) {
+      throw new Error('MFA functionality not yet available - database schema needs migration');
+    }
+  }
+
+  async updateMfaTokenStatus(tokenId: string, status: string): Promise<MfaToken> {
+    try {
+      const [token] = await db.update(mfaTokens)
+        .set({
+          status: status
         })
         .where(eq(mfaTokens.id, tokenId))
         .returning();

@@ -611,6 +611,432 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   );
 
+  // MFA validation schemas
+  const mfaSetupSchema = z.object({
+    userEmail: z.string().email('Valid email required').optional()
+  });
+
+  const mfaEnableSchema = z.object({
+    totpToken: z.string().min(6, 'TOTP token must be 6 digits').max(6, 'TOTP token must be 6 digits')
+  });
+
+  const mfaVerifySchema = z.object({
+    totpToken: z.string().min(6, 'TOTP token must be 6 digits').max(6, 'TOTP token must be 6 digits')
+  });
+
+  const mfaBackupCodeSchema = z.object({
+    backupCode: z.string().min(8, 'Invalid backup code format').max(8, 'Invalid backup code format')
+  });
+
+  // Multi-Factor Authentication Routes
+  app.post('/api/mfa/setup', 
+    isAuthenticated,
+    rateLimitConfigs.api,
+    async (req: any, res) => {
+      try {
+        const userId = req.user.claims.sub as string;
+        const user = await storage.getUser(userId);
+        
+        if (!user) {
+          return res.status(404).json({
+            success: false,
+            error: 'User not found',
+            code: 'USER_NOT_FOUND',
+            timestamp: new Date().toISOString()
+          });
+        }
+
+        if (user.mfaEnabled) {
+          return res.status(400).json({
+            success: false,
+            error: 'MFA is already enabled for this account',
+            code: 'MFA_ALREADY_ENABLED',
+            timestamp: new Date().toISOString()
+          });
+        }
+
+        // Clean up any existing pending setups for this user
+        const existingPendingTokens = await storage.getMfaTokens(userId, 'totp');
+        for (const token of existingPendingTokens) {
+          if (token.status === 'pending_setup') {
+            await storage.useMfaToken(token.id);
+          }
+        }
+
+        // Generate TOTP setup
+        const totpSetup = await MFAService.generateTOTPSetup(user.email || `user_${userId}@example.com`);
+        
+        // Hash backup codes for security
+        const hashedBackupCodes = await MFAService.hashBackupCodes(totpSetup.backupCodes);
+        
+        // SECURITY FIX: Store TOTP secret server-side with pending status
+        const setupExpiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+        
+        await storage.createMfaToken({
+          userId,
+          tokenType: 'totp',
+          tokenValueHash: totpSetup.secret, // Store encrypted secret server-side
+          status: 'pending_setup',
+          isUsed: false,
+          expiresAt: setupExpiresAt
+        });
+
+        // Store backup codes with pending status
+        for (const hashedCode of hashedBackupCodes) {
+          await storage.createMfaToken({
+            userId,
+            tokenType: 'backup_code',
+            tokenValueHash: hashedCode,
+            status: 'pending_setup',
+            isUsed: false,
+            expiresAt: setupExpiresAt
+          });
+        }
+
+        // Only return data needed for user setup - NO SECRET EXPOSURE
+        res.json({
+          success: true,
+          data: {
+            qrCodeUrl: totpSetup.qrCodeUrl,
+            manualEntryKey: totpSetup.manualEntryKey,
+            backupCodes: totpSetup.backupCodes, // Return unhashed codes for user to save
+            setupExpiresAt: setupExpiresAt.toISOString()
+          },
+          timestamp: new Date().toISOString()
+        });
+        
+      } catch (error) {
+        console.error('MFA setup error:', {
+          userId: req.user?.claims?.sub,
+          error: error instanceof Error ? error.message : error,
+          timestamp: new Date().toISOString(),
+          ip: req.ip
+        });
+        res.status(500).json({
+          success: false,
+          error: 'Failed to generate MFA setup',
+          code: 'MFA_SETUP_ERROR',
+          timestamp: new Date().toISOString()
+        });
+      }
+    }
+  );
+
+  app.post('/api/mfa/enable',
+    isAuthenticated,
+    rateLimitConfigs.api,
+    validateRequest(mfaEnableSchema, 'body'),
+    async (req: any, res) => {
+      try {
+        const userId = req.user.claims.sub as string;
+        const { totpToken } = req.body;
+        
+        const user = await storage.getUser(userId);
+        if (!user) {
+          return res.status(404).json({
+            success: false,
+            error: 'User not found',
+            code: 'USER_NOT_FOUND',
+            timestamp: new Date().toISOString()
+          });
+        }
+
+        if (user.mfaEnabled) {
+          return res.status(400).json({
+            success: false,
+            error: 'MFA is already enabled for this account',
+            code: 'MFA_ALREADY_ENABLED',
+            timestamp: new Date().toISOString()
+          });
+        }
+
+        // SECURITY FIX: Fetch pending setup data from server instead of trusting client
+        const pendingTotpTokens = await storage.getMfaTokens(userId, 'totp');
+        const pendingTotpToken = pendingTotpTokens.find(token => 
+          token.status === 'pending_setup' && 
+          !token.isUsed && 
+          token.expiresAt && 
+          new Date(token.expiresAt) > new Date()
+        );
+
+        if (!pendingTotpToken) {
+          return res.status(400).json({
+            success: false,
+            error: 'No pending MFA setup found or setup has expired. Please start the setup process again.',
+            code: 'NO_PENDING_SETUP',
+            timestamp: new Date().toISOString()
+          });
+        }
+
+        // Verify TOTP token against server-stored secret
+        const isValidToken = MFAService.verifyTOTP(pendingTotpToken.tokenValueHash, totpToken);
+        if (!isValidToken) {
+          return res.status(400).json({
+            success: false,
+            error: 'Invalid TOTP token. Please check your authenticator app.',
+            code: 'INVALID_TOTP',
+            timestamp: new Date().toISOString()
+          });
+        }
+
+        // Get pending backup codes
+        const pendingBackupTokens = await storage.getMfaTokens(userId, 'backup_code');
+        const validPendingBackupCodes = pendingBackupTokens.filter(token =>
+          token.status === 'pending_setup' &&
+          !token.isUsed &&
+          token.expiresAt &&
+          new Date(token.expiresAt) > new Date()
+        );
+
+        // Activate all pending tokens (change status from pending_setup to active)
+        await storage.updateMfaTokenStatus(pendingTotpToken.id, 'active');
+        for (const backupToken of validPendingBackupCodes) {
+          await storage.updateMfaTokenStatus(backupToken.id, 'active');
+        }
+
+        // Clean up any expired or unused pending tokens
+        const allPendingTokens = await storage.getMfaTokens(userId, 'totp');
+        const allPendingBackupCodes = await storage.getMfaTokens(userId, 'backup_code');
+        for (const token of [...allPendingTokens, ...allPendingBackupCodes]) {
+          if (token.status === 'pending_setup' && token.id !== pendingTotpToken.id) {
+            await storage.useMfaToken(token.id);
+          }
+        }
+
+        // Enable MFA for the user
+        await storage.updateUser(userId, { mfaEnabled: true });
+
+        // Log the activity
+        await storage.logUserActivity({
+          userId,
+          activityType: 'mfa_setup',
+          ipAddress: req.ip,
+          userAgent: req.get('User-Agent'),
+          details: { action: 'enabled_mfa' }
+        });
+
+        res.json({
+          success: true,
+          message: 'MFA has been successfully enabled for your account',
+          timestamp: new Date().toISOString()
+        });
+        
+      } catch (error) {
+        console.error('MFA enable error:', {
+          userId: req.user?.claims?.sub,
+          error: error instanceof Error ? error.message : error,
+          timestamp: new Date().toISOString(),
+          ip: req.ip
+        });
+        res.status(500).json({
+          success: false,
+          error: 'Failed to enable MFA',
+          code: 'MFA_ENABLE_ERROR',
+          timestamp: new Date().toISOString()
+        });
+      }
+    }
+  );
+
+  app.post('/api/mfa/verify-totp',
+    isAuthenticated,
+    rateLimitConfigs.api,
+    validateRequest(mfaVerifySchema, 'body'),
+    async (req: any, res) => {
+      try {
+        const userId = req.user.claims.sub as string;
+        const { totpToken } = req.body;
+        
+        const user = await storage.getUser(userId);
+        if (!user || !user.mfaEnabled) {
+          return res.status(400).json({
+            success: false,
+            error: 'MFA is not enabled for this account',
+            code: 'MFA_NOT_ENABLED',
+            timestamp: new Date().toISOString()
+          });
+        }
+
+        // Get the user's TOTP secret
+        const totpSecrets = await storage.getMfaTokens(userId, 'totp');
+        if (totpSecrets.length === 0) {
+          return res.status(400).json({
+            success: false,
+            error: 'No TOTP secret found for this user',
+            code: 'NO_TOTP_SECRET',
+            timestamp: new Date().toISOString()
+          });
+        }
+
+        const encryptedSecret = totpSecrets[0].tokenValueHash;
+        const isValidToken = MFAService.verifyTOTP(encryptedSecret, totpToken);
+
+        if (!isValidToken) {
+          return res.status(400).json({
+            success: false,
+            error: 'Invalid TOTP token',
+            code: 'INVALID_TOTP',
+            timestamp: new Date().toISOString()
+          });
+        }
+
+        res.json({
+          success: true,
+          message: 'TOTP token verified successfully',
+          timestamp: new Date().toISOString()
+        });
+        
+      } catch (error) {
+        console.error('TOTP verification error:', {
+          userId: req.user?.claims?.sub,
+          error: error instanceof Error ? error.message : error,
+          timestamp: new Date().toISOString(),
+          ip: req.ip
+        });
+        res.status(500).json({
+          success: false,
+          error: 'Failed to verify TOTP token',
+          code: 'TOTP_VERIFY_ERROR',
+          timestamp: new Date().toISOString()
+        });
+      }
+    }
+  );
+
+  app.post('/api/mfa/verify-backup-code',
+    isAuthenticated,
+    rateLimitConfigs.api,
+    validateRequest(mfaBackupCodeSchema, 'body'),
+    async (req: any, res) => {
+      try {
+        const userId = req.user.claims.sub as string;
+        const { backupCode } = req.body;
+        
+        const user = await storage.getUser(userId);
+        if (!user || !user.mfaEnabled) {
+          return res.status(400).json({
+            success: false,
+            error: 'MFA is not enabled for this account',
+            code: 'MFA_NOT_ENABLED',
+            timestamp: new Date().toISOString()
+          });
+        }
+
+        // Get unused backup codes
+        const backupCodes = await storage.getUnusedBackupCodes(userId);
+        const hashedBackupCodes = backupCodes.map(code => code.tokenValueHash);
+
+        const isValidCode = await MFAService.verifyBackupCode(hashedBackupCodes, backupCode);
+        if (!isValidCode) {
+          return res.status(400).json({
+            success: false,
+            error: 'Invalid backup code',
+            code: 'INVALID_BACKUP_CODE',
+            timestamp: new Date().toISOString()
+          });
+        }
+
+        // Mark the backup code as used
+        for (const code of backupCodes) {
+          const isMatch = await bcrypt.compare(backupCode.toUpperCase(), code.tokenValueHash);
+          if (isMatch) {
+            await storage.useMfaToken(code.id);
+            break;
+          }
+        }
+
+        res.json({
+          success: true,
+          message: 'Backup code verified successfully',
+          timestamp: new Date().toISOString()
+        });
+        
+      } catch (error) {
+        console.error('Backup code verification error:', {
+          userId: req.user?.claims?.sub,
+          error: error instanceof Error ? error.message : error,
+          timestamp: new Date().toISOString(),
+          ip: req.ip
+        });
+        res.status(500).json({
+          success: false,
+          error: 'Failed to verify backup code',
+          code: 'BACKUP_CODE_VERIFY_ERROR',
+          timestamp: new Date().toISOString()
+        });
+      }
+    }
+  );
+
+  app.post('/api/mfa/disable',
+    isAuthenticated,
+    rateLimitConfigs.api,
+    async (req: any, res) => {
+      try {
+        const userId = req.user.claims.sub as string;
+        
+        const user = await storage.getUser(userId);
+        if (!user) {
+          return res.status(404).json({
+            success: false,
+            error: 'User not found',
+            code: 'USER_NOT_FOUND',
+            timestamp: new Date().toISOString()
+          });
+        }
+
+        if (!user.mfaEnabled) {
+          return res.status(400).json({
+            success: false,
+            error: 'MFA is not enabled for this account',
+            code: 'MFA_NOT_ENABLED',
+            timestamp: new Date().toISOString()
+          });
+        }
+
+        // Disable MFA for the user
+        await storage.updateUser(userId, { mfaEnabled: false });
+
+        // Mark all MFA tokens as used/expired for this user
+        const allMfaTokens = await storage.getMfaTokens(userId, 'totp');
+        const allBackupCodes = await storage.getMfaTokens(userId, 'backup_code');
+        
+        for (const token of [...allMfaTokens, ...allBackupCodes]) {
+          await storage.useMfaToken(token.id);
+        }
+
+        // Log the activity
+        await storage.logUserActivity({
+          userId,
+          activityType: 'mfa_disable',
+          ipAddress: req.ip,
+          userAgent: req.get('User-Agent'),
+          details: { action: 'disabled_mfa' }
+        });
+
+        res.json({
+          success: true,
+          message: 'MFA has been disabled for your account',
+          timestamp: new Date().toISOString()
+        });
+        
+      } catch (error) {
+        console.error('MFA disable error:', {
+          userId: req.user?.claims?.sub,
+          error: error instanceof Error ? error.message : error,
+          timestamp: new Date().toISOString(),
+          ip: req.ip
+        });
+        res.status(500).json({
+          success: false,
+          error: 'Failed to disable MFA',
+          code: 'MFA_DISABLE_ERROR',
+          timestamp: new Date().toISOString()
+        });
+      }
+    }
+  );
+
   // User routes with comprehensive validation
   app.post("/api/users", 
     rateLimitConfigs.auth,

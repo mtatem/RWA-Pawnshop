@@ -135,8 +135,9 @@ export const walletBindings = pgTable("wallet_bindings", {
 export const mfaTokens = pgTable("mfa_tokens", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull().references(() => users.id),
-  tokenType: varchar("token_type").notNull(), // backup_code, sms_token
-  tokenValueHash: varchar("token_value_hash").notNull(), // Hashed backup code or SMS token
+  tokenType: varchar("token_type").notNull(), // backup_code, sms_token, totp
+  tokenValueHash: varchar("token_value_hash").notNull(), // Hashed backup code, SMS token, or encrypted TOTP secret
+  status: varchar("status").notNull().default("active"), // pending_setup, active, expired
   isUsed: boolean("is_used").default(false),
   usedAt: timestamp("used_at"),
   expiresAt: timestamp("expires_at"),
