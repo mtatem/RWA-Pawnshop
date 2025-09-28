@@ -22,30 +22,51 @@ export default function Admin() {
     const checkAdminAuth = async () => {
       const adminToken = localStorage.getItem('adminToken');
       
-      if (!adminToken) {
-        setLocation('/admin-login');
-        return;
+      // First, try JWT authentication if we have a token
+      if (adminToken) {
+        try {
+          const response = await fetch('/api/admin/verify', {
+            headers: {
+              'Authorization': `Bearer ${adminToken}`
+            }
+          });
+
+          if (response.ok) {
+            setIsAuthenticated(true);
+            setIsLoading(false);
+            return;
+          } else {
+            localStorage.removeItem('adminToken');
+          }
+        } catch (error) {
+          localStorage.removeItem('adminToken');
+        }
       }
 
+      // If JWT authentication failed or no token, try Replit Auth with admin privileges
       try {
-        const response = await fetch('/api/admin/verify', {
-          headers: {
-            'Authorization': `Bearer ${adminToken}`
+        // Check if user is authenticated via Replit Auth
+        const userResponse = await fetch('/api/auth/user');
+        if (userResponse.ok) {
+          const userData = await userResponse.json();
+          if (userData.success && userData.data.isAdmin) {
+            // User is authenticated via Replit Auth and has admin privileges
+            // Try to access admin routes directly (backend now supports this)
+            const adminVerifyResponse = await fetch('/api/admin/verify');
+            if (adminVerifyResponse.ok) {
+              setIsAuthenticated(true);
+              setIsLoading(false);
+              return;
+            }
           }
-        });
-
-        if (response.ok) {
-          setIsAuthenticated(true);
-        } else {
-          localStorage.removeItem('adminToken');
-          setLocation('/admin-login');
         }
       } catch (error) {
-        localStorage.removeItem('adminToken');
-        setLocation('/admin-login');
-      } finally {
-        setIsLoading(false);
+        console.log('Replit Auth admin check failed:', error);
       }
+
+      // Neither authentication method succeeded
+      setLocation('/admin-login');
+      setIsLoading(false);
     };
 
     checkAdminAuth();
