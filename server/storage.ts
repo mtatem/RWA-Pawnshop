@@ -147,6 +147,10 @@ export interface IStorage {
   logUserActivity(activityData: InsertUserActivityLog): Promise<UserActivityLog>;
   getUserActivityLog(userId: string, limit?: number): Promise<UserActivityLog[]>;
 
+  // Role management operations
+  updateUserRole(userId: string, role: string): Promise<User>;
+  getUsersByRole(role: string): Promise<User[]>;
+
   // RWA Submission operations
   createRwaSubmission(submission: InsertRwaSubmission): Promise<RwaSubmission>;
   getRwaSubmission(id: string): Promise<RwaSubmission | undefined>;
@@ -979,6 +983,51 @@ export class DatabaseStorage implements IStorage {
         .limit(limit);
       return activities;
     } catch (error) {
+      return [];
+    }
+  }
+
+  // Role management operations
+  async updateUserRole(userId: string, role: string): Promise<User> {
+    try {
+      const [user] = await db.update(users)
+        .set({ 
+          role: role as any, 
+          updatedAt: new Date() 
+        })
+        .where(eq(users.id, userId))
+        .returning();
+      
+      if (!user) {
+        throw new Error('User not found');
+      }
+
+      // Log the role change for audit purposes
+      await this.logUserActivity({
+        userId,
+        activityType: 'role_change',
+        success: true,
+        details: {
+          newRole: role,
+          timestamp: new Date().toISOString()
+        }
+      });
+
+      return user;
+    } catch (error) {
+      console.error('Error updating user role:', error);
+      throw error;
+    }
+  }
+
+  async getUsersByRole(role: string): Promise<User[]> {
+    try {
+      const userList = await db.select().from(users)
+        .where(eq(users.role as any, role))
+        .orderBy(desc(users.createdAt));
+      return userList;
+    } catch (error) {
+      console.error('Error getting users by role:', error);
       return [];
     }
   }
