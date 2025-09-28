@@ -44,21 +44,20 @@ import { useForm } from "react-hook-form";
 
 interface UserAccount {
   id: string;
-  principalId: string;
-  username?: string;
-  email?: string;
+  principalId: string | null;
+  username?: string | null;
+  email?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+  role: 'user' | 'admin' | 'moderator';
+  accountStatus: 'active' | 'suspended' | 'restricted' | 'banned';
   verificationStatus: 'unverified' | 'pending' | 'verified' | 'rejected';
   kycStatus: 'not_started' | 'in_progress' | 'completed' | 'failed';
-  accountStatus: 'active' | 'suspended' | 'restricted' | 'banned';
-  walletBindings: WalletBinding[];
-  flags: UserFlag[];
-  lastActivity: string;
-  registrationDate: string;
-  totalTransactions: number;
-  totalVolume: string;
-  riskScore: string;
-  ipAddresses: string[];
-  deviceFingerprints: string[];
+  emailVerified: boolean;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  lastLoginAt?: string | null;
 }
 
 interface WalletBinding {
@@ -86,13 +85,29 @@ interface UserFlag {
 
 interface UserManagementData {
   users: UserAccount[];
-  totalCount: number;
-  flaggedCount: number;
-  breakdown: {
-    byVerificationStatus: Record<string, number>;
-    byAccountStatus: Record<string, number>;
-    byRiskLevel: Record<string, number>;
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
   };
+  stats: {
+    totalUsers: number;
+    activeUsers: number;
+    verifiedUsers: number;
+    flaggedUsers: number;
+  };
+}
+
+interface UserDetailsData {
+  user: UserAccount;
+  kycInfo: any;
+  walletBindings: WalletBinding[];
+  rwaSubmissions: any[];
+  pawnLoans: any[];
+  transactions: any[];
+  flags: UserFlag[];
+  activityLog: any[];
 }
 
 export default function UserManagement() {
@@ -103,10 +118,13 @@ export default function UserManagement() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [verificationFilter, setVerificationFilter] = useState<string>('all');
-  const [flagFilter, setFlagFilter] = useState<string>('flagged');
+  const [currentPage, setCurrentPage] = useState(1);
   const [selectedUser, setSelectedUser] = useState<UserAccount | null>(null);
+  const [selectedUserDetails, setSelectedUserDetails] = useState<UserDetailsData | null>(null);
   const [isUserDetailOpen, setIsUserDetailOpen] = useState(false);
   const [isFlagDialogOpen, setIsFlagDialogOpen] = useState(false);
+  const [isCreateUserOpen, setIsCreateUserOpen] = useState(false);
+  const [isEditUserOpen, setIsEditUserOpen] = useState(false);
 
   // Form for user flagging
   const flagForm = useForm({
@@ -131,13 +149,22 @@ export default function UserManagement() {
 
   // Fetch user management data
   const { data: userManagementData, isLoading, refetch } = useQuery<UserManagementData>({
-    queryKey: ["/api/admin/users/flagged", { 
+    queryKey: ["/api/admin/users", { 
+      page: currentPage,
+      limit: 50,
+      search: searchTerm,
       status: statusFilter === 'all' ? '' : statusFilter, 
-      verification: verificationFilter === 'all' ? '' : verificationFilter, 
-      flagged: flagFilter === 'all' ? '' : flagFilter 
+      verification: verificationFilter === 'all' ? '' : verificationFilter
     }],
     queryFn: getAdminQueryFn({ on401: "throw" }),
     refetchInterval: 30000, // Refresh every 30 seconds
+  });
+
+  // Fetch user details when a user is selected
+  const { data: userDetailsData, isLoading: userDetailsLoading } = useQuery<UserDetailsData>({
+    queryKey: ["/api/admin/users", selectedUser?.id],
+    queryFn: getAdminQueryFn({ on401: "throw" }),
+    enabled: !!selectedUser?.id,
   });
 
   // Flag user mutation
@@ -151,7 +178,7 @@ export default function UserManagement() {
         title: "User Flagged",
         description: "User has been flagged successfully.",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/users/flagged"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
       setIsFlagDialogOpen(false);
       flagForm.reset();
     },
@@ -175,7 +202,7 @@ export default function UserManagement() {
         title: "Flag Updated",
         description: "User flag has been updated successfully.",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/users/flagged"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
     },
     onError: (error: any) => {
       toast({
@@ -197,12 +224,58 @@ export default function UserManagement() {
         title: "User Restricted",
         description: "User restrictions have been applied successfully.",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/users/flagged"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
     },
     onError: (error: any) => {
       toast({
         title: "Restriction Failed",
         description: error.message || "Failed to apply user restrictions.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Create user mutation
+  const createUserMutation = useMutation({
+    mutationFn: async (userData: any) => {
+      const response = await adminApiRequest("POST", "/api/admin/users", userData);
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "User Created",
+        description: "User has been created successfully.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      setIsCreateUserOpen(false);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to Create User",
+        description: error.message || "An error occurred while creating the user.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Update user mutation
+  const updateUserMutation = useMutation({
+    mutationFn: async ({ userId, updates }: { userId: string; updates: any }) => {
+      const response = await adminApiRequest("PATCH", `/api/admin/users/${userId}`, updates);
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "User Updated",
+        description: "User has been updated successfully.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      setIsEditUserOpen(false);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to Update User",
+        description: error.message || "An error occurred while updating the user.",
         variant: "destructive",
       });
     },
@@ -302,14 +375,7 @@ export default function UserManagement() {
     });
   };
 
-  const filteredUsers = userManagementData?.users?.filter(user => {
-    const matchesSearch = !searchTerm || 
-      user.principalId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.username?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.email?.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    return matchesSearch;
-  }) || [];
+  const filteredUsers = userManagementData?.users || [];
 
   if (isLoading) {
     return (
@@ -348,11 +414,15 @@ export default function UserManagement() {
         <div className="flex items-center space-x-4">
           <Badge variant="outline" className="flex items-center gap-2">
             <Users className="h-3 w-3" />
-            {userManagementData?.totalCount || 0} Total Users
+            {userManagementData?.stats?.totalUsers || 0} Total Users
+          </Badge>
+          <Badge variant="secondary" className="flex items-center gap-2">
+            <CheckCircle className="h-3 w-3" />
+            {userManagementData?.stats?.activeUsers || 0} Active
           </Badge>
           <Badge variant="destructive" className="flex items-center gap-2">
             <Flag className="h-3 w-3" />
-            {userManagementData?.flaggedCount || 0} Flagged
+            {userManagementData?.stats?.flaggedUsers || 0} Flagged
           </Badge>
           <Button 
             variant="outline" 
@@ -363,25 +433,64 @@ export default function UserManagement() {
             <Users className="h-4 w-4 mr-2" />
             Refresh
           </Button>
+          <Button 
+            size="sm" 
+            onClick={() => setIsCreateUserOpen(true)}
+            data-testid="create-user-button"
+          >
+            <User className="h-4 w-4 mr-2" />
+            Add User
+          </Button>
         </div>
       </div>
 
       {/* Summary Cards */}
-      {userManagementData?.breakdown?.byAccountStatus && (
+      {userManagementData?.stats && (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {Object.entries(userManagementData.breakdown.byAccountStatus).map(([status, count]) => (
-            <Card key={status} data-testid={`status-card-${status}`}>
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <User className="h-4 w-4" />
-                    <span className="font-medium capitalize">{status.replace('_', ' ')}</span>
-                  </div>
-                  <span className="text-2xl font-bold">{count}</span>
+          <Card data-testid="stats-card-total">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <Users className="h-4 w-4" />
+                  <span className="font-medium">Total Users</span>
                 </div>
-              </CardContent>
-            </Card>
-          ))}
+                <span className="text-2xl font-bold">{userManagementData.stats.totalUsers}</span>
+              </div>
+            </CardContent>
+          </Card>
+          <Card data-testid="stats-card-active">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <CheckCircle className="h-4 w-4 text-green-500" />
+                  <span className="font-medium">Active Users</span>
+                </div>
+                <span className="text-2xl font-bold">{userManagementData.stats.activeUsers}</span>
+              </div>
+            </CardContent>
+          </Card>
+          <Card data-testid="stats-card-verified">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <Shield className="h-4 w-4 text-blue-500" />
+                  <span className="font-medium">Verified Users</span>
+                </div>
+                <span className="text-2xl font-bold">{userManagementData.stats.verifiedUsers}</span>
+              </div>
+            </CardContent>
+          </Card>
+          <Card data-testid="stats-card-flagged">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <Flag className="h-4 w-4 text-red-500" />
+                  <span className="font-medium">Flagged Users</span>
+                </div>
+                <span className="text-2xl font-bold">{userManagementData.stats.flaggedUsers}</span>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       )}
 
@@ -428,16 +537,6 @@ export default function UserManagement() {
               </SelectContent>
             </Select>
 
-            <Select value={flagFilter} onValueChange={setFlagFilter}>
-              <SelectTrigger className="w-[180px]" data-testid="flag-filter">
-                <SelectValue placeholder="Flag status" />
-              </SelectTrigger>
-              <SelectContent className="bg-background dark:bg-black border-border dark:border-gray-800">
-                <SelectItem value="flagged">Flagged Users</SelectItem>
-                <SelectItem value="unflagged">Clean Users</SelectItem>
-                <SelectItem value="all">All Users</SelectItem>
-              </SelectContent>
-            </Select>
           </div>
         </CardContent>
       </Card>
@@ -455,7 +554,6 @@ export default function UserManagement() {
         ) : (
           filteredUsers.map((user) => (
             <Card key={user.id} className={`border-l-4 ${
-              user.flags?.length > 0 && user.flags.some(f => f.status === 'active') ? 'border-l-red-500' :
               user.accountStatus === 'suspended' ? 'border-l-yellow-500' :
               user.accountStatus === 'restricted' ? 'border-l-orange-500' :
               user.accountStatus === 'banned' ? 'border-l-red-500' :
@@ -472,65 +570,55 @@ export default function UserManagement() {
                       <Badge variant="outline">
                         KYC: {user.kycStatus.replace('_', ' ').toUpperCase()}
                       </Badge>
-                      {user.flags?.some(f => f.status === 'active') && (
+                      <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
+                        {user.role.toUpperCase()}
+                      </Badge>
+                      {!user.emailVerified && (
                         <Badge variant="destructive" className="flex items-center gap-1">
-                          <Flag className="h-3 w-3" />
-                          FLAGGED
+                          <AlertTriangle className="h-3 w-3" />
+                          UNVERIFIED EMAIL
                         </Badge>
                       )}
                     </div>
 
                     <h3 className="text-lg font-semibold mb-2" data-testid={`user-title-${user.id}`}>
-                      {user.username || 'Anonymous User'}
+                      {user.firstName && user.lastName 
+                        ? `${user.firstName} ${user.lastName}`
+                        : user.username || user.email || 'Anonymous User'
+                      }
                     </h3>
 
                     <div className="grid md:grid-cols-3 gap-4 text-sm text-muted-foreground mb-4">
                       <div>
                         <span className="font-medium">Principal ID:</span>{' '}
-                        <span className="font-mono">{user.principalId.slice(0, 12)}...</span>
-                      </div>
-                      <div>
-                        <span className="font-medium">Risk Score:</span>{' '}
-                        <span className={`font-bold ${getRiskScoreColor(user.riskScore)}`}>
-                          {(parseFloat(user.riskScore) * 100).toFixed(1)}%
+                        <span className="font-mono">
+                          {user.principalId ? user.principalId.slice(0, 12) + '...' : 'N/A'}
                         </span>
                       </div>
                       <div>
-                        <span className="font-medium">Last Activity:</span>{' '}
-                        {formatTimeAgo(user.lastActivity)}
+                        <span className="font-medium">Email:</span>{' '}
+                        <span className="break-all">{user.email || 'N/A'}</span>
+                      </div>
+                      <div>
+                        <span className="font-medium">Last Login:</span>{' '}
+                        {user.lastLoginAt ? formatTimeAgo(user.lastLoginAt) : 'Never'}
                       </div>
                     </div>
 
                     <div className="flex items-center space-x-6 text-sm text-muted-foreground">
                       <div className="flex items-center space-x-1">
-                        <Wallet className="h-4 w-4" />
-                        <span>{user.walletBindings?.length || 0} wallets</span>
+                        <User className="h-4 w-4" />
+                        <span>Joined {formatTimeAgo(user.createdAt)}</span>
                       </div>
                       <div className="flex items-center space-x-1">
-                        <History className="h-4 w-4" />
-                        <span>{user.totalTransactions} transactions</span>
+                        <CheckCircle className={`h-4 w-4 ${user.emailVerified ? 'text-green-500' : 'text-red-500'}`} />
+                        <span>{user.emailVerified ? 'Email Verified' : 'Email Not Verified'}</span>
                       </div>
                       <div className="flex items-center space-x-1">
-                        <span>{formatCurrency(user.totalVolume)} volume</span>
+                        <Shield className={`h-4 w-4 ${user.isActive ? 'text-green-500' : 'text-red-500'}`} />
+                        <span>{user.isActive ? 'Active' : 'Inactive'}</span>
                       </div>
                     </div>
-
-                    {user.flags?.some(f => f.status === 'active') && (
-                      <div className="mt-3 p-3 bg-red-50 rounded-lg border border-red-200">
-                        <div className="flex items-center gap-2 mb-2">
-                          <AlertTriangle className="h-4 w-4 text-red-600" />
-                          <span className="font-medium text-red-800">Active Flags</span>
-                        </div>
-                        {user.flags.filter(f => f.status === 'active').map((flag) => (
-                          <div key={flag.id} className="text-sm">
-                            <Badge className={getFlagSeverityColor(flag.severity)}>
-                              {flag.severity.toUpperCase()}
-                            </Badge>
-                            <span className="ml-2 text-red-700">{flag.flagReason}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
                   </div>
 
                   <div className="flex items-center space-x-2">
