@@ -46,9 +46,9 @@ export async function processChat(message: string, conversationHistory: ChatMess
     ];
 
     const response = await openai.chat.completions.create({
-      model: "gpt-5", // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
+      model: "gpt-4o", // Using GPT-4o which is the latest available model from OpenAI
       messages: messages,
-      max_completion_tokens: 500
+      max_tokens: 500
     });
 
     const assistantMessage = response.choices[0].message.content;
