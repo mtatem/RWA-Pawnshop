@@ -15,65 +15,27 @@ import { Card } from "@/components/ui/card";
 import { useAuth } from "@/hooks/useAuth";
 
 export default function Admin() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
   const [, setLocation] = useLocation();
-  const { user, permissions, isLoading: authLoading } = useAuth();
+  const { user, permissions, isLoading, isAuthenticated } = useAuth();
 
   useEffect(() => {
-    const checkAdminAuth = async () => {
-      const adminToken = localStorage.getItem('adminToken');
+    // Use role-based permissions for access control
+    if (!isLoading) {
+      if (!isAuthenticated) {
+        // User not authenticated, redirect to login
+        setLocation('/login');
+        return;
+      }
       
-      // First, try JWT authentication if we have a token
-      if (adminToken) {
-        try {
-          const response = await fetch('/api/admin/verify', {
-            headers: {
-              'Authorization': `Bearer ${adminToken}`
-            }
-          });
-
-          if (response.ok) {
-            setIsAuthenticated(true);
-            setIsLoading(false);
-            return;
-          } else {
-            localStorage.removeItem('adminToken');
-          }
-        } catch (error) {
-          localStorage.removeItem('adminToken');
-        }
+      if (!permissions.canAccessAdmin) {
+        // User doesn't have admin permissions, redirect to admin login
+        setLocation('/admin-login');
+        return;
       }
+    }
+  }, [isLoading, isAuthenticated, permissions.canAccessAdmin, setLocation]);
 
-      // If JWT authentication failed or no token, try Replit Auth with admin privileges
-      try {
-        // Check if user is authenticated via Replit Auth
-        const userResponse = await fetch('/api/auth/user');
-        if (userResponse.ok) {
-          const userData = await userResponse.json();
-          if (userData.success && userData.data) {
-            // Check if user has admin access using role-based permissions
-            // Try to access admin routes directly (backend now supports role-based auth)
-            const adminVerifyResponse = await fetch('/api/admin/verify');
-            if (adminVerifyResponse.ok) {
-              setIsAuthenticated(true);
-              setIsLoading(false);
-              return;
-            }
-          }
-        }
-      } catch (error) {
-        console.log('Replit Auth admin check failed:', error);
-      }
-
-      // Neither authentication method succeeded
-      setLocation('/admin-login');
-      setIsLoading(false);
-    };
-
-    checkAdminAuth();
-  }, [setLocation]);
-
+  // Show loading state while authentication is being verified
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 admin-dark-bg">
@@ -87,8 +49,9 @@ export default function Admin() {
     );
   }
 
-  if (!isAuthenticated) {
-    return null; // Will redirect to login
+  // If not authenticated or no admin permissions, useEffect will handle redirects
+  if (!isAuthenticated || !permissions.canAccessAdmin) {
+    return null; // Will redirect via useEffect
   }
   return (
     <div className="min-h-screen bg-gray-50 admin-dark-bg">
