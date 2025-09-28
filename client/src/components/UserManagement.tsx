@@ -573,8 +573,8 @@ export default function UserManagement() {
                       <Badge variant="outline">
                         KYC: {user.kycStatus.replace('_', ' ').toUpperCase()}
                       </Badge>
-                      <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
-                        {user.role.toUpperCase()}
+                      <Badge variant={user.isAdmin ? 'default' : 'secondary'}>
+                        {user.isAdmin ? 'ADMIN' : 'USER'}
                       </Badge>
                       {!user.emailVerified && (
                         <Badge variant="destructive" className="flex items-center gap-1">
@@ -677,7 +677,7 @@ export default function UserManagement() {
                                   <Label className="text-sm font-medium">Account Status</Label>
                                   <div className="space-y-2 mt-2">
                                     <div><span className="font-medium">Account Status:</span> {selectedUser.accountStatus}</div>
-                                    <div><span className="font-medium">Role:</span> {selectedUser.role}</div>
+                                    <div><span className="font-medium">Role:</span> {selectedUser.isAdmin ? 'Admin' : 'User'}</div>
                                     <div><span className="font-medium">Email Verified:</span> {selectedUser.emailVerified ? 'Yes' : 'No'}</div>
                                     <div><span className="font-medium">Active:</span> {selectedUser.isActive ? 'Yes' : 'No'}</div>
                                     <div><span className="font-medium">Principal ID:</span> <span className="font-mono text-xs break-all">{selectedUser.principalId || 'N/A'}</span></div>
