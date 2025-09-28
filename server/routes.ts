@@ -289,12 +289,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         // Handle development bypass case
         let userId: string;
-        if (process.env.DEV_AUTH_BYPASS === 'true' && !req.user?.claims?.sub) {
+        if (process.env.DEV_AUTH_BYPASS === 'true' && !req.user?.claims?.sub && !req.user?.id) {
           // Return the admin user for testing
           userId = '38698486';
           console.log('Using development bypass - returning admin user:', userId);
         } else {
-          userId = req.user.claims.sub;
+          // Try both user.id (new format) and user.claims.sub (legacy format)
+          userId = req.user?.id || req.user?.claims?.sub;
         }
         
         // Validate user ID format
