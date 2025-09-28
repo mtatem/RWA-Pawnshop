@@ -647,11 +647,10 @@ export default function UserManagement() {
                         
                         {selectedUser && (
                           <Tabs defaultValue="overview" className="space-y-6">
-                            <TabsList className="grid w-full grid-cols-5">
+                            <TabsList className="grid w-full grid-cols-4">
                               <TabsTrigger value="overview">Overview</TabsTrigger>
-                              <TabsTrigger value="wallets">Wallets</TabsTrigger>
-                              <TabsTrigger value="flags">Flags</TabsTrigger>
-                              <TabsTrigger value="security">Security</TabsTrigger>
+                              <TabsTrigger value="kyc">KYC Info</TabsTrigger>
+                              <TabsTrigger value="history">History</TabsTrigger>
                               <TabsTrigger value="actions">Actions</TabsTrigger>
                             </TabsList>
 
@@ -661,140 +660,111 @@ export default function UserManagement() {
                                 <div>
                                   <Label className="text-sm font-medium">Account Information</Label>
                                   <div className="space-y-2 mt-2">
+                                    <div><span className="font-medium">Full Name:</span> {selectedUser.firstName && selectedUser.lastName ? `${selectedUser.firstName} ${selectedUser.lastName}` : 'N/A'}</div>
                                     <div><span className="font-medium">Username:</span> {selectedUser.username || 'N/A'}</div>
                                     <div><span className="font-medium">Email:</span> {selectedUser.email || 'N/A'}</div>
-                                    <div><span className="font-medium">Registration:</span> {new Date(selectedUser.registrationDate).toLocaleDateString()}</div>
+                                    <div><span className="font-medium">Phone:</span> {selectedUser.phone || 'N/A'}</div>
+                                    <div><span className="font-medium">Registration:</span> {new Date(selectedUser.createdAt).toLocaleDateString()}</div>
                                     <div><span className="font-medium">Verification Status:</span> {selectedUser.verificationStatus}</div>
                                     <div><span className="font-medium">KYC Status:</span> {selectedUser.kycStatus}</div>
                                   </div>
                                 </div>
 
                                 <div>
-                                  <Label className="text-sm font-medium">Activity & Risk</Label>
+                                  <Label className="text-sm font-medium">Account Status</Label>
                                   <div className="space-y-2 mt-2">
                                     <div><span className="font-medium">Account Status:</span> {selectedUser.accountStatus}</div>
-                                    <div><span className="font-medium">Total Transactions:</span> {selectedUser.totalTransactions}</div>
-                                    <div><span className="font-medium">Total Volume:</span> {formatCurrency(selectedUser.totalVolume)}</div>
-                                    <div><span className="font-medium">Risk Score:</span> <span className={getRiskScoreColor(selectedUser.riskScore)}>{(parseFloat(selectedUser.riskScore) * 100).toFixed(1)}%</span></div>
-                                    <div><span className="font-medium">Last Activity:</span> {formatTimeAgo(selectedUser.lastActivity)}</div>
+                                    <div><span className="font-medium">Role:</span> {selectedUser.role}</div>
+                                    <div><span className="font-medium">Email Verified:</span> {selectedUser.emailVerified ? 'Yes' : 'No'}</div>
+                                    <div><span className="font-medium">Active:</span> {selectedUser.isActive ? 'Yes' : 'No'}</div>
+                                    <div><span className="font-medium">Principal ID:</span> <span className="font-mono text-xs break-all">{selectedUser.principalId || 'N/A'}</span></div>
+                                    <div><span className="font-medium">Last Login:</span> {selectedUser.lastLoginAt ? formatTimeAgo(selectedUser.lastLoginAt) : 'Never'}</div>
+                                    <div><span className="font-medium">Last Updated:</span> {formatTimeAgo(selectedUser.updatedAt)}</div>
                                   </div>
                                 </div>
                               </div>
                             </TabsContent>
 
-                            {/* Wallets Tab */}
-                            <TabsContent value="wallets" className="space-y-4">
-                              <div className="space-y-3">
-                                {selectedUser.walletBindings?.length ? (
-                                  selectedUser.walletBindings.map((wallet) => (
-                                    <div key={wallet.id} className="flex items-center justify-between p-3 border rounded">
-                                      <div className="flex items-center space-x-3">
-                                        <Wallet className="h-5 w-5 text-gray-600" />
-                                        <div>
-                                          <div className="font-medium">{wallet.walletType.toUpperCase()}</div>
-                                          <div className="text-sm text-gray-600 font-mono">
-                                            {wallet.walletAddress.slice(0, 20)}...
-                                          </div>
-                                        </div>
-                                      </div>
-                                      <Badge className={wallet.bindingStatus === 'verified' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}>
-                                        {wallet.bindingStatus.toUpperCase()}
-                                      </Badge>
-                                    </div>
-                                  ))
-                                ) : (
-                                  <div className="text-center py-8">
-                                    <Wallet className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                                    <p className="text-gray-500">No wallet bindings</p>
-                                  </div>
-                                )}
-                              </div>
-                            </TabsContent>
-
-                            {/* Flags Tab */}
-                            <TabsContent value="flags" className="space-y-4">
-                              <div className="space-y-3">
-                                {selectedUser.flags?.length ? (
-                                  selectedUser.flags.map((flag) => (
-                                    <div key={flag.id} className="p-4 border rounded">
-                                      <div className="flex items-center justify-between mb-2">
-                                        <div className="flex items-center space-x-2">
-                                          <Badge className={getFlagSeverityColor(flag.severity)}>
-                                            {flag.severity.toUpperCase()}
-                                          </Badge>
-                                          <Badge variant="outline">
-                                            {flag.status.toUpperCase()}
-                                          </Badge>
-                                        </div>
-                                        <span className="text-sm text-gray-500">
-                                          {formatTimeAgo(flag.flaggedAt)}
-                                        </span>
-                                      </div>
-                                      <div className="text-sm">
-                                        <div className="font-medium">{flag.flagType.replace('_', ' ')}</div>
-                                        <div className="text-gray-600 mt-1">{flag.flagReason}</div>
-                                        {flag.investigationNotes && (
-                                          <div className="mt-2 p-2 bg-gray-50 rounded">
-                                            <span className="font-medium">Notes:</span> {flag.investigationNotes}
-                                          </div>
-                                        )}
-                                      </div>
-                                      {flag.status === 'active' && (
-                                        <div className="flex gap-2 mt-3">
-                                          <Button 
-                                            size="sm" 
-                                            variant="outline"
-                                            onClick={() => handleResolveFlag(flag.id, 'Resolved after investigation')}
-                                          >
-                                            Resolve Flag
-                                          </Button>
-                                        </div>
-                                      )}
-                                    </div>
-                                  ))
-                                ) : (
-                                  <div className="text-center py-8">
-                                    <Flag className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                                    <p className="text-gray-500">No flags on this account</p>
-                                  </div>
-                                )}
-                              </div>
-                            </TabsContent>
-
-                            {/* Security Tab */}
-                            <TabsContent value="security" className="space-y-4">
+                            {/* KYC Info Tab */}
+                            <TabsContent value="kyc" className="space-y-4">
                               <div className="grid md:grid-cols-2 gap-6">
                                 <div>
-                                  <Label className="text-sm font-medium">IP Addresses</Label>
-                                  <div className="space-y-1 mt-2">
-                                    {selectedUser.ipAddresses?.length ? (
-                                      selectedUser.ipAddresses.map((ip, index) => (
-                                        <div key={index} className="text-sm font-mono bg-gray-50 p-2 rounded">
-                                          {ip}
-                                        </div>
-                                      ))
-                                    ) : (
-                                      <p className="text-sm text-gray-500">No IP addresses recorded</p>
-                                    )}
+                                  <Label className="text-sm font-medium">KYC Information</Label>
+                                  <div className="space-y-3 mt-2">
+                                    <div className="p-4 border rounded">
+                                      <div className="flex items-center justify-between mb-2">
+                                        <span className="font-medium">KYC Status:</span>
+                                        <Badge className={selectedUser.kycStatus === 'verified' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}>
+                                          {selectedUser.kycStatus.replace('_', ' ').toUpperCase()}
+                                        </Badge>
+                                      </div>
+                                      <div className="flex items-center justify-between mb-2">
+                                        <span className="font-medium">Verification Status:</span>
+                                        <Badge className={selectedUser.verificationStatus === 'verified' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}>
+                                          {selectedUser.verificationStatus.replace('_', ' ').toUpperCase()}
+                                        </Badge>
+                                      </div>
+                                      <div className="text-sm text-gray-600 mt-3">
+                                        <p>Account created: {new Date(selectedUser.createdAt).toLocaleString()}</p>
+                                        <p>Last updated: {new Date(selectedUser.updatedAt).toLocaleString()}</p>
+                                      </div>
+                                    </div>
                                   </div>
                                 </div>
 
                                 <div>
-                                  <Label className="text-sm font-medium">Device Fingerprints</Label>
-                                  <div className="space-y-1 mt-2">
-                                    {selectedUser.deviceFingerprints?.length ? (
-                                      selectedUser.deviceFingerprints.map((fingerprint, index) => (
-                                        <div key={index} className="text-sm font-mono bg-gray-50 p-2 rounded">
-                                          {fingerprint.slice(0, 20)}...
-                                        </div>
-                                      ))
-                                    ) : (
-                                      <p className="text-sm text-gray-500">No device fingerprints recorded</p>
-                                    )}
+                                  <Label className="text-sm font-medium">Identity Information</Label>
+                                  <div className="space-y-2 mt-2">
+                                    <div className="p-4 border rounded">
+                                      <div className="space-y-2 text-sm">
+                                        <div><span className="font-medium">Full Name:</span> {selectedUser.firstName && selectedUser.lastName ? `${selectedUser.firstName} ${selectedUser.lastName}` : 'Not provided'}</div>
+                                        <div><span className="font-medium">Email:</span> {selectedUser.email || 'Not provided'}</div>
+                                        <div><span className="font-medium">Phone:</span> {selectedUser.phone || 'Not provided'}</div>
+                                        <div><span className="font-medium">Date of Birth:</span> {selectedUser.dateOfBirth ? new Date(selectedUser.dateOfBirth).toLocaleDateString() : 'Not provided'}</div>
+                                        <div><span className="font-medium">Address:</span> {selectedUser.address || 'Not provided'}</div>
+                                      </div>
+                                    </div>
                                   </div>
                                 </div>
                               </div>
                             </TabsContent>
+
+                            {/* History Tab */}
+                            <TabsContent value="history" className="space-y-4">
+                              <div className="space-y-4">
+                                <div>
+                                  <Label className="text-sm font-medium">Account Activity</Label>
+                                  <div className="mt-2 space-y-2">
+                                    <div className="p-4 border rounded">
+                                      <div className="grid md:grid-cols-3 gap-4 text-sm">
+                                        <div>
+                                          <span className="font-medium text-gray-600">Registration Date:</span>
+                                          <p>{new Date(selectedUser.createdAt).toLocaleDateString()}</p>
+                                        </div>
+                                        <div>
+                                          <span className="font-medium text-gray-600">Last Login:</span>
+                                          <p>{selectedUser.lastLoginAt ? formatTimeAgo(selectedUser.lastLoginAt) : 'Never'}</p>
+                                        </div>
+                                        <div>
+                                          <span className="font-medium text-gray-600">Account Status:</span>
+                                          <p>{selectedUser.accountStatus}</p>
+                                        </div>
+                                      </div>
+                                    </div>
+                                    
+                                    <div className="p-4 border rounded">
+                                      <h4 className="font-medium mb-2">Pawn Activity</h4>
+                                      <div className="text-center py-8 text-gray-500">
+                                        <History className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                                        <p>Transaction history would be displayed here</p>
+                                        <p className="text-sm">Feature coming soon</p>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </TabsContent>
+
 
                             {/* Actions Tab */}
                             <TabsContent value="actions" className="space-y-6">
