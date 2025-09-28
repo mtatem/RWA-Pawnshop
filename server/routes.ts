@@ -4040,6 +4040,199 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // USER MANAGEMENT AND FLAGS
 
+  // Get All Users (new comprehensive endpoint)
+  app.get("/api/admin/users", requireAdminAuth, async (req: any, res) => {
+    try {
+      const page = parseInt(req.query.page || '1');
+      const limit = parseInt(req.query.limit || '50');
+      const search = req.query.search || '';
+      const status = req.query.status || '';
+      const verification = req.query.verification || '';
+      
+      const offset = (page - 1) * limit;
+      
+      // Get users with basic information
+      const allUsers = await storage.getAllUsersWithDetails(limit, offset, {
+        search,
+        status,
+        verification
+      });
+      
+      // Get total count for pagination
+      const totalCount = await storage.getUserCount({
+        search,
+        status,
+        verification
+      });
+      
+      // Get additional stats
+      const stats = {
+        totalUsers: totalCount,
+        activeUsers: await storage.getUserCountByStatus('active'),
+        verifiedUsers: await storage.getUserCountByVerification('verified'),
+        flaggedUsers: await storage.getFlaggedUserCount()
+      };
+      
+      res.json({
+        success: true,
+        data: {
+          users: allUsers,
+          pagination: {
+            page,
+            limit,
+            total: totalCount,
+            totalPages: Math.ceil(totalCount / limit)
+          },
+          stats
+        }
+      });
+    } catch (error) {
+      console.error("Get all users error:", error);
+      res.status(500).json({ error: "Failed to fetch users" });
+    }
+  });
+
+  // Get User Details (comprehensive view)
+  app.get("/api/admin/users/:userId", requireAdminAuth, async (req: any, res) => {
+    try {
+      const { userId } = req.params;
+      
+      // Get user basic info
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      // Get additional user data
+      const [kycInfo, walletBindings, rwaSubmissions, pawnLoans, transactions, userFlags, activityLog] = await Promise.all([
+        storage.getUserKyc(userId),
+        storage.getUserWalletBindings(userId),
+        storage.getRwaSubmissionsByUser(userId),
+        storage.getPawnLoansByUser(userId),
+        storage.getUserTransactions(userId),
+        storage.getUserFlags(userId),
+        storage.getUserActivityLog(userId, 50) // Last 50 activities
+      ]);
+      
+      res.json({
+        success: true,
+        data: {
+          user,
+          kycInfo,
+          walletBindings,
+          rwaSubmissions,
+          pawnLoans,
+          transactions,
+          flags: userFlags,
+          activityLog
+        }
+      });
+    } catch (error) {
+      console.error("Get user details error:", error);
+      res.status(500).json({ error: "Failed to fetch user details" });
+    }
+  });
+
+  // Create New User (admin function)
+  app.post("/api/admin/users", requireAdminAuth, async (req: any, res) => {
+    try {
+      const userData = req.body;
+      const adminId = req.user.claims.sub;
+      
+      // Validate required fields
+      if (!userData.email && !userData.username) {
+        return res.status(400).json({ error: "Email or username is required" });
+      }
+      
+      // Check if user already exists
+      if (userData.email) {
+        const existingUser = await storage.getUserByEmail(userData.email);
+        if (existingUser) {
+          return res.status(409).json({ error: "User with this email already exists" });
+        }
+      }
+      
+      // Create user
+      const newUser = await storage.createUser({
+        ...userData,
+        id: randomUUID(),
+        role: userData.role || 'user',
+        isActive: userData.isActive !== false,
+        emailVerified: userData.emailVerified || false,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      });
+      
+      // Log admin action
+      await storage.createAdminAction({
+        adminId,
+        actionType: 'create_user',
+        targetType: 'user',
+        targetId: newUser.id,
+        actionDetails: { createdUser: userData },
+        severity: 'normal',
+        ipAddress: req.ip || '0.0.0.0',
+        userAgent: req.get('User-Agent') || 'Unknown',
+        sessionId: req.sessionID || 'unknown',
+      });
+      
+      res.status(201).json({
+        success: true,
+        data: newUser,
+        message: "User created successfully"
+      });
+    } catch (error) {
+      console.error("Create user error:", error);
+      res.status(500).json({ error: "Failed to create user" });
+    }
+  });
+
+  // Update User (admin function)
+  app.patch("/api/admin/users/:userId", requireAdminAuth, async (req: any, res) => {
+    try {
+      const { userId } = req.params;
+      const updates = req.body;
+      const adminId = req.user.claims.sub;
+      
+      // Get existing user
+      const existingUser = await storage.getUser(userId);
+      if (!existingUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      // Update user
+      const updatedUser = await storage.updateUser(userId, {
+        ...updates,
+        updatedAt: new Date()
+      });
+      
+      // Log admin action
+      await storage.createAdminAction({
+        adminId,
+        actionType: 'update_user',
+        targetType: 'user',
+        targetId: userId,
+        actionDetails: { 
+          previousData: existingUser, 
+          newData: updates 
+        },
+        severity: 'normal',
+        ipAddress: req.ip || '0.0.0.0',
+        userAgent: req.get('User-Agent') || 'Unknown',
+        sessionId: req.sessionID || 'unknown',
+      });
+      
+      res.json({
+        success: true,
+        data: updatedUser,
+        message: "User updated successfully"
+      });
+    } catch (error) {
+      console.error("Update user error:", error);
+      res.status(500).json({ error: "Failed to update user" });
+    }
+  });
+
   // Get Flagged Users
   app.get("/api/admin/users/flagged", requireAdminAuth, async (req: any, res) => {
     try {
