@@ -266,12 +266,15 @@ export class ICPWalletService {
   }
 
   // Get balance from Plug
-  private async getBalanceFromPlug(accountId: Uint8Array): Promise<number> {
+  private async getBalanceFromPlug(accountId: Uint8Array, suppressErrors: boolean = false): Promise<number> {
     try {
       const balance = await (window as any).ic.plug.requestBalance();
       return balance[0]?.amount ? Number(balance[0].amount) / 100000000 : 0; // Convert e8s to ICP
     } catch (error) {
-      console.error('Error getting balance from Plug:', error);
+      // Suppress errors during connection restoration to prevent unhandled promise rejections
+      if (!suppressErrors) {
+        console.error('Error getting balance from Plug:', error);
+      }
       return 0;
     }
   }
@@ -450,8 +453,8 @@ export class ICPWalletService {
           const accountId = principalToAccountId(principal);
           const accountIdHex = accountIdToHex(accountId);
 
-          // Get balance without triggering new connection
-          const balance = await this.getBalanceFromPlug(accountId);
+          // Get balance without triggering new connection (suppress errors to prevent unhandled rejections)
+          const balance = await this.getBalanceFromPlug(accountId, true);
 
           this.wallet = {
             principalId: principalId.toString(),
