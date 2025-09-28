@@ -38,7 +38,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
-import { adminApiRequest, getAdminQueryFn } from "@/lib/queryClient";
+import { apiRequest, getQueryFn } from "@/lib/queryClient";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -169,21 +169,21 @@ export default function UserManagement() {
       status: statusFilter === 'all' ? '' : statusFilter, 
       verification: verificationFilter === 'all' ? '' : verificationFilter
     }],
-    queryFn: getAdminQueryFn({ on401: "throw" }),
+    queryFn: getQueryFn({ on401: "throw" }),
     refetchInterval: 30000, // Refresh every 30 seconds
   });
 
   // Fetch user details when a user is selected
   const { data: userDetailsData, isLoading: userDetailsLoading } = useQuery<UserDetailsData>({
     queryKey: ["/api/admin/users", selectedUser?.id],
-    queryFn: getAdminQueryFn({ on401: "throw" }),
+    queryFn: getQueryFn({ on401: "throw" }),
     enabled: !!selectedUser?.id,
   });
 
   // Flag user mutation
   const flagUserMutation = useMutation({
     mutationFn: async ({ userId, flagData }: { userId: string; flagData: any }) => {
-      const response = await adminApiRequest("POST", `/api/admin/users/${userId}/flag`, flagData);
+      const response = await apiRequest("POST", `/api/admin/users/${userId}/flag`, flagData);
       return response.json();
     },
     onSuccess: () => {
@@ -207,7 +207,7 @@ export default function UserManagement() {
   // Update user flag mutation
   const updateFlagMutation = useMutation({
     mutationFn: async ({ flagId, updates }: { flagId: string; updates: any }) => {
-      const response = await adminApiRequest("PATCH", `/api/admin/users/flags/${flagId}`, updates);
+      const response = await apiRequest("PATCH", `/api/admin/users/flags/${flagId}`, updates);
       return response.json();
     },
     onSuccess: () => {
@@ -229,7 +229,7 @@ export default function UserManagement() {
   // Restrict user mutation
   const restrictUserMutation = useMutation({
     mutationFn: async ({ userId, restrictions }: { userId: string; restrictions: any }) => {
-      const response = await adminApiRequest("POST", `/api/admin/users/${userId}/restrict`, restrictions);
+      const response = await apiRequest("POST", `/api/admin/users/${userId}/restrict`, restrictions);
       return response.json();
     },
     onSuccess: () => {
@@ -251,7 +251,7 @@ export default function UserManagement() {
   // Create user mutation
   const createUserMutation = useMutation({
     mutationFn: async (userData: any) => {
-      const response = await adminApiRequest("POST", "/api/admin/users", userData);
+      const response = await apiRequest("POST", "/api/admin/users", userData);
       return response.json();
     },
     onSuccess: () => {
@@ -274,7 +274,7 @@ export default function UserManagement() {
   // Update user mutation
   const updateUserMutation = useMutation({
     mutationFn: async ({ userId, updates }: { userId: string; updates: any }) => {
-      const response = await adminApiRequest("PATCH", `/api/admin/users/${userId}`, updates);
+      const response = await apiRequest("PATCH", `/api/admin/users/${userId}`, updates);
       return response.json();
     },
     onSuccess: () => {
@@ -297,7 +297,7 @@ export default function UserManagement() {
   // Change user role mutation
   const changeRoleMutation = useMutation({
     mutationFn: async ({ userId, newRole, reason }: { userId: string; newRole: string; reason: string }) => {
-      const response = await adminApiRequest("PATCH", `/api/admin/users/${userId}/role`, { role: newRole, reason });
+      const response = await apiRequest("PATCH", `/api/admin/users/${userId}/role`, { role: newRole, reason });
       return response.json();
     },
     onSuccess: () => {
