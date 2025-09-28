@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import type { RequestHandler } from "express";
+import { storage } from "./storage";
 
 // Admin credentials - loaded from secure environment variables
 if (!process.env.ADMIN_USERNAME || !process.env.ADMIN_PASSWORD || !process.env.JWT_SECRET) {
@@ -43,28 +44,43 @@ export function verifyAdminToken(token: string): AdminUser | null {
   }
 }
 
-// Admin authentication middleware
-export const requireAdminAuth: RequestHandler = (req: any, res, next) => {
+// Admin authentication middleware - supports both JWT and Replit Auth
+export const requireAdminAuth: RequestHandler = async (req: any, res, next) => {
   const authHeader = req.headers.authorization;
   const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
 
-  if (!token) {
-    return res.status(401).json({ 
-      success: false, 
-      error: 'Admin authentication required',
-      code: 'ADMIN_AUTH_REQUIRED'
-    });
+  // First, try JWT token authentication (existing behavior)
+  if (token) {
+    const adminUser = verifyAdminToken(token);
+    if (adminUser) {
+      req.adminUser = adminUser;
+      return next();
+    }
   }
 
-  const adminUser = verifyAdminToken(token);
-  if (!adminUser) {
-    return res.status(401).json({ 
-      success: false, 
-      error: 'Invalid admin credentials',
-      code: 'INVALID_ADMIN_TOKEN'
-    });
+  // If no JWT token or invalid JWT token, check Replit Auth session
+  if (req.isAuthenticated && req.isAuthenticated() && req.user?.claims?.sub) {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (user && user.isAdmin) {
+        // User is authenticated via Replit Auth and has admin privileges
+        req.adminUser = { 
+          username: user.email || user.username || 'replit-admin', 
+          isAdmin: true as const 
+        };
+        return next();
+      }
+    } catch (error) {
+      console.error('Error checking admin status via Replit Auth:', error);
+    }
   }
 
-  req.adminUser = adminUser;
-  next();
+  // Neither authentication method succeeded
+  return res.status(401).json({ 
+    success: false, 
+    error: 'Admin authentication required',
+    code: 'ADMIN_AUTH_REQUIRED'
+  });
 };
