@@ -101,6 +101,16 @@ export interface IStorage {
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: string, user: Partial<InsertUser>): Promise<User>;
   
+  // Admin user management operations
+  getAllUsersWithDetails(limit: number, offset: number, filters: any): Promise<User[]>;
+  getUserCount(filters: any): Promise<number>;
+  getUserCountByStatus(status: string): Promise<number>;
+  getUserCountByVerification(verification: string): Promise<number>;
+  getFlaggedUserCount(): Promise<number>;
+  getUserKyc(userId: string): Promise<KycInformation | undefined>;
+  getUserWalletBindings(userId: string): Promise<WalletBinding[]>;
+  getUserTransactions(userId: string): Promise<Transaction[]>;
+  
   // Traditional authentication methods
   getUserByEmail(email: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
@@ -530,6 +540,126 @@ export class DatabaseStorage implements IStorage {
       }
       throw error;
     }
+  }
+
+  // Admin user management operations
+  async getAllUsersWithDetails(limit: number, offset: number, filters: any): Promise<User[]> {
+    try {
+      let query = db.select().from(users);
+      
+      // Apply filters
+      const conditions = [];
+      if (filters.search) {
+        conditions.push(sql`(
+          ${users.email} ILIKE '%${filters.search}%' OR 
+          ${users.username} ILIKE '%${filters.search}%' OR 
+          ${users.principalId} ILIKE '%${filters.search}%'
+        )`);
+      }
+      if (filters.status) {
+        conditions.push(eq(users.accountStatus as any, filters.status));
+      }
+      if (filters.verification) {
+        conditions.push(eq(users.verificationStatus as any, filters.verification));
+      }
+      
+      if (conditions.length > 0) {
+        query = query.where(and(...conditions));
+      }
+      
+      const allUsers = await query
+        .orderBy(desc(users.createdAt))
+        .limit(limit)
+        .offset(offset);
+      
+      return allUsers;
+    } catch (error) {
+      console.error('getAllUsersWithDetails error:', error);
+      return [];
+    }
+  }
+
+  async getUserCount(filters: any): Promise<number> {
+    try {
+      let query = db.select({ count: sql<number>`COUNT(*)` }).from(users);
+      
+      // Apply same filters as getAllUsersWithDetails
+      const conditions = [];
+      if (filters.search) {
+        conditions.push(sql`(
+          ${users.email} ILIKE '%${filters.search}%' OR 
+          ${users.username} ILIKE '%${filters.search}%' OR 
+          ${users.principalId} ILIKE '%${filters.search}%'
+        )`);
+      }
+      if (filters.status) {
+        conditions.push(eq(users.accountStatus as any, filters.status));
+      }
+      if (filters.verification) {
+        conditions.push(eq(users.verificationStatus as any, filters.verification));
+      }
+      
+      if (conditions.length > 0) {
+        query = query.where(and(...conditions));
+      }
+      
+      const [result] = await query;
+      return result.count;
+    } catch (error) {
+      console.error('getUserCount error:', error);
+      return 0;
+    }
+  }
+
+  async getUserCountByStatus(status: string): Promise<number> {
+    try {
+      const [result] = await db.select({ count: sql<number>`COUNT(*)` })
+        .from(users)
+        .where(eq(users.accountStatus as any, status));
+      return result.count;
+    } catch (error) {
+      console.error('getUserCountByStatus error:', error);
+      return 0;
+    }
+  }
+
+  async getUserCountByVerification(verification: string): Promise<number> {
+    try {
+      const [result] = await db.select({ count: sql<number>`COUNT(*)` })
+        .from(users)
+        .where(eq(users.verificationStatus as any, verification));
+      return result.count;
+    } catch (error) {
+      console.error('getUserCountByVerification error:', error);
+      return 0;
+    }
+  }
+
+  async getFlaggedUserCount(): Promise<number> {
+    try {
+      const [result] = await db.select({ count: sql<number>`COUNT(DISTINCT ${userFlags.userId})` })
+        .from(userFlags)
+        .where(eq(userFlags.status, 'active'));
+      return result.count;
+    } catch (error) {
+      console.error('getFlaggedUserCount error:', error);
+      return 0;
+    }
+  }
+
+  async getUserKyc(userId: string): Promise<KycInformation | undefined> {
+    // This is an alias for getKycInformation to match the API interface
+    return this.getKycInformation(userId);
+  }
+
+  async getUserWalletBindings(userId: string): Promise<WalletBinding[]> {
+    // This is an alias for getWalletBindings to match the API interface
+    return this.getWalletBindings(userId);
+  }
+
+  async getUserTransactions(userId: string): Promise<Transaction[]> {
+    // This is an alias for getTransactionsByUser to match the API interface
+    return this.getTransactionsByUser(userId);
   }
 
   // KYC operations
