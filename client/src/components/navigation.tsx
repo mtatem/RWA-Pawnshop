@@ -13,7 +13,7 @@ import { useICPWallet } from "@/hooks/useICPWallet";
 export default function Navigation() {
   const [location] = useLocation();
   const [showWalletDialog, setShowWalletDialog] = useState(false);
-  const { user, isAuthenticated, isLoading } = useAuth();
+  const { user, isAuthenticated, isLoading, permissions } = useAuth();
   const { 
     wallet, 
     isConnecting, 
@@ -58,10 +58,10 @@ export default function Navigation() {
     { href: "/bridge", label: "Bridge" },
   ];
 
-  // Only show admin menu to authenticated admin users
+  // Only show admin menu to users with admin access permissions
   const navItems = [
     ...baseNavItems,
-    ...(isAuthenticated && user?.isAdmin ? [{ href: "/admin", label: "Admin" }] : [])
+    ...(isAuthenticated && permissions.canAccessAdmin ? [{ href: "/admin", label: "Admin" }] : [])
   ];
 
   const NavItems = ({ mobile = false }: { mobile?: boolean }) => (

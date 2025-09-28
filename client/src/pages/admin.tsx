@@ -12,11 +12,13 @@ import KycManagement from "@/components/KycManagement";
 import Footer from "@/components/footer";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function Admin() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [, setLocation] = useLocation();
+  const { user, permissions, isLoading: authLoading } = useAuth();
 
   useEffect(() => {
     const checkAdminAuth = async () => {
@@ -49,9 +51,9 @@ export default function Admin() {
         const userResponse = await fetch('/api/auth/user');
         if (userResponse.ok) {
           const userData = await userResponse.json();
-          if (userData.success && userData.data.isAdmin) {
-            // User is authenticated via Replit Auth and has admin privileges
-            // Try to access admin routes directly (backend now supports this)
+          if (userData.success && userData.data) {
+            // Check if user has admin access using role-based permissions
+            // Try to access admin routes directly (backend now supports role-based auth)
             const adminVerifyResponse = await fetch('/api/admin/verify');
             if (adminVerifyResponse.ok) {
               setIsAuthenticated(true);
