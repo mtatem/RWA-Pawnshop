@@ -4138,7 +4138,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/admin/users", requireRole(USER_ROLES.ADMINISTRATOR), async (req: any, res) => {
     try {
       const userData = req.body;
-      const adminId = req.user.claims.sub;
+      const adminId = req.user?.id || req.user?.claims?.sub;
       
       // Validate required fields
       if (!userData.email && !userData.username) {
