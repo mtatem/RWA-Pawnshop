@@ -41,6 +41,8 @@ import { useToast } from "@/hooks/use-toast";
 import { adminApiRequest, getAdminQueryFn } from "@/lib/queryClient";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useForm } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
 
 interface UserAccount {
   id: string;
@@ -932,6 +934,226 @@ export default function UserManagement() {
           ))
         )}
       </div>
+
+      {/* Create User Dialog */}
+      <Dialog open={isCreateUserOpen} onOpenChange={setIsCreateUserOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <User className="h-5 w-5" />
+              Create New User
+            </DialogTitle>
+            <DialogDescription>
+              Add a new user to the system. They will receive an email with login instructions.
+            </DialogDescription>
+          </DialogHeader>
+          <CreateUserForm 
+            onSuccess={() => setIsCreateUserOpen(false)}
+            createUserMutation={createUserMutation}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
+  );
+}
+
+// Create User Form Component
+function CreateUserForm({ onSuccess, createUserMutation }: { 
+  onSuccess: () => void; 
+  createUserMutation: any;
+}) {
+  // Create user form schema - simplified for admin creation
+  const createUserFormSchema = z.object({
+    email: z.string().email("Please enter a valid email address"),
+    username: z.string().min(3, "Username must be at least 3 characters").optional(),
+    firstName: z.string().min(1, "First name is required"),
+    lastName: z.string().min(1, "Last name is required"),
+    password: z.string().min(8, "Password must be at least 8 characters"),
+    confirmPassword: z.string(),
+    isAdmin: z.boolean().default(false),
+    emailVerified: z.boolean().default(true),
+  }).refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords don't match",
+    path: ["confirmPassword"],
+  });
+
+  const createUserForm = useForm<z.infer<typeof createUserFormSchema>>({
+    resolver: zodResolver(createUserFormSchema),
+    defaultValues: {
+      email: "",
+      username: "",
+      firstName: "",
+      lastName: "",
+      password: "",
+      confirmPassword: "",
+      isAdmin: false,
+      emailVerified: true,
+    },
+  });
+
+  const handleCreateUser = async (values: z.infer<typeof createUserFormSchema>) => {
+    const { confirmPassword, ...userData } = values;
+    createUserMutation.mutate(userData, {
+      onSuccess: () => {
+        createUserForm.reset();
+        onSuccess();
+      },
+    });
+  };
+
+  return (
+    <Form {...createUserForm}>
+      <form onSubmit={createUserForm.handleSubmit(handleCreateUser)} className="space-y-4">
+        <div className="grid grid-cols-2 gap-4">
+          <FormField
+            control={createUserForm.control}
+            name="firstName"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>First Name *</FormLabel>
+                <FormControl>
+                  <Input placeholder="John" {...field} data-testid="input-first-name" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={createUserForm.control}
+            name="lastName"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Last Name *</FormLabel>
+                <FormControl>
+                  <Input placeholder="Doe" {...field} data-testid="input-last-name" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        <FormField
+          control={createUserForm.control}
+          name="email"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Email Address *</FormLabel>
+              <FormControl>
+                <Input placeholder="john.doe@example.com" {...field} data-testid="input-email" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={createUserForm.control}
+          name="username"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Username (optional)</FormLabel>
+              <FormControl>
+                <Input placeholder="johndoe" {...field} data-testid="input-username" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <div className="grid grid-cols-2 gap-4">
+          <FormField
+            control={createUserForm.control}
+            name="password"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Password *</FormLabel>
+                <FormControl>
+                  <Input type="password" placeholder="Min. 8 characters" {...field} data-testid="input-password" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={createUserForm.control}
+            name="confirmPassword"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Confirm Password *</FormLabel>
+                <FormControl>
+                  <Input type="password" placeholder="Confirm password" {...field} data-testid="input-confirm-password" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        <div className="space-y-3">
+          <FormField
+            control={createUserForm.control}
+            name="emailVerified"
+            render={({ field }) => (
+              <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                <FormControl>
+                  <Checkbox
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                    data-testid="checkbox-email-verified"
+                  />
+                </FormControl>
+                <div className="space-y-1 leading-none">
+                  <FormLabel>Email Verified</FormLabel>
+                  <p className="text-sm text-muted-foreground">
+                    Mark email as verified (user won't need to verify email)
+                  </p>
+                </div>
+              </FormItem>
+            )}
+          />
+          
+          <FormField
+            control={createUserForm.control}
+            name="isAdmin"
+            render={({ field }) => (
+              <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                <FormControl>
+                  <Checkbox
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                    data-testid="checkbox-is-admin"
+                  />
+                </FormControl>
+                <div className="space-y-1 leading-none">
+                  <FormLabel>Admin Privileges</FormLabel>
+                  <p className="text-sm text-muted-foreground">
+                    Grant admin access to the user (use carefully)
+                  </p>
+                </div>
+              </FormItem>
+            )}
+          />
+        </div>
+
+        <div className="flex justify-end space-x-2 pt-4">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onSuccess}
+            data-testid="button-cancel-create-user"
+          >
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            disabled={createUserMutation.isPending}
+            data-testid="button-submit-create-user"
+          >
+            {createUserMutation.isPending ? "Creating..." : "Create User"}
+          </Button>
+        </div>
+      </form>
+    </Form>
   );
 }
