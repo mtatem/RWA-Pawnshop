@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import type { RequestHandler } from "express";
 import { storage } from "./storage";
+import { USER_ROLES, UserRole, hasRoleAtLeast, hasPermission, ROLE_PERMISSIONS } from "../shared/schema";
 
 // Admin credentials - loaded from secure environment variables
 if (!process.env.ADMIN_USERNAME || !process.env.ADMIN_PASSWORD || !process.env.JWT_SECRET) {
@@ -15,6 +16,15 @@ const JWT_SECRET = process.env.JWT_SECRET;
 export interface AdminUser {
   username: string;
   isAdmin: true;
+  role?: UserRole;
+}
+
+export interface RoleUser {
+  id: string;
+  username?: string;
+  email?: string;
+  role: UserRole;
+  isAdmin: boolean;
 }
 
 // Verify admin credentials
@@ -44,7 +54,106 @@ export function verifyAdminToken(token: string): AdminUser | null {
   }
 }
 
-// Admin authentication middleware - supports both JWT and Replit Auth
+// Role-based authorization functions
+export const requireRole = (requiredRole: UserRole): RequestHandler => {
+  return async (req: any, res, next) => {
+    const user = await getUserFromRequest(req);
+    
+    if (!user) {
+      return res.status(401).json({ 
+        success: false, 
+        error: 'Authentication required',
+        code: 'AUTH_REQUIRED'
+      });
+    }
+
+    const userRole = user.role || (user.isAdmin ? USER_ROLES.ADMINISTRATOR : USER_ROLES.REGISTERED);
+    
+    if (!hasRoleAtLeast(userRole, requiredRole)) {
+      return res.status(403).json({ 
+        success: false, 
+        error: `Insufficient permissions. Required role: ${requiredRole}`,
+        code: 'INSUFFICIENT_PERMISSIONS'
+      });
+    }
+
+    req.user = user;
+    req.userRole = userRole;
+    next();
+  };
+};
+
+export const requirePermission = (permission: keyof typeof ROLE_PERMISSIONS[UserRole]): RequestHandler => {
+  return async (req: any, res, next) => {
+    const user = await getUserFromRequest(req);
+    
+    if (!user) {
+      return res.status(401).json({ 
+        success: false, 
+        error: 'Authentication required',
+        code: 'AUTH_REQUIRED'
+      });
+    }
+
+    const userRole = user.role || (user.isAdmin ? USER_ROLES.ADMINISTRATOR : USER_ROLES.REGISTERED);
+    
+    if (!hasPermission(userRole, permission)) {
+      return res.status(403).json({ 
+        success: false, 
+        error: `Insufficient permissions. Required permission: ${permission}`,
+        code: 'INSUFFICIENT_PERMISSIONS'
+      });
+    }
+
+    req.user = user;
+    req.userRole = userRole;
+    next();
+  };
+};
+
+// Helper function to get user from request (JWT or Replit Auth)
+async function getUserFromRequest(req: any): Promise<RoleUser | null> {
+  const authHeader = req.headers.authorization;
+  const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+
+  // First, try JWT token authentication
+  if (token) {
+    const adminUser = verifyAdminToken(token);
+    if (adminUser) {
+      return {
+        id: 'jwt-admin',
+        username: adminUser.username,
+        role: adminUser.role || USER_ROLES.ADMINISTRATOR,
+        isAdmin: true
+      };
+    }
+  }
+
+  // If no JWT token or invalid JWT token, check Replit Auth session
+  if (req.isAuthenticated && req.isAuthenticated() && req.user?.claims?.sub) {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (user) {
+        return {
+          id: user.id,
+          username: user.username || undefined,
+          email: user.email || undefined,
+          role: (user.role as UserRole) || (user.isAdmin ? USER_ROLES.ADMINISTRATOR : USER_ROLES.REGISTERED),
+          isAdmin: user.isAdmin || false
+        };
+      }
+    } catch (error) {
+      console.error('Error getting user from request:', error);
+    }
+  }
+
+  return null;
+}
+
+// Legacy admin authentication middleware - supports both JWT and Replit Auth
+// Maintained for backward compatibility
 export const requireAdminAuth: RequestHandler = async (req: any, res, next) => {
   const authHeader = req.headers.authorization;
   const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
