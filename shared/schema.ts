@@ -75,7 +75,9 @@ export const users = pgTable("users", {
   lastLoginAt: timestamp("last_login_at"),
   loginAttempts: integer("login_attempts").default(0),
   lockedUntil: timestamp("locked_until"),
-  isAdmin: boolean("is_admin").default(false),
+  // Role-based access control
+  role: varchar("role").default("registered"), // registered, registered_kyc, manager, administrator
+  isAdmin: boolean("is_admin").default(false), // deprecated, kept for backward compatibility
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -273,6 +275,73 @@ export const bridgeTransactions = pgTable("bridge_transactions", {
   updatedAt: timestamp("updated_at").defaultNow(),
   completedAt: timestamp("completed_at"),
 });
+
+// Role-based access control constants and types
+export const USER_ROLES = {
+  REGISTERED: 'registered',
+  REGISTERED_KYC: 'registered_kyc', 
+  MANAGER: 'manager',
+  ADMINISTRATOR: 'administrator'
+} as const;
+
+export type UserRole = typeof USER_ROLES[keyof typeof USER_ROLES];
+
+// Role hierarchy (higher number = more permissions)
+export const ROLE_HIERARCHY: Record<UserRole, number> = {
+  [USER_ROLES.REGISTERED]: 1,
+  [USER_ROLES.REGISTERED_KYC]: 2,
+  [USER_ROLES.MANAGER]: 3,
+  [USER_ROLES.ADMINISTRATOR]: 4,
+};
+
+// Role permissions mapping
+export const ROLE_PERMISSIONS = {
+  [USER_ROLES.REGISTERED]: {
+    canAccessProfile: true,
+    canPawnItems: false,
+    canAccessAdmin: false,
+    canManageUsers: false,
+    canApproveKyc: false,
+    canViewAllTransactions: false,
+  },
+  [USER_ROLES.REGISTERED_KYC]: {
+    canAccessProfile: true,
+    canPawnItems: true,
+    canAccessAdmin: false,
+    canManageUsers: false,
+    canApproveKyc: false,
+    canViewAllTransactions: false,
+  },
+  [USER_ROLES.MANAGER]: {
+    canAccessProfile: true,
+    canPawnItems: true,
+    canAccessAdmin: true,
+    canManageUsers: true,
+    canApproveKyc: true,
+    canViewAllTransactions: true,
+  },
+  [USER_ROLES.ADMINISTRATOR]: {
+    canAccessProfile: true,
+    canPawnItems: true,
+    canAccessAdmin: true,
+    canManageUsers: true,
+    canApproveKyc: true,
+    canViewAllTransactions: true,
+  },
+} as const;
+
+// Helper functions for role checking
+export const hasPermission = (userRole: UserRole, permission: keyof typeof ROLE_PERMISSIONS[UserRole]) => {
+  return ROLE_PERMISSIONS[userRole]?.[permission] || false;
+};
+
+export const hasRoleAtLeast = (userRole: UserRole, requiredRole: UserRole) => {
+  return ROLE_HIERARCHY[userRole] >= ROLE_HIERARCHY[requiredRole];
+};
+
+export const canUpgradeToKyc = (currentRole: UserRole, kycStatus: string) => {
+  return currentRole === USER_ROLES.REGISTERED && kycStatus === 'completed';
+};
 
 // Enhanced insert schemas with comprehensive validation
 export const insertUserSchema = createInsertSchema(users).omit({
