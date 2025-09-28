@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { 
   Users, 
   User, 
@@ -127,6 +127,7 @@ export default function UserManagement() {
   const [isFlagDialogOpen, setIsFlagDialogOpen] = useState(false);
   const [isCreateUserOpen, setIsCreateUserOpen] = useState(false);
   const [isEditUserOpen, setIsEditUserOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<UserAccount | null>(null);
 
   // Form for user flagging
   const flagForm = useForm({
@@ -917,6 +918,12 @@ export default function UserManagement() {
                         <DropdownMenuItem onClick={() => setSelectedUser(user)}>
                           View Full Profile
                         </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => {
+                          setEditingUser(user);
+                          setIsEditUserOpen(true);
+                        }}>
+                          Edit User
+                        </DropdownMenuItem>
                         {user.accountStatus === 'active' && (
                           <>
                             <DropdownMenuItem>Suspend Account</DropdownMenuItem>
@@ -951,6 +958,36 @@ export default function UserManagement() {
             onSuccess={() => setIsCreateUserOpen(false)}
             createUserMutation={createUserMutation}
           />
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit User Dialog */}
+      <Dialog open={isEditUserOpen} onOpenChange={(open) => {
+        setIsEditUserOpen(open);
+        if (!open) {
+          setEditingUser(null);
+        }
+      }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <User className="h-5 w-5" />
+              Edit User: {editingUser?.firstName} {editingUser?.lastName}
+            </DialogTitle>
+            <DialogDescription>
+              Update user information and permissions.
+            </DialogDescription>
+          </DialogHeader>
+          {editingUser && (
+            <EditUserForm 
+              user={editingUser}
+              onSuccess={() => {
+                setIsEditUserOpen(false);
+                setEditingUser(null);
+              }}
+              updateUserMutation={updateUserMutation}
+            />
+          )}
         </DialogContent>
       </Dialog>
     </div>
@@ -1151,6 +1188,213 @@ function CreateUserForm({ onSuccess, createUserMutation }: {
             data-testid="button-submit-create-user"
           >
             {createUserMutation.isPending ? "Creating..." : "Create User"}
+          </Button>
+        </div>
+      </form>
+    </Form>
+  );
+}
+
+// Edit User Form Component
+function EditUserForm({ user, onSuccess, updateUserMutation }: { 
+  user: UserAccount;
+  onSuccess: () => void; 
+  updateUserMutation: any;
+}) {
+  // Edit user form schema - no password required for editing
+  const editUserFormSchema = z.object({
+    email: z.string().email("Please enter a valid email address"),
+    username: z.string().min(3, "Username must be at least 3 characters").optional(),
+    firstName: z.string().min(1, "First name is required"),
+    lastName: z.string().min(1, "Last name is required"),
+    isAdmin: z.boolean().default(false),
+    emailVerified: z.boolean().default(true),
+    accountStatus: z.enum(['active', 'suspended', 'restricted', 'banned'] as const),
+  });
+
+  const editUserForm = useForm<z.infer<typeof editUserFormSchema>>({
+    resolver: zodResolver(editUserFormSchema),
+    defaultValues: {
+      email: user.email || "",
+      username: user.username || "",
+      firstName: user.firstName || "",
+      lastName: user.lastName || "",
+      isAdmin: user.isAdmin || false,
+      emailVerified: user.emailVerified || false,
+      accountStatus: user.accountStatus || 'active',
+    },
+  });
+
+  // Reset form when user changes
+  useEffect(() => {
+    editUserForm.reset({
+      email: user.email || "",
+      username: user.username || "",
+      firstName: user.firstName || "",
+      lastName: user.lastName || "",
+      isAdmin: user.isAdmin || false,
+      emailVerified: user.emailVerified || false,
+      accountStatus: user.accountStatus || 'active',
+    });
+  }, [user, editUserForm]);
+
+  const handleUpdateUser = async (values: z.infer<typeof editUserFormSchema>) => {
+    updateUserMutation.mutate(
+      { userId: user.id, updates: values },
+      {
+        onSuccess: () => {
+          editUserForm.reset();
+          onSuccess();
+        },
+      }
+    );
+  };
+
+  return (
+    <Form {...editUserForm}>
+      <form onSubmit={editUserForm.handleSubmit(handleUpdateUser)} className="space-y-4">
+        <div className="grid grid-cols-2 gap-4">
+          <FormField
+            control={editUserForm.control}
+            name="firstName"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>First Name *</FormLabel>
+                <FormControl>
+                  <Input placeholder="John" {...field} data-testid="input-edit-first-name" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={editUserForm.control}
+            name="lastName"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Last Name *</FormLabel>
+                <FormControl>
+                  <Input placeholder="Doe" {...field} data-testid="input-edit-last-name" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        <FormField
+          control={editUserForm.control}
+          name="email"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Email Address *</FormLabel>
+              <FormControl>
+                <Input placeholder="john.doe@example.com" {...field} data-testid="input-edit-email" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={editUserForm.control}
+          name="username"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Username (optional)</FormLabel>
+              <FormControl>
+                <Input placeholder="johndoe" {...field} data-testid="input-edit-username" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <div className="space-y-3">
+          <FormField
+            control={editUserForm.control}
+            name="accountStatus"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Account Status</FormLabel>
+                <FormControl>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <SelectTrigger data-testid="select-account-status">
+                      <SelectValue placeholder="Select account status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="suspended">Suspended</SelectItem>
+                      <SelectItem value="restricted">Restricted</SelectItem>
+                      <SelectItem value="banned">Banned</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          
+          <FormField
+            control={editUserForm.control}
+            name="emailVerified"
+            render={({ field }) => (
+              <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                <FormControl>
+                  <Checkbox
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                    data-testid="checkbox-edit-email-verified"
+                  />
+                </FormControl>
+                <div className="space-y-1 leading-none">
+                  <FormLabel>Email Verified</FormLabel>
+                  <p className="text-sm text-muted-foreground">
+                    User's email address is verified
+                  </p>
+                </div>
+              </FormItem>
+            )}
+          />
+          
+          <FormField
+            control={editUserForm.control}
+            name="isAdmin"
+            render={({ field }) => (
+              <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                <FormControl>
+                  <Checkbox
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                    data-testid="checkbox-edit-is-admin"
+                  />
+                </FormControl>
+                <div className="space-y-1 leading-none">
+                  <FormLabel>Admin Privileges</FormLabel>
+                  <p className="text-sm text-muted-foreground">
+                    Grant admin access to the user (use carefully)
+                  </p>
+                </div>
+              </FormItem>
+            )}
+          />
+        </div>
+
+        <div className="flex justify-end space-x-2 pt-4">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onSuccess}
+            data-testid="button-cancel-edit-user"
+          >
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            disabled={updateUserMutation.isPending}
+            data-testid="button-submit-edit-user"
+          >
+            {updateUserMutation.isPending ? "Updating..." : "Update User"}
           </Button>
         </div>
       </form>
