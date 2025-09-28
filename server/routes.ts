@@ -53,7 +53,8 @@ import {
   InputSanitizer 
 } from "./utils/validation";
 import { z } from "zod";
-import { requireAdminAuth } from "./admin-auth";
+import { requireAdminAuth, requireRole, requirePermission } from "./admin-auth";
+import { USER_ROLES } from "../shared/schema";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { ObjectPermission } from "./objectAcl";
 import { processChat, ChatMessage } from "./services/chat-service";
@@ -4041,7 +4042,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // USER MANAGEMENT AND FLAGS
 
   // Get All Users (new comprehensive endpoint)
-  app.get("/api/admin/users", requireAdminAuth, async (req: any, res) => {
+  app.get("/api/admin/users", requireRole(USER_ROLES.MANAGER), async (req: any, res) => {
     try {
       const page = parseInt(req.query.page || '1');
       const limit = parseInt(req.query.limit || '50');
@@ -4093,7 +4094,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get User Details (comprehensive view)
-  app.get("/api/admin/users/:userId", requireAdminAuth, async (req: any, res) => {
+  app.get("/api/admin/users/:userId", requireRole(USER_ROLES.MANAGER), async (req: any, res) => {
     try {
       const { userId } = req.params;
       
@@ -4134,7 +4135,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create New User (admin function)
-  app.post("/api/admin/users", requireAdminAuth, async (req: any, res) => {
+  app.post("/api/admin/users", requireRole(USER_ROLES.ADMINISTRATOR), async (req: any, res) => {
     try {
       const userData = req.body;
       const adminId = req.user.claims.sub;
@@ -4188,7 +4189,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update User (admin function)
-  app.patch("/api/admin/users/:userId", requireAdminAuth, async (req: any, res) => {
+  app.patch("/api/admin/users/:userId", requireRole(USER_ROLES.MANAGER), async (req: any, res) => {
     try {
       const { userId } = req.params;
       const updates = req.body;
@@ -4234,7 +4235,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get Flagged Users
-  app.get("/api/admin/users/flagged", requireAdminAuth, async (req: any, res) => {
+  app.get("/api/admin/users/flagged", requireRole(USER_ROLES.MANAGER), async (req: any, res) => {
     try {
       const filters = req.query;
       const result = await adminService.getFlaggedUsers(filters);
@@ -4251,7 +4252,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Flag User Account
-  app.post("/api/admin/users/:userId/flag", requireAdminAuth, async (req: any, res) => {
+  app.post("/api/admin/users/:userId/flag", requireRole(USER_ROLES.MANAGER), async (req: any, res) => {
     try {
       const { userId } = req.params;
       const flagData = { ...req.body, userId };
@@ -4275,7 +4276,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update User Flag
-  app.patch("/api/admin/users/flags/:flagId", requireAdminAuth, async (req: any, res) => {
+  app.patch("/api/admin/users/flags/:flagId", requireRole(USER_ROLES.MANAGER), async (req: any, res) => {
     try {
       const { flagId } = req.params;
       const updates = req.body;
@@ -4304,7 +4305,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Restrict User Account
-  app.post("/api/admin/users/:userId/restrict", requireAdminAuth, async (req: any, res) => {
+  app.post("/api/admin/users/:userId/restrict", requireRole(USER_ROLES.MANAGER), async (req: any, res) => {
     try {
       const { userId } = req.params;
       const { restrictions, reason } = req.body;
@@ -4335,6 +4336,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("User restriction error:", error);
       res.status(500).json({ error: "Failed to restrict user" });
+    }
+  });
+
+  // Change User Role
+  app.patch("/api/admin/users/:userId/role", requireRole(USER_ROLES.ADMINISTRATOR), async (req: any, res) => {
+    try {
+      const { userId } = req.params;
+      const { role, reason } = req.body;
+      const adminId = req.user?.id;
+      
+      if (!role || !reason) {
+        return res.status(400).json({ error: "Role and reason are required" });
+      }
+
+      // Validate role
+      const validRoles = Object.values(USER_ROLES);
+      if (!validRoles.includes(role)) {
+        return res.status(400).json({ error: "Invalid role specified" });
+      }
+
+      // Get existing user
+      const existingUser = await storage.getUser(userId);
+      if (!existingUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // Update user role
+      const updatedUser = await storage.updateUserRole(userId, role);
+      
+      // Log admin action
+      await storage.createAdminAction({
+        adminId: adminId || 'system',
+        actionType: 'change_role',
+        targetType: 'user',
+        targetId: userId,
+        actionDetails: { 
+          previousRole: existingUser.role, 
+          newRole: role,
+          reason: reason
+        },
+        adminNotes: reason,
+        severity: 'high',
+        ipAddress: req.ip || '0.0.0.0',
+        userAgent: req.get('User-Agent') || 'Unknown',
+        sessionId: req.sessionID || 'unknown',
+      });
+      
+      res.json({
+        success: true,
+        message: "User role updated successfully",
+        data: updatedUser
+      });
+    } catch (error) {
+      console.error("Role change error:", error);
+      res.status(500).json({ error: "Failed to change user role" });
     }
   });
 
