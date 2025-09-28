@@ -82,6 +82,10 @@ export async function setupAuth(app: Express) {
     const user = {};
     updateUserSession(user, tokens);
     await upsertUser(tokens.claims());
+    
+    // Add user ID to session for database lookups
+    user.id = tokens.claims()["sub"];
+    
     verified(null, user);
   };
 
