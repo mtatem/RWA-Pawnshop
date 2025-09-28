@@ -162,20 +162,26 @@ export default function UserManagement() {
 
   // Fetch user management data
   const { data: userManagementData, isLoading, refetch } = useQuery<UserManagementData>({
-    queryKey: ["/api/admin/users", { 
-      page: currentPage,
-      limit: 50,
-      search: searchTerm,
-      status: statusFilter === 'all' ? '' : statusFilter, 
-      verification: verificationFilter === 'all' ? '' : verificationFilter
-    }],
-    queryFn: getQueryFn({ on401: "throw" }),
+    queryKey: ["/api/admin/users", currentPage, searchTerm, statusFilter, verificationFilter],
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        page: currentPage.toString(),
+        limit: '50',
+        ...(searchTerm && { search: searchTerm }),
+        ...(statusFilter !== 'all' && { status: statusFilter }),
+        ...(verificationFilter !== 'all' && { verification: verificationFilter })
+      });
+      const response = await fetch(`/api/admin/users?${params}`);
+      if (response.status === 401) throw new Error('Unauthorized');
+      if (!response.ok) throw new Error('Failed to fetch users');
+      return response.json();
+    },
     refetchInterval: 30000, // Refresh every 30 seconds
   });
 
   // Fetch user details when a user is selected
   const { data: userDetailsData, isLoading: userDetailsLoading } = useQuery<UserDetailsData>({
-    queryKey: ["/api/admin/users", selectedUser?.id],
+    queryKey: [`/api/admin/users/${selectedUser?.id}`],
     queryFn: getQueryFn({ on401: "throw" }),
     enabled: !!selectedUser?.id,
   });
