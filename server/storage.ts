@@ -697,9 +697,31 @@ export class DatabaseStorage implements IStorage {
         .where(eq(kycInformation.userId, userId))
         .returning();
 
-      // Also update user's KYC status for consistency
+      // Get current user for role promotion logic
+      const currentUser = await this.getUser(userId);
+      
+      // Auto-promote user role when KYC is completed
+      const updateData: any = { 
+        kycStatus: status as any, 
+        updatedAt: new Date() 
+      };
+      
+      if (status === 'completed' && currentUser?.role === 'registered') {
+        // Promote user from 'registered' to 'registered_kyc' when KYC is completed
+        updateData.role = 'registered_kyc';
+        
+        console.log('Auto-promoting user role:', {
+          userId,
+          oldRole: currentUser.role,
+          newRole: 'registered_kyc',
+          reason: 'KYC completion',
+          timestamp: new Date().toISOString()
+        });
+      }
+
+      // Update user's KYC status and potentially role
       await db.update(users)
-        .set({ kycStatus: status as any, updatedAt: new Date() })
+        .set(updateData)
         .where(eq(users.id, userId));
 
       return kyc;
