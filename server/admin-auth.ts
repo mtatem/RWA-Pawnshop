@@ -67,7 +67,8 @@ export const requireRole = (requiredRole: UserRole): RequestHandler => {
       });
     }
 
-    const userRole = user.role || (user.isAdmin ? USER_ROLES.ADMINISTRATOR : USER_ROLES.REGISTERED);
+    // Use role field as the sole source of truth for authorization
+    const userRole = user.role || USER_ROLES.REGISTERED;
     
     if (!hasRoleAtLeast(userRole, requiredRole)) {
       return res.status(403).json({ 
@@ -95,7 +96,8 @@ export const requirePermission = (permission: keyof typeof ROLE_PERMISSIONS[User
       });
     }
 
-    const userRole = user.role || (user.isAdmin ? USER_ROLES.ADMINISTRATOR : USER_ROLES.REGISTERED);
+    // Use role field as the sole source of truth for authorization
+    const userRole = user.role || USER_ROLES.REGISTERED;
     
     if (!hasPermission(userRole, permission)) {
       return res.status(403).json({ 

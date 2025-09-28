@@ -51,7 +51,8 @@ interface UserAccount {
   email?: string | null;
   firstName?: string | null;
   lastName?: string | null;
-  role: 'user' | 'admin' | 'moderator';
+  role: 'registered' | 'registered_kyc' | 'manager' | 'administrator';
+  isAdmin: boolean;
   accountStatus: 'active' | 'suspended' | 'restricted' | 'banned';
   verificationStatus: 'unverified' | 'pending' | 'verified' | 'rejected';
   kycStatus: 'not_started' | 'in_progress' | 'completed' | 'failed';
@@ -127,6 +128,7 @@ export default function UserManagement() {
   const [isFlagDialogOpen, setIsFlagDialogOpen] = useState(false);
   const [isCreateUserOpen, setIsCreateUserOpen] = useState(false);
   const [isEditUserOpen, setIsEditUserOpen] = useState(false);
+  const [isRoleChangeOpen, setIsRoleChangeOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<UserAccount | null>(null);
 
   // Form for user flagging
@@ -147,6 +149,14 @@ export default function UserManagement() {
       duration: '',
       reason: '',
       affectedFeatures: [] as string[]
+    }
+  });
+
+  // Form for role changes
+  const roleChangeForm = useForm({
+    defaultValues: {
+      newRole: '',
+      reason: ''
     }
   });
 
@@ -284,6 +294,30 @@ export default function UserManagement() {
     },
   });
 
+  // Change user role mutation
+  const changeRoleMutation = useMutation({
+    mutationFn: async ({ userId, newRole, reason }: { userId: string; newRole: string; reason: string }) => {
+      const response = await adminApiRequest("PATCH", `/api/admin/users/${userId}/role`, { role: newRole, reason });
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Role Changed",
+        description: "User role has been updated successfully.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      setIsRoleChangeOpen(false);
+      roleChangeForm.reset();
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to Change Role",
+        description: error.message || "An error occurred while changing the user's role.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const getVerificationIcon = (status: string) => {
     switch (status) {
       case 'verified': return <CheckCircle className="h-4 w-4 text-green-600" />;
@@ -319,6 +353,37 @@ export default function UserManagement() {
     if (numScore >= 0.6) return 'text-orange-600';
     if (numScore >= 0.4) return 'text-yellow-600';
     return 'text-green-600';
+  };
+
+  const getRoleDisplay = (role: string) => {
+    // Use role field as the sole source of truth
+    switch (role) {
+      case 'administrator':
+        return { text: 'ADMINISTRATOR', variant: 'default' as const };
+      case 'manager':
+        return { text: 'MANAGER', variant: 'default' as const };
+      case 'registered_kyc':
+        return { text: 'VERIFIED USER', variant: 'secondary' as const };
+      case 'registered':
+        return { text: 'USER', variant: 'outline' as const };
+      default:
+        return { text: 'USER', variant: 'outline' as const };
+    }
+  };
+
+  const getRoleColor = (role: string) => {
+    switch (role) {
+      case 'administrator':
+        return 'bg-red-100 text-red-800 border-red-200';
+      case 'manager':
+        return 'bg-purple-100 text-purple-800 border-purple-200';
+      case 'registered_kyc':
+        return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'registered':
+        return 'bg-gray-100 text-gray-800 border-gray-200';
+      default:
+        return 'bg-gray-100 text-gray-800 border-gray-200';
+    }
   };
 
   const formatTimeAgo = (dateString: string) => {
@@ -375,6 +440,16 @@ export default function UserManagement() {
     restrictUserMutation.mutate({
       userId: selectedUser.id,
       restrictions: data
+    });
+  };
+
+  const handleChangeRole = (data: any) => {
+    if (!selectedUser) return;
+    
+    changeRoleMutation.mutate({
+      userId: selectedUser.id,
+      newRole: data.newRole,
+      reason: data.reason
     });
   };
 
@@ -573,8 +648,8 @@ export default function UserManagement() {
                       <Badge variant="outline">
                         KYC: {user.kycStatus.replace('_', ' ').toUpperCase()}
                       </Badge>
-                      <Badge variant={user.isAdmin ? 'default' : 'secondary'}>
-                        {user.isAdmin ? 'ADMIN' : 'USER'}
+                      <Badge className={getRoleColor(user.role)}>
+                        {getRoleDisplay(user.role).text}
                       </Badge>
                       {!user.emailVerified && (
                         <Badge variant="destructive" className="flex items-center gap-1">
@@ -923,6 +998,14 @@ export default function UserManagement() {
                           setIsEditUserOpen(true);
                         }}>
                           Edit User
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => {
+                          setSelectedUser(user);
+                          setIsRoleChangeOpen(true);
+                          roleChangeForm.setValue('newRole', user.role);
+                        }}>
+                          <Key className="h-4 w-4 mr-2" />
+                          Change Role
                         </DropdownMenuItem>
                         {user.accountStatus === 'active' && (
                           <>

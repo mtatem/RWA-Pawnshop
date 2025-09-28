@@ -990,9 +990,19 @@ export class DatabaseStorage implements IStorage {
   // Role management operations
   async updateUserRole(userId: string, role: string): Promise<User> {
     try {
+      // Get current user to check previous role
+      const currentUser = await this.getUser(userId);
+      if (!currentUser) {
+        throw new Error('User not found');
+      }
+
+      // Update role and sync isAdmin flag based on new role
+      const isAdmin = (role === 'administrator');
+      
       const [user] = await db.update(users)
         .set({ 
           role: role as any, 
+          isAdmin: isAdmin,
           updatedAt: new Date() 
         })
         .where(eq(users.id, userId))
@@ -1008,9 +1018,19 @@ export class DatabaseStorage implements IStorage {
         activityType: 'role_change',
         success: true,
         details: {
+          previousRole: currentUser.role,
           newRole: role,
+          isAdminFlagSet: isAdmin,
           timestamp: new Date().toISOString()
         }
+      });
+
+      console.log('Role change completed:', {
+        userId,
+        previousRole: currentUser.role,
+        newRole: role,
+        isAdminFlag: isAdmin,
+        timestamp: new Date().toISOString()
       });
 
       return user;
