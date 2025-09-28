@@ -87,7 +87,7 @@ import {
   type InsertUserActivityLog,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and, lt, gte, sql } from "drizzle-orm";
+import { eq, desc, and, or, lt, gte, sql, ilike } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { randomUUID } from "crypto";
 import { EncryptionService } from "./encryption-service";
@@ -550,10 +550,11 @@ export class DatabaseStorage implements IStorage {
       // Apply filters
       const conditions = [];
       if (filters.search) {
+        // Simple case-insensitive search using SQL
         conditions.push(sql`(
-          ${users.email} ILIKE '%${filters.search}%' OR 
-          ${users.username} ILIKE '%${filters.search}%' OR 
-          ${users.principalId} ILIKE '%${filters.search}%'
+          COALESCE(${users.email}, '') ILIKE ${`%${filters.search}%`} OR 
+          COALESCE(${users.username}, '') ILIKE ${`%${filters.search}%`} OR 
+          COALESCE(${users.principalId}, '') ILIKE ${`%${filters.search}%`}
         )`);
       }
       if (filters.status) {
@@ -586,10 +587,11 @@ export class DatabaseStorage implements IStorage {
       // Apply same filters as getAllUsersWithDetails
       const conditions = [];
       if (filters.search) {
+        // Simple case-insensitive search using SQL
         conditions.push(sql`(
-          ${users.email} ILIKE '%${filters.search}%' OR 
-          ${users.username} ILIKE '%${filters.search}%' OR 
-          ${users.principalId} ILIKE '%${filters.search}%'
+          COALESCE(${users.email}, '') ILIKE ${`%${filters.search}%`} OR 
+          COALESCE(${users.username}, '') ILIKE ${`%${filters.search}%`} OR 
+          COALESCE(${users.principalId}, '') ILIKE ${`%${filters.search}%`}
         )`);
       }
       if (filters.status) {
