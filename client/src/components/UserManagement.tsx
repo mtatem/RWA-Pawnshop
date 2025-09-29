@@ -129,6 +129,7 @@ export default function UserManagement() {
   const [isCreateUserOpen, setIsCreateUserOpen] = useState(false);
   const [isEditUserOpen, setIsEditUserOpen] = useState(false);
   const [isRoleChangeOpen, setIsRoleChangeOpen] = useState(false);
+  const [isPasswordResetOpen, setIsPasswordResetOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<UserAccount | null>(null);
 
   // Form for user flagging
@@ -156,6 +157,26 @@ export default function UserManagement() {
   const roleChangeForm = useForm({
     defaultValues: {
       newRole: '',
+      reason: ''
+    }
+  });
+
+  // Password reset form schema
+  const passwordResetSchema = z.object({
+    newPassword: z.string().min(8, "Password must be at least 8 characters"),
+    confirmPassword: z.string().min(8, "Password must be at least 8 characters"),
+    reason: z.string().min(1, "Reason is required"),
+  }).refine(data => data.newPassword === data.confirmPassword, {
+    message: "Passwords don't match",
+    path: ["confirmPassword"],
+  });
+
+  // Form for password reset
+  const passwordResetForm = useForm({
+    resolver: zodResolver(passwordResetSchema),
+    defaultValues: {
+      newPassword: '',
+      confirmPassword: '',
       reason: ''
     }
   });
@@ -322,6 +343,30 @@ export default function UserManagement() {
         variant: "destructive",
       });
     },
+  });
+
+  // Password reset mutation
+  const passwordResetMutation = useMutation({
+    mutationFn: async ({ userId, newPassword, reason }: { userId: string; newPassword: string; reason: string }) => {
+      const response = await apiRequest("POST", `/api/admin/users/${userId}/reset-password`, { newPassword, reason });
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Password Reset",
+        description: "User password has been reset successfully.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      setIsPasswordResetOpen(false);
+      passwordResetForm.reset();
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to Reset Password",
+        description: error.message || "An error occurred while resetting the user password.",
+        variant: "destructive",
+      });
+    }
   });
 
   const getVerificationIcon = (status: string) => {
@@ -1013,6 +1058,13 @@ export default function UserManagement() {
                           <Key className="h-4 w-4 mr-2" />
                           Change Role
                         </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => {
+                          setSelectedUser(user);
+                          setIsPasswordResetOpen(true);
+                        }}>
+                          <Key className="h-4 w-4 mr-2" />
+                          Reset Password
+                        </DropdownMenuItem>
                         {user.accountStatus === 'active' && (
                           <>
                             <DropdownMenuItem>Suspend Account</DropdownMenuItem>
@@ -1077,6 +1129,116 @@ export default function UserManagement() {
               updateUserMutation={updateUserMutation}
             />
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Password Reset Dialog */}
+      <Dialog open={isPasswordResetOpen} onOpenChange={(open) => {
+        setIsPasswordResetOpen(open);
+        if (!open) {
+          passwordResetForm.reset();
+        }
+      }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Key className="h-5 w-5" />
+              Reset User Password
+            </DialogTitle>
+            <DialogDescription>
+              Reset password for {selectedUser?.firstName} {selectedUser?.lastName} ({selectedUser?.email})
+            </DialogDescription>
+          </DialogHeader>
+          <Form {...passwordResetForm}>
+            <form onSubmit={passwordResetForm.handleSubmit((data) => {
+              if (!selectedUser) return;
+              
+              if (data.newPassword !== data.confirmPassword) {
+                toast({
+                  title: "Passwords Don't Match",
+                  description: "Please make sure both password fields match.",
+                  variant: "destructive",
+                });
+                return;
+              }
+              
+              passwordResetMutation.mutate({
+                userId: selectedUser.id,
+                newPassword: data.newPassword,
+                reason: data.reason
+              });
+            })} className="space-y-4">
+              <FormField
+                control={passwordResetForm.control}
+                name="newPassword"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>New Password *</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="password" 
+                        placeholder="Enter new password (min 8 chars)" 
+                        {...field} 
+                        data-testid="input-new-password"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={passwordResetForm.control}
+                name="confirmPassword"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Confirm Password *</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="password" 
+                        placeholder="Confirm new password" 
+                        {...field} 
+                        data-testid="input-confirm-password"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={passwordResetForm.control}
+                name="reason"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Reason for Password Reset *</FormLabel>
+                    <FormControl>
+                      <Textarea 
+                        placeholder="Please explain why you are resetting this user's password..." 
+                        {...field} 
+                        data-testid="input-reset-reason"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className="flex justify-end gap-2">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => setIsPasswordResetOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  type="submit" 
+                  disabled={passwordResetMutation.isPending}
+                  data-testid="button-reset-password"
+                >
+                  {passwordResetMutation.isPending ? "Resetting..." : "Reset Password"}
+                </Button>
+              </div>
+            </form>
+          </Form>
         </DialogContent>
       </Dialog>
     </div>
