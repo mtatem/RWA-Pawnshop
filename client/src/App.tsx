@@ -18,6 +18,7 @@ import ContactUs from "@/pages/contact-us";
 import Whitepaper from "@/pages/whitepaper";
 import Dashboard from "@/pages/dashboard";
 import Marketplace from "@/pages/marketplace";
+import AssetDetail from "@/pages/asset-detail";
 import Bridge from "@/pages/bridge";
 import Token from "@/pages/token";
 import Admin from "@/pages/admin";
@@ -47,6 +48,7 @@ function Router() {
       <Route path="/whitepaper" component={Whitepaper} />
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/marketplace" component={Marketplace} />
+      <Route path="/asset/:assetId" component={AssetDetail} />
       <Route path="/bridge" component={Bridge} />
       <Route path="/token" component={Token} />
       <Route path="/login" component={Login} />
