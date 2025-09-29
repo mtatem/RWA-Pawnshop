@@ -2,7 +2,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "wouter";
-import { Eye, TrendingUp, Clock } from "lucide-react";
+import { Clock } from "lucide-react";
 import luxuryHouseImage from "@assets/generated_images/Luxury_modern_house_exterior_4597f8e9.png";
 import diamondNecklaceImage from "@assets/generated_images/Diamond_tennis_necklace_display_ec61d518.png";
 import luxuryCarImage from "@assets/generated_images/Black_luxury_sports_car_d4206fb8.png";
@@ -114,119 +114,64 @@ export default function MarketplacePreview() {
         </div>
 
         {/* Asset Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
           {demoAssets.map((asset) => (
-            <Card key={asset.id} className="group hover:shadow-xl transition-all duration-300 border-0 bg-white overflow-hidden" data-testid={`marketplace-asset-${asset.id}`}>
-              {/* Asset Image */}
-              <div className="relative overflow-hidden">
+            <Card
+              key={asset.id}
+              className="bg-card border border-border overflow-hidden hover:border-primary transition-colors glass-effect h-fit"
+              data-testid={`marketplace-asset-${asset.id}`}
+            >
+              {asset.imageUrl && (
                 <img
                   src={asset.imageUrl}
                   alt={asset.assetName}
-                  className="w-full h-64 object-cover group-hover:scale-105 transition-transform duration-300"
+                  className="w-full h-40 sm:h-48 object-cover"
                   data-testid={`asset-image-${asset.id}`}
                 />
-                <div className="absolute top-4 left-4">
-                  <Badge className={`${getCategoryColor(asset.category)} border-0`} data-testid={`asset-category-${asset.id}`}>
-                    {asset.category}
-                  </Badge>
-                </div>
-                <div className="absolute top-4 right-4">
-                  <Badge variant="secondary" className="bg-black/80 text-white border-0" data-testid={`asset-status-${asset.id}`}>
-                    {asset.daysExpired} days expired
-                  </Badge>
-                </div>
-              </div>
+              )}
 
-              {/* Asset Details */}
-              <div className="p-6">
-                <h3 className="text-xl font-bold mb-2 line-clamp-2" data-testid={`asset-name-${asset.id}`}>
-                  {asset.assetName}
-                </h3>
-                
-                <p className="text-muted-foreground text-sm mb-4 line-clamp-3" data-testid={`asset-description-${asset.id}`}>
-                  {asset.description}
-                </p>
-
-                {/* Specifications */}
-                {asset.specifications && (
-                  <div className="mb-4">
-                    <div className="flex flex-wrap gap-1">
-                      {asset.specifications.slice(0, 3).map((spec, index) => (
-                        <Badge key={index} variant="outline" className="text-xs" data-testid={`asset-spec-${asset.id}-${index}`}>
-                          {spec}
-                        </Badge>
-                      ))}
-                      {asset.specifications.length > 3 && (
-                        <Badge variant="outline" className="text-xs">
-                          +{asset.specifications.length - 3} more
-                        </Badge>
-                      )}
-                    </div>
+              <div className="p-4 sm:p-6">
+                <div className="flex flex-col xs:flex-row xs:justify-between xs:items-start mb-3 space-y-2 xs:space-y-0">
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-sm sm:text-base" data-testid={`asset-name-${asset.id}`}>
+                      {asset.assetName}
+                    </h3>
+                    <p className="text-xs sm:text-sm text-muted-foreground">{asset.category}</p>
                   </div>
-                )}
+                  <Badge variant="destructive" className="text-xs self-start xs:self-auto">Expired</Badge>
+                </div>
 
-                {/* Pricing Information */}
-                <div className="border-t pt-4 space-y-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">Original Value</span>
-                    <span className="font-semibold text-muted-foreground line-through" data-testid={`asset-original-value-${asset.id}`}>
+                <div className="space-y-2 mb-4">
+                  <div className="flex justify-between text-xs sm:text-sm">
+                    <span className="text-muted-foreground">Original Value:</span>
+                    <span className="font-medium" data-testid={`asset-original-value-${asset.id}`}>
                       {formatCurrency(asset.originalValue)}
                     </span>
                   </div>
-                  
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">Starting Price</span>
-                    <span className="font-semibold" data-testid={`asset-starting-price-${asset.id}`}>
-                      {formatCurrency(asset.startingPrice)}
+                  <div className="flex justify-between text-xs sm:text-sm">
+                    <span className="text-muted-foreground">
+                      {asset.currentBid ? "Current Bid:" : "Starting Bid:"}
+                    </span>
+                    <span className="font-medium text-primary" data-testid={`asset-current-bid-${asset.id}`}>
+                      {formatCurrency(asset.currentBid || asset.startingPrice)}
                     </span>
                   </div>
-
-                  {asset.currentBid && (
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-green-600 flex items-center gap-1">
-                        <TrendingUp className="w-4 h-4" />
-                        Current Bid
-                      </span>
-                      <span className="font-bold text-green-600 text-lg" data-testid={`asset-current-bid-${asset.id}`}>
-                        {formatCurrency(asset.currentBid)}
-                      </span>
-                    </div>
-                  )}
-
-                  {asset.highestBidder && (
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-muted-foreground">Highest Bidder</span>
-                      <span className="font-medium" data-testid={`asset-highest-bidder-${asset.id}`}>
-                        {asset.highestBidder}
-                      </span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Wallet Information */}
-                <div className="border-t pt-4 mt-4">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Asset Wallet</span>
-                    <code className="bg-muted px-2 py-1 rounded text-xs font-mono" data-testid={`asset-wallet-${asset.id}`}>
-                      {asset.walletAddress.substring(0, 8)}...{asset.walletAddress.substring(asset.walletAddress.length - 4)}
-                    </code>
+                  <div className="flex justify-between text-xs sm:text-sm">
+                    <span className="text-muted-foreground">Days Expired:</span>
+                    <span data-testid={`asset-days-expired-${asset.id}`}>
+                      {asset.daysExpired} days
+                    </span>
                   </div>
                 </div>
 
-                {/* Action Buttons */}
-                <div className="flex gap-2 mt-6">
-                  <Link href="/marketplace">
-                    <Button className="flex-1 bg-primary hover:bg-primary/90" data-testid={`button-view-details-${asset.id}`}>
-                      <Eye className="w-4 h-4 mr-2" />
-                      View Details
-                    </Button>
-                  </Link>
-                  <Link href="/marketplace">
-                    <Button variant="outline" className="flex-1" data-testid={`button-place-bid-${asset.id}`}>
-                      Place Bid
-                    </Button>
-                  </Link>
-                </div>
+                <Link href="/marketplace">
+                  <Button
+                    className="w-full h-11 sm:h-10 text-sm bg-primary hover:bg-primary/90 text-primary-foreground"
+                    data-testid={`button-place-bid-${asset.id}`}
+                  >
+                    Place Bid
+                  </Button>
+                </Link>
               </div>
             </Card>
           ))}
