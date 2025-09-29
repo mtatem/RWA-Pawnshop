@@ -112,11 +112,13 @@ export default function Register() {
     <div className="min-h-screen flex items-center justify-center bg-black p-4">
       <Card className="w-full max-w-md p-8 space-y-6 shadow-lg">
         <div className="text-center space-y-2">
-          <img 
-            src={logoImage} 
-            alt="RWA Pawn Platform" 
-            className="mx-auto h-12 w-auto"
-          />
+          <Link href="/">
+            <img 
+              src={logoImage} 
+              alt="RWA Pawnshop on the ICP Blockchain. Pawn Your Real World Assets" 
+              className="mx-auto h-12 w-auto cursor-pointer hover:opacity-80 transition-opacity"
+            />
+          </Link>
           <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
             Create Account
           </h1>
