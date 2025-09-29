@@ -31,7 +31,7 @@ export default function Footer() {
   return (
     <footer className="border-t border-border py-8 sm:py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
+        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
           {/* Legal Links */}
           <div>
             <h3 className="font-semibold mb-3 sm:mb-4 text-sm sm:text-base">Legal</h3>
