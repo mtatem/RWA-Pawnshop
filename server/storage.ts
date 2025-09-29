@@ -408,13 +408,31 @@ export class DatabaseStorage implements IStorage {
   async updateUserPassword(id: string, passwordHash: string): Promise<User> {
     try {
       const [user] = await db.update(users)
-        .set({ passwordHash: passwordHash as any, updatedAt: new Date() })
+        .set({ passwordHash, updatedAt: new Date() })
         .where(eq(users.id, id))
         .returning();
+      
+      if (!user) {
+        throw new Error('User not found or update failed');
+      }
+      
       return user;
-    } catch (error) {
-      // Fallback if passwordHash column doesn't exist
-      throw new Error('Password authentication not yet available - database schema needs migration');
+    } catch (error: any) {
+      // Check if it's a column-not-exist error
+      if (error?.code === '42703' || error?.message?.includes('column') || error?.message?.includes('does not exist')) {
+        throw new Error('Password authentication not yet available - database schema needs migration');
+      }
+      
+      // Log the actual error for debugging
+      console.error('Password update error:', {
+        error: error instanceof Error ? error.message : error,
+        code: error?.code,
+        userId: id,
+        timestamp: new Date().toISOString()
+      });
+      
+      // Rethrow the actual error
+      throw error;
     }
   }
 
