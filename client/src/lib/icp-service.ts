@@ -574,7 +574,7 @@ export class ICPBridgeService {
 export class LoanCalculator {
   static readonly MAX_LOAN_TO_VALUE_RATIO = 0.7; // 70%
   static readonly LOAN_TERM_DAYS = 90;
-  static readonly PAWN_FEE_ICP = 2;
+  static readonly PAWN_FEE_ICP = 5;
 
   static calculateMaxLoanAmount(assetValue: number): number {
     return Math.floor(assetValue * this.MAX_LOAN_TO_VALUE_RATIO);

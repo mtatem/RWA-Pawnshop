@@ -24,7 +24,7 @@ Key platform information:
 - Verification typically takes 24-48 hours (express processing available for 1 ICP fee)
 - Users receive up to 70% of asset value as instant ICP loans
 - 90-day loan terms with 8.5% APR interest
-- 2 ICP platform fee for asset submission
+- 5 ICP platform fee for asset submission
 - Cross-chain bridge supports ETH/USDC conversion to ckETH/ckUSDC
 - Supported wallets: Internet Identity, Plug Wallet, MetaMask (for bridge)
 - If loans aren't repaid within 90 days, assets are forfeited and sold on marketplace

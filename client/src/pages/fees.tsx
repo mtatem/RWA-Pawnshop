@@ -9,7 +9,7 @@ export default function Fees() {
     {
       icon: <Coins className="w-8 h-8 text-primary" />,
       title: "Platform Fee",
-      amount: "2 ICP",
+      amount: "5 ICP",
       description: "One-time fee paid when submitting an asset for pawning evaluation.",
       details: [
         "Covers document analysis and OCR processing",
@@ -85,7 +85,7 @@ export default function Fees() {
       assetType: "Gold Jewelry",
       assetValue: "$1,000",
       loanAmount: "$700", 
-      platformFee: "2 ICP (~$20)",
+      platformFee: "5 ICP (~$50)",
       monthlyInterest: "$4.96",
       totalCost: "$34.84"
     },
@@ -93,7 +93,7 @@ export default function Fees() {
       assetType: "Luxury Watch", 
       assetValue: "$5,000",
       loanAmount: "$3,500",
-      platformFee: "2 ICP (~$20)", 
+      platformFee: "5 ICP (~$50)", 
       monthlyInterest: "$24.79",
       totalCost: "$94.37"
     },
@@ -101,7 +101,7 @@ export default function Fees() {
       assetType: "Vintage Car",
       assetValue: "$25,000", 
       loanAmount: "$17,500",
-      platformFee: "2 ICP (~$20)",
+      platformFee: "5 ICP (~$50)",
       monthlyInterest: "$123.96",
       totalCost: "$391.88"
     }

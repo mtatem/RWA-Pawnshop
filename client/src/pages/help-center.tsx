@@ -74,7 +74,7 @@ export default function HelpCenter() {
     fees: [
       {
         question: "What fees do you charge?",
-        answer: "We charge a 2 ICP platform fee for asset submission, 8.5% APR interest on loans, and 0.5% for cross-chain bridge transactions. All fees are disclosed upfront with no hidden charges."
+        answer: "We charge a 5 ICP platform fee for asset submission, 8.5% APR interest on loans, and 0.5% for cross-chain bridge transactions. All fees are disclosed upfront with no hidden charges."
       },
       {
         question: "Are there any additional costs?",
