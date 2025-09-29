@@ -92,7 +92,7 @@ export default function Navigation() {
             <div className="flex items-center cursor-pointer" data-testid="logo">
               <img 
                 src={logoImage} 
-                alt="RWA Pawnshop" 
+                alt="RWA Pawnshop on the ICP Blockchain. Pawn Your Real World Assets" 
                 className="h-8 w-auto sm:h-10 object-contain"
               />
             </div>
