@@ -100,6 +100,7 @@ export interface IStorage {
   getUserByPrincipalId(principalId: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: string, user: Partial<InsertUser>): Promise<User>;
+  deleteUser(id: string): Promise<boolean>;
   
   // Admin user management operations
   getAllUsersWithDetails(limit: number, offset: number, filters: any): Promise<User[]>;
@@ -1108,6 +1109,23 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, id))
       .returning();
     return user;
+  }
+
+  async deleteUser(id: string): Promise<boolean> {
+    try {
+      // First check if user exists
+      const existingUser = await this.getUser(id);
+      if (!existingUser) {
+        return false;
+      }
+
+      // Delete the user (cascade will handle related records)
+      await db.delete(users).where(eq(users.id, id));
+      return true;
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      return false;
+    }
   }
 
   async upsertUser(userData: any): Promise<User> {
