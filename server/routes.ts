@@ -4630,20 +4630,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       // Delete the user
-      const deleted = await storage.deleteUser(userId);
+      const deleteResult = await storage.deleteUser(userId);
       
-      if (deleted) {
+      if (deleteResult.success) {
         res.json({
           success: true,
           message: `User ${user.email || user.username} has been permanently deleted`,
           data: { userId: user.id }
         });
       } else {
-        res.status(500).json({
-          success: false,
-          error: 'Failed to delete user',
-          code: 'DELETE_FAILED'
-        });
+        // Check if deletion was blocked by dependencies
+        if (deleteResult.dependencies && deleteResult.dependencies.length > 0) {
+          const dependencyDescriptions = deleteResult.dependencies.map(d => d.description).join(', ');
+          res.status(400).json({
+            success: false,
+            error: `Cannot delete user with existing records: ${dependencyDescriptions}`,
+            code: 'DELETE_BLOCKED_BY_DEPENDENCIES',
+            dependencies: deleteResult.dependencies
+          });
+        } else {
+          res.status(500).json({
+            success: false,
+            error: deleteResult.error || 'Failed to delete user',
+            code: 'DELETE_FAILED'
+          });
+        }
       }
       
     } catch (error) {

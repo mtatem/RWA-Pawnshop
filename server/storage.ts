@@ -100,7 +100,8 @@ export interface IStorage {
   getUserByPrincipalId(principalId: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: string, user: Partial<InsertUser>): Promise<User>;
-  deleteUser(id: string): Promise<boolean>;
+  checkUserDependencies(id: string): Promise<{ canDelete: boolean; dependencies: Array<{ table: string; count: number; description: string }> }>;
+  deleteUser(id: string): Promise<{ success: boolean; error?: string; dependencies?: Array<{ table: string; count: number; description: string }> }>;
   
   // Admin user management operations
   getAllUsersWithDetails(limit: number, offset: number, filters: any): Promise<User[]>;
@@ -1111,20 +1112,110 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  async deleteUser(id: string): Promise<boolean> {
+  async checkUserDependencies(id: string): Promise<{
+    canDelete: boolean;
+    dependencies: Array<{ table: string; count: number; description: string }>;
+  }> {
+    try {
+      const dependencies: Array<{ table: string; count: number; description: string }> = [];
+
+      // Check for financial records (these block deletion)
+      const [pawnLoansResult] = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(pawnLoans)
+        .where(eq(pawnLoans.userId, id));
+      
+      if (pawnLoansResult.count > 0) {
+        dependencies.push({
+          table: 'pawn_loans',
+          count: pawnLoansResult.count,
+          description: `${pawnLoansResult.count} pawn loan(s)`
+        });
+      }
+
+      // Check for RWA submissions
+      const [submissionsResult] = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(rwaSubmissions)
+        .where(eq(rwaSubmissions.userId, id));
+      
+      if (submissionsResult.count > 0) {
+        dependencies.push({
+          table: 'rwa_submissions',
+          count: submissionsResult.count,
+          description: `${submissionsResult.count} asset submission(s)`
+        });
+      }
+
+      // Check for marketplace assets (through pawn loans)
+      const [assetsResult] = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(marketplaceAssets)
+        .innerJoin(pawnLoans, eq(marketplaceAssets.loanId, pawnLoans.id))
+        .where(eq(pawnLoans.userId, id));
+      
+      if (assetsResult.count > 0) {
+        dependencies.push({
+          table: 'marketplace_assets',
+          count: assetsResult.count,
+          description: `${assetsResult.count} marketplace asset(s)`
+        });
+      }
+
+      // Check for active bids
+      const [bidsResult] = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(bids)
+        .where(eq(bids.bidderId, id));
+      
+      if (bidsResult.count > 0) {
+        dependencies.push({
+          table: 'bids',
+          count: bidsResult.count,
+          description: `${bidsResult.count} marketplace bid(s)`
+        });
+      }
+
+      return {
+        canDelete: dependencies.length === 0,
+        dependencies
+      };
+    } catch (error) {
+      console.error('Error checking user dependencies:', error);
+      return {
+        canDelete: false,
+        dependencies: [{ table: 'unknown', count: 1, description: 'Unable to check dependencies' }]
+      };
+    }
+  }
+
+  async deleteUser(id: string): Promise<{ success: boolean; error?: string; dependencies?: Array<{ table: string; count: number; description: string }> }> {
     try {
       // First check if user exists
       const existingUser = await this.getUser(id);
       if (!existingUser) {
-        return false;
+        return { success: false, error: 'User not found' };
       }
 
-      // Delete the user (cascade will handle related records)
+      // Check for dependencies that prevent deletion
+      const dependencyCheck = await this.checkUserDependencies(id);
+      if (!dependencyCheck.canDelete) {
+        return {
+          success: false,
+          error: 'Cannot delete user with existing financial records',
+          dependencies: dependencyCheck.dependencies
+        };
+      }
+
+      // Safe to delete - only delete if no financial dependencies
       await db.delete(users).where(eq(users.id, id));
-      return true;
+      return { success: true };
     } catch (error) {
       console.error('Error deleting user:', error);
-      return false;
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error occurred' 
+      };
     }
   }
 
