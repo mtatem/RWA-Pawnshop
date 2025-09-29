@@ -11,6 +11,7 @@ import { useState } from "react";
 import { Link } from "wouter";
 import { helpCategories, helpArticles, popularArticles, getArticlesByCategory } from "@/content/help";
 import ChatPopup from "@/components/chat-popup";
+import SEO from "@/components/seo";
 
 export default function HelpCenter() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -89,6 +90,13 @@ export default function HelpCenter() {
 
   return (
     <div className="min-h-screen bg-black">
+      <SEO 
+        title="Help Center - Support for Pawning Real World Assets | RWAPAWN ICP"
+        description="Get help with pawning real world assets on the ICP blockchain. Learn about cryptocurrency loans, ICP assets, platform features, and how to use the blockchain pawnshop."
+        keywords="Pawning Real World Assets, ICP Blockchain, Real World Assets, ICP Assets, Cryptocurrency Loans, Blockchain Pawnshop Support"
+        ogTitle="Help Center - Support for RWA on ICP"
+        ogDescription="Find answers about pawning real world assets, getting cryptocurrency loans, and using the ICP blockchain pawnshop platform."
+      />
       <Navigation />
       
       <div className="container mx-auto px-4 py-16">

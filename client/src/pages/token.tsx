@@ -16,6 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
+import SEO from "@/components/seo";
 
 // Initialize Stripe
 const getStripePublicKey = () => {
@@ -400,6 +401,13 @@ function BuyTab() {
 export default function Token() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background/95 to-background/90">
+      <SEO 
+        title="Buy RWAPAWN Token | Real World Assets Cryptocurrency on ICP Blockchain"
+        description="Purchase RWAPAWN tokens to participate in the real world assets ecosystem on the ICP blockchain. Stake tokens for rewards, participate in governance, and access exclusive cryptocurrency loans features."
+        keywords="Real World Assets, ICP Assets, ICP Blockchain, Cryptocurrency Pawnshop, RWAPAWN Token, Blockchain Pawnshop, Cryptocurrency"
+        ogTitle="Buy RWAPAWN Token - RWA Cryptocurrency"
+        ogDescription="Get RWAPAWN tokens and join the real world assets revolution on the ICP blockchain. Earn rewards through staking."
+      />
       <Navigation />
       
       <section className="py-8 sm:py-12 lg:py-16 px-4 sm:px-6 lg:px-8">

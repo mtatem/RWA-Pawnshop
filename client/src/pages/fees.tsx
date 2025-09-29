@@ -3,6 +3,7 @@ import Footer from "@/components/footer";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Coins, Percent, CreditCard, ArrowRightLeft, TrendingUp, Calculator } from "lucide-react";
+import SEO from "@/components/seo";
 
 export default function Fees() {
   const mainFees = [
@@ -109,6 +110,13 @@ export default function Fees() {
 
   return (
     <div className="min-h-screen bg-black">
+      <SEO 
+        title="Fees & Pricing - Cryptocurrency Loans on ICP Blockchain | RWAPAWN"
+        description="Transparent fee structure for pawning real world assets on the ICP blockchain. 5 ICP platform fee, 8.5% APR on cryptocurrency loans, 0.5% bridge fee. No hidden charges on the blockchain pawnshop."
+        keywords="Cryptocurrency Loans, ICP Blockchain, Real World Assets, Pawning Real World Assets, ICP Assets, Blockchain Pawnshop Fees"
+        ogTitle="Fees - Transparent Pricing for RWA Loans"
+        ogDescription="View our competitive fee structure for pawning real world assets and getting cryptocurrency loans on ICP blockchain."
+      />
       <Navigation />
       
       <div className="container mx-auto px-4 py-16">
