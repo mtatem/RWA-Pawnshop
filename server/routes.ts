@@ -31,6 +31,7 @@ import {
   userLoginSchema,
   forgotPasswordSchema,
   resetPasswordSchema,
+  changePasswordSchema,
   contactFormSchema
 } from "@shared/schema";
 import { randomUUID } from "crypto";
@@ -617,6 +618,90 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.status(500).json({
           success: false,
           error: 'Failed to reset password',
+          code: 'INTERNAL_ERROR',
+          timestamp: new Date().toISOString()
+        });
+      }
+    }
+  );
+
+  // Change password endpoint for authenticated users
+  app.post('/api/user/change-password',
+    isAuthenticated,
+    rateLimitConfigs.auth,
+    validateRequest(changePasswordSchema, 'body'),
+    async (req: any, res) => {
+      try {
+        const { currentPassword, newPassword } = req.body;
+        const userId = req.user.claims.sub as string;
+        
+        // Get current user
+        const user = await storage.getUser(userId);
+        if (!user) {
+          return res.status(404).json({
+            success: false,
+            error: 'User not found',
+            code: 'USER_NOT_FOUND',
+            timestamp: new Date().toISOString()
+          });
+        }
+
+        // Check if user has a password set (for users who registered with OAuth)
+        if (!user.passwordHash) {
+          return res.status(400).json({
+            success: false,
+            error: 'No password is set for this account',
+            code: 'NO_PASSWORD_SET',
+            timestamp: new Date().toISOString()
+          });
+        }
+        
+        // Verify current password
+        const isValidCurrentPassword = await bcrypt.compare(currentPassword, user.passwordHash);
+        if (!isValidCurrentPassword) {
+          // Log failed attempt
+          await storage.incrementLoginAttempts(user.id);
+          
+          return res.status(400).json({
+            success: false,
+            error: 'Current password is incorrect',
+            code: 'INVALID_CURRENT_PASSWORD',
+            timestamp: new Date().toISOString()
+          });
+        }
+        
+        // Hash new password
+        const newPasswordHash = await bcrypt.hash(newPassword, 12);
+        
+        // Update password
+        await storage.updateUserPassword(user.id, newPasswordHash);
+        
+        // Log successful password change activity
+        await storage.logUserActivity({
+          userId: user.id,
+          activityType: 'password_change',
+          ipAddress: req.ip,
+          userAgent: req.get('User-Agent'),
+          success: true,
+          details: { timestamp: new Date().toISOString() }
+        });
+        
+        res.json({
+          success: true,
+          message: 'Password changed successfully',
+          timestamp: new Date().toISOString()
+        });
+        
+      } catch (error) {
+        console.error('Change password error:', {
+          error: error instanceof Error ? error.message : error,
+          timestamp: new Date().toISOString(),
+          userAgent: req.get('User-Agent'),
+          ip: req.ip
+        });
+        res.status(500).json({
+          success: false,
+          error: 'Failed to change password',
           code: 'INTERNAL_ERROR',
           timestamp: new Date().toISOString()
         });
