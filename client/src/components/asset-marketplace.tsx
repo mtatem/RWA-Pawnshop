@@ -323,7 +323,7 @@ export default function AssetMarketplace() {
             <p className="text-xs sm:text-sm mt-2">Check back later for new listings or try different filters!</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredAssets.map((asset) => (
               <Card
                 key={asset.id}
