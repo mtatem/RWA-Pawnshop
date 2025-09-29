@@ -643,6 +643,235 @@ export default function Token() {
               </div>
             </TabsContent>
           </Tabs>
+
+          {/* Tokenomics Section */}
+          <section className="mt-16 space-y-8">
+            <div className="text-center mb-12">
+              <h2 className="text-3xl sm:text-4xl font-bold mb-4">
+                RWAPAWN Tokenomics
+              </h2>
+              <p className="text-lg text-muted-foreground max-w-3xl mx-auto">
+                Comprehensive token economics designed for sustainable growth and long-term value creation
+              </p>
+            </div>
+
+            {/* Key Token Metrics */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+              <Card className="text-center">
+                <CardContent className="p-6">
+                  <div className="text-3xl font-bold text-primary mb-2">10B</div>
+                  <div className="text-sm text-muted-foreground">Total Supply</div>
+                </CardContent>
+              </Card>
+              <Card className="text-center">
+                <CardContent className="p-6">
+                  <div className="text-3xl font-bold text-primary mb-2">$0.25</div>
+                  <div className="text-sm text-muted-foreground">Token Price (USD)</div>
+                </CardContent>
+              </Card>
+              <Card className="text-center">
+                <CardContent className="p-6">
+                  <div className="text-3xl font-bold text-primary mb-2">$2.5B</div>
+                  <div className="text-sm text-muted-foreground">Max Market Cap</div>
+                </CardContent>
+              </Card>
+              <Card className="text-center">
+                <CardContent className="p-6">
+                  <div className="text-3xl font-bold text-primary mb-2">4:1</div>
+                  <div className="text-sm text-muted-foreground">USD Exchange Rate</div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Token Distribution */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <TrendingUp className="w-5 h-5" />
+                    Token Distribution
+                  </CardTitle>
+                  <CardDescription>
+                    Fair and sustainable token allocation across all stakeholders
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
+                      <span className="font-medium">Public Sale</span>
+                      <div className="text-right">
+                        <div className="font-bold">40%</div>
+                        <div className="text-xs text-muted-foreground">4B tokens</div>
+                      </div>
+                    </div>
+                    <div className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
+                      <span className="font-medium">Platform Treasury</span>
+                      <div className="text-right">
+                        <div className="font-bold">25%</div>
+                        <div className="text-xs text-muted-foreground">2.5B tokens</div>
+                      </div>
+                    </div>
+                    <div className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
+                      <span className="font-medium">Team & Advisors</span>
+                      <div className="text-right">
+                        <div className="font-bold">15%</div>
+                        <div className="text-xs text-muted-foreground">1.5B tokens</div>
+                      </div>
+                    </div>
+                    <div className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
+                      <span className="font-medium">Staking Rewards</span>
+                      <div className="text-right">
+                        <div className="font-bold">10%</div>
+                        <div className="text-xs text-muted-foreground">1B tokens</div>
+                      </div>
+                    </div>
+                    <div className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
+                      <span className="font-medium">Liquidity & Partnerships</span>
+                      <div className="text-right">
+                        <div className="font-bold">10%</div>
+                        <div className="text-xs text-muted-foreground">1B tokens</div>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Coins className="w-5 h-5" />
+                    Utility & Benefits
+                  </CardTitle>
+                  <CardDescription>
+                    Multiple use cases providing real value to token holders
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-3">
+                    <div className="p-3 bg-muted/50 rounded-lg">
+                      <div className="font-medium mb-1">Platform Fee Discounts</div>
+                      <div className="text-sm text-muted-foreground">
+                        Pay platform fees with RWAPAWN tokens for up to 25% discount
+                      </div>
+                    </div>
+                    <div className="p-3 bg-muted/50 rounded-lg">
+                      <div className="font-medium mb-1">Governance Rights</div>
+                      <div className="text-sm text-muted-foreground">
+                        Vote on platform proposals and major decisions
+                      </div>
+                    </div>
+                    <div className="p-3 bg-muted/50 rounded-lg">
+                      <div className="font-medium mb-1">Staking Rewards</div>
+                      <div className="text-sm text-muted-foreground">
+                        Earn up to 12% APY by staking tokens with lock periods
+                      </div>
+                    </div>
+                    <div className="p-3 bg-muted/50 rounded-lg">
+                      <div className="font-medium mb-1">Premium Features</div>
+                      <div className="text-sm text-muted-foreground">
+                        Access exclusive features like priority support and advanced analytics
+                      </div>
+                    </div>
+                    <div className="p-3 bg-muted/50 rounded-lg">
+                      <div className="font-medium mb-1">Loan Interest Reduction</div>
+                      <div className="text-sm text-muted-foreground">
+                        Reduce loan interest rates by holding and staking tokens
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Vesting Schedule */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Clock className="w-5 h-5" />
+                  Vesting Schedule
+                </CardTitle>
+                <CardDescription>
+                  Responsible token release schedule ensuring long-term project stability
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="text-center p-4 bg-muted/50 rounded-lg">
+                    <div className="text-2xl font-bold text-green-600 mb-2">Immediate</div>
+                    <div className="font-medium mb-1">Public Sale</div>
+                    <div className="text-sm text-muted-foreground">
+                      40% of tokens available immediately upon purchase
+                    </div>
+                  </div>
+                  <div className="text-center p-4 bg-muted/50 rounded-lg">
+                    <div className="text-2xl font-bold text-yellow-600 mb-2">24 Months</div>
+                    <div className="font-medium mb-1">Team & Advisors</div>
+                    <div className="text-sm text-muted-foreground">
+                      15% vested over 24 months with 6-month cliff
+                    </div>
+                  </div>
+                  <div className="text-center p-4 bg-muted/50 rounded-lg">
+                    <div className="text-2xl font-bold text-blue-600 mb-2">60 Months</div>
+                    <div className="font-medium mb-1">Staking Rewards</div>
+                    <div className="text-sm text-muted-foreground">
+                      10% released gradually over 5 years for staking incentives
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Token Burn Mechanism */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Shield className="w-5 h-5" />
+                  Deflationary Mechanism
+                </CardTitle>
+                <CardDescription>
+                  Built-in token burn mechanisms to create scarcity and value appreciation
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <h4 className="font-semibold">Quarterly Token Burns</h4>
+                    <div className="space-y-2 text-sm">
+                      <p className="text-muted-foreground">
+                        • <strong>5% of platform revenue</strong> used to buy back and burn tokens quarterly
+                      </p>
+                      <p className="text-muted-foreground">
+                        • <strong>Expired loan penalties</strong> contribute to burn pool
+                      </p>
+                      <p className="text-muted-foreground">
+                        • <strong>Marketplace transaction fees</strong> partially burned
+                      </p>
+                      <p className="text-muted-foreground">
+                        • <strong>Target burn rate:</strong> 2-3% annually of circulating supply
+                      </p>
+                    </div>
+                  </div>
+                  <div className="space-y-4">
+                    <h4 className="font-semibold">Value Accrual Model</h4>
+                    <div className="space-y-2 text-sm">
+                      <p className="text-muted-foreground">
+                        • <strong>Revenue sharing:</strong> Platform profits distributed to long-term stakers
+                      </p>
+                      <p className="text-muted-foreground">
+                        • <strong>Fee deflation:</strong> As supply decreases, token value increases
+                      </p>
+                      <p className="text-muted-foreground">
+                        • <strong>Ecosystem growth:</strong> More assets pawned = higher token demand
+                      </p>
+                      <p className="text-muted-foreground">
+                        • <strong>Cross-chain expansion:</strong> Multi-blockchain presence drives adoption
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </section>
         </div>
       </section>
 
