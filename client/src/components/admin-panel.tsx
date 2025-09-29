@@ -228,7 +228,7 @@ export default function AdminPanel() {
                           {submission.walletAddress}
                         </p>
                         <p className="text-sm text-muted-foreground">
-                          Fee Paid: <span className="text-primary">2 ICP</span>
+                          Fee Paid: <span className="text-primary">5 ICP</span>
                         </p>
                       </div>
 

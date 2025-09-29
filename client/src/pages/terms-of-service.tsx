@@ -43,7 +43,7 @@ The Platform operates as an intermediary between asset owners seeking liquidity 
 
 4.3 Verification Process: All submitted assets undergo review by our verification team and automated fraud detection systems. We reserve the right to reject any submission.
 
-4.4 Platform Fee: A non-refundable platform fee of 2 ICP is required for each asset submission to cover processing costs.`
+4.4 Platform Fee: A non-refundable platform fee of 5 ICP is required for each asset submission to cover processing costs.`
     },
     {
       title: "5. Loan Terms and Conditions",

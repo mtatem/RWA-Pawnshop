@@ -206,11 +206,11 @@ export const helpArticles: HelpArticle[] = [
         heading: "Interest Rates and Fees",
         paragraphs: [
           "Our standard interest rate is 8.5% APR, calculated monthly. This competitive rate reflects the secured nature of asset-backed lending.",
-          "Additional fees include a 2 ICP platform fee for asset submission and 0.5% for cross-chain bridge transactions when applicable."
+          "Additional fees include a 5 ICP platform fee for asset submission and 0.5% for cross-chain bridge transactions when applicable."
         ],
         list: [
           "8.5% APR interest rate on all loans",
-          "2 ICP platform fee for asset submission",
+          "5 ICP platform fee for asset submission",
           "0.5% bridge fee for cross-chain transactions",
           "1% fee for loan extensions (per 30-day period)",
           "Express processing available for 1 ICP"
@@ -314,7 +314,7 @@ export const helpArticles: HelpArticle[] = [
           "Gather all relevant documentation",
           "Take clear, well-lit photos from multiple angles",
           "Research your asset's current market value",
-          "Have 2 ICP available for the submission fee"
+          "Have 5 ICP available for the submission fee"
         ]
       },
       {
@@ -347,7 +347,7 @@ export const helpArticles: HelpArticle[] = [
         heading: "Step 4: Review and Submit",
         paragraphs: [
           "Review all information for accuracy before final submission. Once submitted, you cannot modify your application during the review process.",
-          "Pay the 2 ICP submission fee to begin professional review. Standard processing takes 24-48 hours."
+          "Pay the 5 ICP submission fee to begin professional review. Standard processing takes 24-48 hours."
         ],
         warning: "Double-check all information before submitting. Inaccurate information can delay approval or result in rejection."
       }
