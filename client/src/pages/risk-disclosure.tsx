@@ -153,7 +153,7 @@ export default function RiskDisclosure() {
             Please read this disclosure carefully before using our services.
           </p>
           <p className="text-sm text-muted-foreground mt-4">
-            Last updated: January 1, 2025
+            Last updated: September 29, 2025
           </p>
         </div>
 
@@ -326,8 +326,8 @@ export default function RiskDisclosure() {
                   <h4 className="font-semibold text-foreground mb-2">Contact Information</h4>
                   <p>
                     Questions regarding this Risk Disclosure should be directed to: <br/>
-                    Email: risk@rwapawn.io <br/>
-                    This disclosure is effective as of January 1, 2025.
+                    Email: info@rwapawn.io <br/>
+                    This disclosure is effective as of September 29, 2025.
                   </p>
                 </div>
               </div>
