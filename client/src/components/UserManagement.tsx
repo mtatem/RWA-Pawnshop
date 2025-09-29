@@ -24,7 +24,8 @@ import {
   UserCheck,
   AlertCircle,
   Fingerprint,
-  Key
+  Key,
+  Trash2
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -39,6 +40,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, getQueryFn } from "@/lib/queryClient";
+import { useAuth } from "@/hooks/useAuth";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -116,6 +118,7 @@ interface UserDetailsData {
 export default function UserManagement() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { roles } = useAuth();
   
   // State for filters and selection
   const [searchTerm, setSearchTerm] = useState('');
@@ -130,6 +133,7 @@ export default function UserManagement() {
   const [isEditUserOpen, setIsEditUserOpen] = useState(false);
   const [isRoleChangeOpen, setIsRoleChangeOpen] = useState(false);
   const [isPasswordResetOpen, setIsPasswordResetOpen] = useState(false);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<UserAccount | null>(null);
 
   // Form for user flagging
@@ -370,6 +374,30 @@ export default function UserManagement() {
     }
   });
 
+  // Delete user mutation (Administrator only)
+  const deleteUserMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      const response = await apiRequest("DELETE", `/api/admin/users/${userId}`, {});
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "User Deleted",
+        description: "User has been permanently deleted from the system.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      setIsDeleteConfirmOpen(false);
+      setSelectedUser(null);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to Delete User",
+        description: error.message || "An error occurred while deleting the user.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const getVerificationIcon = (status: string) => {
     switch (status) {
       case 'verified': return <CheckCircle className="h-4 w-4 text-green-600" />;
@@ -503,6 +531,11 @@ export default function UserManagement() {
       newRole: data.newRole,
       reason: data.reason
     });
+  };
+
+  const handleDeleteUser = () => {
+    if (!selectedUser) return;
+    deleteUserMutation.mutate(selectedUser.id);
   };
 
   const filteredUsers = userManagementData?.users || [];
@@ -1074,6 +1107,19 @@ export default function UserManagement() {
                         )}
                         <DropdownMenuItem>Contact User</DropdownMenuItem>
                         <DropdownMenuItem>View Transaction History</DropdownMenuItem>
+                        {roles.isAdministrator && (
+                          <DropdownMenuItem 
+                            onClick={() => {
+                              setSelectedUser(user);
+                              setIsDeleteConfirmOpen(true);
+                            }}
+                            className="text-red-600 focus:text-red-600"
+                            data-testid={`button-delete-user-${user.id}`}
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete User
+                          </DropdownMenuItem>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
@@ -1130,6 +1176,57 @@ export default function UserManagement() {
               updateUserMutation={updateUserMutation}
             />
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <AlertTriangle className="h-5 w-5" />
+              Confirm User Deletion
+            </DialogTitle>
+            <DialogDescription>
+              This action cannot be undone. The user and all their data will be permanently deleted from the system.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {selectedUser && (
+              <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+                <p className="font-medium text-red-800">User to be deleted:</p>
+                <p className="text-sm text-red-700">
+                  {selectedUser.firstName} {selectedUser.lastName} ({selectedUser.email || selectedUser.username})
+                </p>
+                <p className="text-sm text-red-700">Role: {selectedUser.role}</p>
+              </div>
+            )}
+            <p className="text-sm text-muted-foreground">
+              Are you absolutely sure you want to delete this user? This action will:
+            </p>
+            <ul className="text-sm text-muted-foreground list-disc list-inside space-y-1">
+              <li>Permanently remove the user account</li>
+              <li>Delete all associated data and records</li>
+              <li>Revoke all access and permissions</li>
+            </ul>
+            <div className="flex justify-end space-x-2 pt-4">
+              <Button
+                variant="outline"
+                onClick={() => setIsDeleteConfirmOpen(false)}
+                data-testid="button-cancel-delete"
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleDeleteUser}
+                disabled={deleteUserMutation.isPending}
+                data-testid="button-confirm-delete"
+              >
+                {deleteUserMutation.isPending ? "Deleting..." : "Delete User"}
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
 
