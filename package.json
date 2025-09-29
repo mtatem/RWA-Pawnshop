@@ -90,6 +90,7 @@
     "isomorphic-dompurify": "^2.27.0",
     "jsonwebtoken": "^9.0.2",
     "lucide-react": "^0.453.0",
+    "md-to-pdf": "^5.2.4",
     "memoizee": "^0.4.17",
     "memorystore": "^1.6.7",
     "multer": "^2.0.2",
