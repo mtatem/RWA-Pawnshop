@@ -1,5 +1,5 @@
 import { Coins, MessageCircle } from "lucide-react";
-import logoImage from "@assets/rwa-pawn-logo-blk_1759110265399.png";
+import logoImage from "@assets/rwapawnshop-logo_1759110907225.png";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import ChatPopup from "@/components/chat-popup";

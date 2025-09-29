@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { Wallet, Coins, Menu, X, LogOut, User, Plug, UserPlus } from "lucide-react";
-import logoImage from "@assets/rwa-pawn-logo-blk_1759110265399.png";
+import logoImage from "@assets/rwapawnshop-logo_1759110907225.png";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
