@@ -3,8 +3,26 @@ import Footer from "@/components/footer";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Shield, Lock, Eye, Server, Fingerprint, AlertTriangle, CheckCircle, Globe } from "lucide-react";
+import SEO from "@/components/seo";
 
 export default function Security() {
+  return (
+    <div className="min-h-screen">
+      <SEO 
+        title="Security - Secure Real World Assets on ICP Blockchain | RWAPAWN"
+        description="Enterprise-grade security for pawning real world assets on the ICP blockchain. Military-grade encryption, blockchain transparency, and secure cryptocurrency loans. Learn how we protect your ICP assets."
+        keywords="ICP Blockchain, Real World Assets, ICP Assets, Blockchain Pawnshop, Cryptocurrency Pawnshop, Secure RWA"
+        ogTitle="Security Features - Protected RWA on ICP Blockchain"
+        ogDescription="Advanced security measures protect your real world assets on the ICP blockchain. Encrypted transactions, immutable records, verified authenticity."
+      />
+      <Navigation />
+      <SecurityContent />
+      <Footer />
+    </div>
+  );
+}
+
+function SecurityContent() {
   const securityFeatures = [
     {
       icon: <Shield className="w-8 h-8 text-primary" />,
@@ -90,9 +108,7 @@ export default function Security() {
   ];
 
   return (
-    <div className="min-h-screen bg-black">
-      <Navigation />
-      
+    <>
       <div className="container mx-auto px-4 py-16">
         {/* Header */}
         <div className="text-center mb-16">
@@ -207,8 +223,6 @@ export default function Security() {
           </CardContent>
         </Card>
       </div>
-
-      <Footer />
-    </div>
+    </>
   );
 }

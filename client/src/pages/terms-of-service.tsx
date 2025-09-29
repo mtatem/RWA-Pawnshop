@@ -3,6 +3,7 @@ import Footer from "@/components/footer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import SEO from "@/components/seo";
 
 export default function TermsOfService() {
   const sections = [
@@ -164,6 +165,13 @@ These Terms are effective as of January 1, 2025, and were last updated on Septem
 
   return (
     <div className="min-h-screen bg-black">
+      <SEO 
+        title="Terms of Service - ICP Real World Assets Pawnshop | RWAPAWN"
+        description="Read the terms of service for pawning real world assets on the ICP blockchain. Legal terms for cryptocurrency loans, blockchain pawnshop usage, and RWA transactions."
+        keywords="Real World Assets, ICP Blockchain, ICP Assets, Blockchain Pawnshop, Terms of Service"
+        ogTitle="Terms of Service - RWAPAWN ICP Blockchain"
+        ogDescription="Legal terms for using the ICP real world assets pawnshop and cryptocurrency loan platform."
+      />
       <Navigation />
       
       <div className="container mx-auto px-4 py-16">
