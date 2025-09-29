@@ -7,14 +7,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useICPWallet } from "@/hooks/useICPWallet";
 import { apiRequest } from "@/lib/queryClient";
 import type { MarketplaceAsset } from "@shared/schema";
-import luxuryHouseImage from "@assets/generated_images/Luxury_modern_house_exterior_4597f8e9.png";
-import diamondNecklaceImage from "@assets/generated_images/Diamond_tennis_necklace_display_ec61d518.png";
-import luxuryCarImage from "@assets/generated_images/Black_luxury_sports_car_d4206fb8.png";
+import { demoMarketplaceAssets, demoAssetImages } from "@shared/demo-assets";
 
 
 export default function AssetMarketplace() {
@@ -33,72 +32,18 @@ export default function AssetMarketplace() {
   const { user, isAuthenticated } = useAuth();
   const { wallet, sendTransaction } = useICPWallet();
 
-  // Demo marketplace assets
-  const demoAssets: MarketplaceAsset[] = [
-    {
-      id: "demo-real-estate-1",
-      loanId: "loan-demo-1",
-      assetName: "Modern Luxury Villa in Beverly Hills",
-      category: "Real Estate",
-      originalValue: "2850000.00",
-      startingPrice: "1995000.00",
-      currentBid: "2150000.00",
-      highestBidder: "user-demo-1",
-      imageUrl: luxuryHouseImage,
-      description: "Stunning contemporary 4-bedroom, 5-bathroom villa featuring open-concept living spaces, floor-to-ceiling windows, gourmet kitchen with premium appliances, infinity pool, and breathtaking city views. Located in the prestigious Beverly Hills area with 24/7 security.",
-      daysExpired: 7,
-      status: "available",
-      soldAt: null,
-      soldPrice: null,
-      createdAt: new Date("2024-12-15T00:00:00.000Z"),
-      updatedAt: new Date("2024-12-22T00:00:00.000Z"),
-    },
-    {
-      id: "demo-jewelry-1", 
-      loanId: "loan-demo-2",
-      assetName: "18K White Gold Diamond Tennis Necklace",
-      category: "Jewelry",
-      originalValue: "125000.00",
-      startingPrice: "87500.00",
-      currentBid: "95000.00",
-      highestBidder: "user-demo-2",
-      imageUrl: diamondNecklaceImage,
-      description: "Exquisite tennis necklace featuring 15 carats of premium VS1 clarity diamonds set in 18K white gold. Each diamond is expertly cut and hand-selected for maximum brilliance. Includes GIA certification and original Cartier presentation box.",
-      daysExpired: 3,
-      status: "available",
-      soldAt: null,
-      soldPrice: null,
-      createdAt: new Date("2024-12-18T00:00:00.000Z"),
-      updatedAt: new Date("2024-12-21T00:00:00.000Z"),
-    },
-    {
-      id: "demo-automotive-1",
-      loanId: "loan-demo-3",
-      assetName: "2023 Porsche 911 Turbo S Coupe",
-      category: "Automotive", 
-      originalValue: "285000.00",
-      startingPrice: "199500.00",
-      currentBid: "215000.00",
-      highestBidder: "user-demo-3",
-      imageUrl: luxuryCarImage,
-      description: "Pristine 2023 Porsche 911 Turbo S in Jet Black Metallic with only 1,200 miles. Features twin-turbo 3.8L flat-six engine producing 640 HP, PDK transmission, sport chrono package, premium leather interior, and ceramic composite brakes. Includes full manufacturer warranty.",
-      daysExpired: 12,
-      status: "available",
-      soldAt: null,
-      soldPrice: null,
-      createdAt: new Date("2024-12-10T00:00:00.000Z"),
-      updatedAt: new Date("2024-12-22T00:00:00.000Z"),
-    }
-  ];
-
   // Fetch real marketplace assets from API
   const { data: apiAssets = [], isLoading } = useQuery<MarketplaceAsset[]>({
     queryKey: ["/api/marketplace/assets"],
   });
 
-  // Combine demo assets with API assets
+  // Enhance demo assets with images and combine with API assets
   const allAssets = useMemo(() => {
-    return [...demoAssets, ...apiAssets];
+    const enhancedDemoAssets = demoMarketplaceAssets.map(asset => ({
+      ...asset,
+      imageUrl: demoAssetImages[asset.id] || asset.imageUrl
+    }));
+    return [...enhancedDemoAssets, ...apiAssets];
   }, [apiAssets]);
 
   // Apply filters to the combined assets
@@ -373,16 +318,26 @@ export default function AssetMarketplace() {
                     </div>
                   </div>
 
-                  <Dialog>
-                    <DialogTrigger asChild>
+                  <div className="flex gap-2">
+                    <Link href={`/asset/${asset.id}`} className="flex-1">
                       <Button
-                        onClick={() => handlePlaceBid(asset)}
-                        className="w-full h-11 sm:h-10 text-sm bg-primary hover:bg-primary/90 text-primary-foreground"
-                        data-testid={`button-place-bid-${asset.id}`}
+                        variant="outline"
+                        className="w-full h-11 sm:h-10 text-sm"
+                        data-testid={`button-view-details-${asset.id}`}
                       >
-                        Place Bid
+                        View Details
                       </Button>
-                    </DialogTrigger>
+                    </Link>
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button
+                          onClick={() => handlePlaceBid(asset)}
+                          className="flex-1 h-11 sm:h-10 text-sm bg-primary hover:bg-primary/90 text-primary-foreground"
+                          data-testid={`button-place-bid-${asset.id}`}
+                        >
+                          Place Bid
+                        </Button>
+                      </DialogTrigger>
                     <DialogContent className="sm:max-w-md">
                       <DialogHeader>
                         <DialogTitle className="text-base sm:text-lg">Place Bid on {asset.assetName}</DialogTitle>
@@ -429,6 +384,7 @@ export default function AssetMarketplace() {
                       </div>
                     </DialogContent>
                   </Dialog>
+                  </div>
                 </div>
               </Card>
             ))}
