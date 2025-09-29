@@ -6,8 +6,6 @@ import Stripe from "stripe";
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { jsPDF } from 'jspdf';
-import MarkdownIt from 'markdown-it';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -4897,108 +4895,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   );
 
-  // Helper function to generate PDF from markdown
-  const generateWhitepaperPDF = (markdownContent: string): Buffer => {
-    const md = new MarkdownIt();
-    const doc = new jsPDF();
-    
-    // Parse markdown and extract text content
-    const tokens = md.parse(markdownContent, {});
-    let yPosition = 20;
-    const pageHeight = 280;
-    const margin = 20;
-    const lineHeight = 6;
-    
-    // PDF styling
-    doc.setFont('helvetica');
-    
-    const addText = (text: string, fontSize: number = 10, isBold: boolean = false) => {
-      if (yPosition > pageHeight - margin) {
-        doc.addPage();
-        yPosition = 20;
-      }
-      
-      doc.setFontSize(fontSize);
-      if (isBold) doc.setFont('helvetica', 'bold');
-      else doc.setFont('helvetica', 'normal');
-      
-      // Split long text into multiple lines
-      const lines = doc.splitTextToSize(text, 170);
-      lines.forEach((line: string) => {
-        if (yPosition > pageHeight - margin) {
-          doc.addPage();
-          yPosition = 20;
-        }
-        doc.text(line, margin, yPosition);
-        yPosition += lineHeight;
-      });
-      
-      yPosition += 2; // Extra spacing
-    };
-    
-    // Process tokens and convert to PDF
-    tokens.forEach(token => {
-      switch (token.type) {
-        case 'heading_open':
-          const level = parseInt(token.tag.substring(1));
-          const headingSize = level === 1 ? 16 : level === 2 ? 14 : 12;
-          const nextToken = tokens[tokens.indexOf(token) + 1];
-          if (nextToken && nextToken.type === 'inline') {
-            addText(nextToken.content, headingSize, true);
-            yPosition += 4; // Extra spacing after headings
-          }
-          break;
-          
-        case 'paragraph_open':
-          const nextPToken = tokens[tokens.indexOf(token) + 1];
-          if (nextPToken && nextPToken.type === 'inline' && nextPToken.content.trim()) {
-            addText(nextPToken.content, 10);
-            yPosition += 2;
-          }
-          break;
-          
-        case 'bullet_list_open':
-        case 'ordered_list_open':
-          yPosition += 2;
-          break;
-          
-        case 'list_item_open':
-          const nextLiToken = tokens[tokens.indexOf(token) + 2]; // Skip paragraph_open
-          if (nextLiToken && nextLiToken.type === 'inline') {
-            addText(`• ${nextLiToken.content}`, 10);
-          }
-          break;
-          
-        case 'hr':
-          yPosition += 4;
-          doc.line(margin, yPosition, 190, yPosition);
-          yPosition += 4;
-          break;
-      }
-    });
-    
-    return Buffer.from(doc.output('arraybuffer'));
-  };
-
   // Whitepaper PDF download endpoint
   app.get('/api/whitepaper/download-pdf', async (req, res) => {
     try {
-      // Path to the whitepaper markdown file
-      const whitepaperPath = path.join(__dirname, '..', 'RWAPAWN_Whitepaper.md');
+      // Path to the whitepaper PDF file
+      const whitepaperPath = path.join(__dirname, '..', 'RWAPAWN_Whitepaper.pdf');
       
       if (!fs.existsSync(whitepaperPath)) {
         return res.status(404).json({
           success: false,
-          error: 'Whitepaper file not found',
+          error: 'Whitepaper PDF file not found',
           code: 'FILE_NOT_FOUND'
         });
       }
 
-      // Read markdown content
-      const markdownContent = fs.readFileSync(whitepaperPath, 'utf8');
-      
-      // Generate PDF
-      const pdfBuffer = generateWhitepaperPDF(markdownContent);
+      // Read PDF file
+      const pdfBuffer = fs.readFileSync(whitepaperPath);
       
       // Set headers for PDF download
       res.setHeader('Content-Type', 'application/pdf');
@@ -5009,11 +4921,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.send(pdfBuffer);
       
     } catch (error) {
-      console.error('Error generating whitepaper PDF:', error);
+      console.error('Error serving whitepaper PDF:', error);
       res.status(500).json({
         success: false,
-        error: 'Failed to generate whitepaper PDF',
-        code: 'PDF_GENERATION_ERROR',
+        error: 'Failed to serve whitepaper PDF',
+        code: 'PDF_SERVE_ERROR',
         timestamp: new Date().toISOString()
       });
     }
