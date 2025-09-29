@@ -195,7 +195,8 @@ export default function UserManagement() {
       const response = await fetch(`/api/admin/users?${params}`);
       if (response.status === 401) throw new Error('Unauthorized');
       if (!response.ok) throw new Error('Failed to fetch users');
-      return response.json();
+      const result = await response.json();
+      return result.data; // Extract the data property
     },
     refetchInterval: 30000, // Refresh every 30 seconds
   });
