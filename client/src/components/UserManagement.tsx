@@ -390,11 +390,24 @@ export default function UserManagement() {
       setSelectedUser(null);
     },
     onError: (error: any) => {
-      toast({
-        title: "Failed to Delete User",
-        description: error.message || "An error occurred while deleting the user.",
-        variant: "destructive",
-      });
+      // Handle specific error cases
+      if (error.code === 'DELETE_BLOCKED_BY_DEPENDENCIES') {
+        const dependencyList = error.dependencies
+          ?.map((dep: any) => dep.description)
+          .join(', ') || 'existing records';
+        
+        toast({
+          title: "Cannot Delete User",
+          description: `User cannot be deleted because they have ${dependencyList}. Please resolve these dependencies first.`,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Failed to Delete User", 
+          description: error.message || "An error occurred while deleting the user.",
+          variant: "destructive",
+        });
+      }
     },
   });
 
