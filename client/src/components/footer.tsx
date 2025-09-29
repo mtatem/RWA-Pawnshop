@@ -102,7 +102,7 @@ export default function Footer() {
         </div>
 
         <div className="border-t border-border mt-8 pt-8 text-center text-sm text-muted-foreground">
-          <p>&copy; 2025 ICP RWA Pawn. All rights reserved. Powered by Internet Computer Protocol.</p>
+          <p>&copy; 2025 ICP RWA Pawn. All rights reserved. Powered by Internet Computer Protocol. </p><p>Website Designed and Developed By Tatem Web Design LLC.</p>
         </div>
 
         <div className="flex justify-center mt-6">

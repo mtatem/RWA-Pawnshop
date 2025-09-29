@@ -239,7 +239,7 @@ We aim to respond to privacy inquiries within:
 • 30 days for complete investigation and response
 • Additional time may be needed for complex requests
 
-This Privacy Policy is effective as of January 1, 2025, and was last updated on January 1, 2025.`
+This Privacy Policy is effective as of January 1, 2025, and was last updated on September 29, 2025.`
     }
   ];
 
@@ -281,7 +281,7 @@ This Privacy Policy is effective as of January 1, 2025, and was last updated on 
             your information when you use our platform.
           </p>
           <p className="text-sm text-muted-foreground mt-4">
-            Last updated: January 1, 2025
+            Last updated: September 29, 2025
           </p>
         </div>
 
@@ -336,7 +336,7 @@ This Privacy Policy is effective as of January 1, 2025, and was last updated on 
                   We're committed to protecting your privacy and answering any questions you may have.
                 </p>
                 <p className="text-sm text-blue-700 dark:text-blue-300">
-                  Contact our Privacy Team: <strong>privacy@rwapawn.io</strong>
+                  Contact our Privacy Team: <strong>info@rwapawn.io</strong>
                 </p>
               </div>
             </CardContent>

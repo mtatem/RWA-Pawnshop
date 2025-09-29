@@ -221,13 +221,12 @@ export default function Fees() {
           <CardHeader>
             <div className="flex items-center justify-center space-x-3 mb-4">
               <Calculator className="w-8 h-8 text-primary" />
-              <CardTitle className="text-2xl text-center">Calculate Your Loan Costs</CardTitle>
+              <CardTitle className="text-2xl text-center">We Can Help You Calculate Your Loan Costs</CardTitle>
             </div>
           </CardHeader>
           <CardContent className="text-center space-y-4">
             <p className="text-muted-foreground max-w-2xl mx-auto">
-              Want to know exactly how much your loan will cost? Use our loan calculator 
-              to get precise estimates based on your asset value and loan terms.
+              Want to know exactly how much your loan will cost? Contact us directly to learn more about the fees and costs associated with pawning your assets.
             </p>
             <div className="grid md:grid-cols-3 gap-6 mt-8">
               <div className="text-center">
