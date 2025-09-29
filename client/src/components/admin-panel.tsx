@@ -192,7 +192,7 @@ export default function AdminPanel() {
             </div>
           ) : (
             <div className="space-y-4">
-              {pendingSubmissions.map((submission) => {
+              {pendingSubmissions.map((submission: any) => {
                 const maxLoan = (parseFloat(submission.estimatedValue) * 0.7).toFixed(2);
                 
                 return (
