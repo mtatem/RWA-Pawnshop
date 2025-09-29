@@ -198,7 +198,7 @@ export default function RwaSubmissionForm() {
 
       // Check if user has sufficient balance for fee
       if (wallet.balance < 2) {
-        throw new Error('Insufficient ICP balance. You need at least 2 ICP to cover the pawning fee.');
+        throw new Error('Insufficient ICP balance. You need at least 5 ICP to cover the pawning fee.');
       }
 
       // Create submission first (without documents)
@@ -648,11 +648,11 @@ export default function RwaSubmissionForm() {
           <Card className="bg-muted p-4">
             <div className="flex justify-between items-center mb-2">
               <span className="text-sm">Pawning Fee:</span>
-              <span className="font-medium">2 ICP</span>
+              <span className="font-medium">5 ICP</span>
             </div>
             <div className="flex justify-between items-center mb-2">
               <span className="text-sm">Your Balance:</span>
-              <span className={`font-medium ${wallet && wallet.balance < 2 ? 'text-destructive' : 'text-foreground'}`}>
+              <span className={`font-medium ${wallet && wallet.balance < 5 ? 'text-destructive' : 'text-foreground'}`}>
                 {wallet ? `${wallet.balance.toFixed(4)} ICP` : 'Not connected'}
               </span>
             </div>
@@ -665,7 +665,7 @@ export default function RwaSubmissionForm() {
           <Button
             type="submit"
             className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
-            disabled={submitMutation.isPending || !isAuthenticated || !isConnected || (wallet ? wallet.balance < 2 : false) || user?.kycStatus !== "completed"}
+            disabled={submitMutation.isPending || !isAuthenticated || !isConnected || (wallet ? wallet.balance < 5 : false) || user?.kycStatus !== "completed"}
             data-testid="button-submit-rwa"
           >
             {submitMutation.isPending 
@@ -676,9 +676,9 @@ export default function RwaSubmissionForm() {
               ? "Complete KYC Verification First"
               : !isConnected 
               ? "Connect ICP Wallet First" 
-              : wallet && wallet.balance < 2 
+              : wallet && wallet.balance < 5 
               ? "Insufficient ICP Balance" 
-              : "Submit for Pawning (2 ICP)"}
+              : "Submit for Pawning (5 ICP)"}
           </Button>
         </form>
       </Form>
