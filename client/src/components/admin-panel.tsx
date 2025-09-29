@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/queryClient";
 
 interface AdminStats {
@@ -26,6 +27,7 @@ interface PendingSubmission {
 export default function AdminPanel() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   const { data: stats } = useQuery({
     queryKey: ["/api/admin/stats"],
@@ -37,29 +39,13 @@ export default function AdminPanel() {
     } as AdminStats,
   });
 
-  // Mock data for pending submissions
+  // Fetch real pending submissions from API
   const { data: pendingSubmissions = [] } = useQuery({
     queryKey: ["/api/rwa-submissions/pending"],
-    initialData: [
-      {
-        id: "1",
-        assetName: "Vintage Rolex Daytona",
-        category: "Luxury Watch",
-        estimatedValue: "25000.00",
-        walletAddress: "abc123...def789",
-        userId: "user1",
-        createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-      },
-      {
-        id: "2",
-        assetName: "Picasso Lithograph",
-        category: "Art & Collectibles",
-        estimatedValue: "45000.00",
-        walletAddress: "xyz789...abc123",
-        userId: "user2",
-        createdAt: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
-      },
-    ] as PendingSubmission[],
+    queryFn: async () => {
+      const response = await apiRequest("GET", "/api/rwa-submissions/pending", {});
+      return response.json();
+    },
   });
 
   const approvalMutation = useMutation({
@@ -67,7 +53,7 @@ export default function AdminPanel() {
       const response = await apiRequest("PATCH", `/api/rwa-submissions/${id}/status`, {
         status,
         adminNotes,
-        reviewedBy: "admin-user-id",
+        reviewedBy: user?.id || "unknown-admin",
       });
       return response.json();
     },
