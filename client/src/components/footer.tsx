@@ -1,5 +1,5 @@
 import { Coins, MessageCircle } from "lucide-react";
-import logoImage from "@assets/rwapawnshop-logo-1_1759111692507.png";
+import logoImage from "@assets/rwa-pawnshop-logo_1759117333505.png";
 import { useState } from "react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
