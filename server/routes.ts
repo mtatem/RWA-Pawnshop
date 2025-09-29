@@ -4580,6 +4580,82 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Delete User (Administrator only - dangerous operation)
+  app.delete("/api/admin/users/:userId", requireRole(USER_ROLES.ADMINISTRATOR), async (req: any, res) => {
+    try {
+      const { userId } = req.params;
+      const adminId = req.user?.id || req.user?.claims?.sub;
+
+      // Validate that user exists
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          error: 'User not found',
+          code: 'USER_NOT_FOUND'
+        });
+      }
+
+      // Prevent self-deletion
+      if (userId === adminId) {
+        return res.status(400).json({
+          success: false,
+          error: 'Cannot delete your own account',
+          code: 'SELF_DELETE_FORBIDDEN'
+        });
+      }
+
+      // Log admin action before deletion
+      await storage.createAdminAction({
+        adminId: adminId || 'system',
+        actionType: 'user_delete',
+        targetType: 'user',
+        targetId: userId,
+        actionDetails: { 
+          deletedUser: {
+            id: user.id,
+            email: user.email,
+            username: user.username,
+            role: user.role,
+            firstName: user.firstName,
+            lastName: user.lastName
+          },
+          timestamp: new Date().toISOString()
+        },
+        adminNotes: 'User account permanently deleted',
+        severity: 'critical',
+        ipAddress: req.ip || '0.0.0.0',
+        userAgent: req.get('User-Agent') || 'Unknown',
+        sessionId: req.sessionID || 'unknown',
+      });
+
+      // Delete the user
+      const deleted = await storage.deleteUser(userId);
+      
+      if (deleted) {
+        res.json({
+          success: true,
+          message: `User ${user.email || user.username} has been permanently deleted`,
+          data: { userId: user.id }
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          error: 'Failed to delete user',
+          code: 'DELETE_FAILED'
+        });
+      }
+      
+    } catch (error) {
+      console.error('Delete user error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to delete user',
+        code: 'INTERNAL_ERROR'
+      });
+    }
+  });
+
   // BRIDGE MONITORING
 
   // Get Bridge Monitoring Data
