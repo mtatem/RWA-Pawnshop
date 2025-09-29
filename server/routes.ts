@@ -4480,6 +4480,101 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin Reset User Password
+  app.post("/api/admin/users/:userId/reset-password", requireRole(USER_ROLES.ADMINISTRATOR), async (req: any, res) => {
+    try {
+      const { userId } = req.params;
+      const { newPassword, reason } = req.body;
+      const adminId = req.user?.id;
+
+      // Validate inputs
+      if (!newPassword || !reason) {
+        return res.status(400).json({ 
+          success: false,
+          error: "New password and reason are required" 
+        });
+      }
+
+      if (newPassword.length < 8) {
+        return res.status(400).json({
+          success: false,
+          error: 'Password must be at least 8 characters',
+          code: 'INVALID_PASSWORD'
+        });
+      }
+
+      // Get user to verify they exist
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          error: 'User not found',
+          code: 'USER_NOT_FOUND'
+        });
+      }
+
+      // Hash new password
+      const newPasswordHash = await bcrypt.hash(newPassword, 12);
+      
+      // Update user password
+      await storage.updateUserPassword(userId, newPasswordHash);
+
+      // Clear any existing password reset tokens
+      try {
+        await storage.clearPasswordResetToken(userId);
+      } catch (error) {
+        // Ignore if method doesn't exist
+      }
+
+      // Log admin action
+      await storage.createAdminAction({
+        adminId: adminId || 'system',
+        actionType: 'password_reset',
+        targetType: 'user',
+        targetId: userId,
+        actionDetails: { 
+          resetBy: adminId,
+          reason: reason,
+          userEmail: user.email,
+          timestamp: new Date().toISOString() 
+        },
+        adminNotes: reason,
+        severity: 'medium',
+        ipAddress: req.ip || '0.0.0.0',
+        userAgent: req.get('User-Agent') || 'Unknown',
+        sessionId: req.sessionID || 'unknown',
+      });
+
+      // Log user activity as well
+      await storage.logUserActivity({
+        userId: userId,
+        activityType: 'password_change',
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent'),
+        success: true,
+        details: { 
+          resetByAdmin: adminId,
+          reason: reason,
+          timestamp: new Date().toISOString() 
+        }
+      });
+      
+      res.json({
+        success: true,
+        message: `Password reset successfully for user ${user.email || user.username}`,
+        data: { userId: user.id, email: user.email }
+      });
+      
+    } catch (error) {
+      console.error('Admin reset password error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to reset password',
+        code: 'INTERNAL_ERROR'
+      });
+    }
+  });
+
   // BRIDGE MONITORING
 
   // Get Bridge Monitoring Data
