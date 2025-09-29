@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { CheckCircle, Upload, Coins, Clock, ShoppingCart, RefreshCw } from "lucide-react";
 import { Link } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
+import SEO from "@/components/seo";
 
 export default function HowItWorks() {
   const { isAuthenticated } = useAuth();
@@ -79,6 +80,13 @@ export default function HowItWorks() {
 
   return (
     <div className="min-h-screen bg-black">
+      <SEO 
+        title="How It Works - Pawning Real World Assets on ICP Blockchain | RWAPAWN"
+        description="Learn how to pawn real world assets on the ICP blockchain. Step-by-step guide to getting cryptocurrency loans with your RWA. Submit assets, get instant approval, receive ICP loans directly to your wallet."
+        keywords="Pawning Real World Assets, ICP Blockchain, Real World Assets on ICP, Cryptocurrency Loans, ICP Assets, Blockchain Pawnshop"
+        ogTitle="How Pawning Real World Assets Works on ICP"
+        ogDescription="Discover the simple process of getting cryptocurrency loans by pawning real world assets on the ICP blockchain. Fast, secure, transparent."
+      />
       <Navigation />
       
       <div className="container mx-auto px-4 py-16">

@@ -7,6 +7,7 @@ import { Separator } from "@/components/ui/separator";
 import { ArrowLeft, Eye, Calendar, MapPin, Wallet, TrendingUp, Shield, Award } from "lucide-react";
 import type { MarketplaceAsset } from "@shared/schema";
 import { demoMarketplaceAssets, getEnhancedDemoAsset, type ExtendedDemoAsset } from "@shared/demo-assets";
+import SEO from "@/components/seo";
 
 export default function AssetDetail() {
   const { assetId } = useParams<{ assetId: string }>();
@@ -74,6 +75,14 @@ export default function AssetDetail() {
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-6xl">
+      <SEO 
+        title={`${enhancedAsset.assetName} - Real World Asset on ICP Blockchain | RWAPAWN`}
+        description={`${enhancedAsset.description?.substring(0, 150) || 'View this real world asset'}... View and bid on this ${enhancedAsset.category} real world asset. Starting at ${formatCurrency(enhancedAsset.startingPrice)} on the ICP blockchain pawnshop marketplace.`}
+        keywords={`Real World Assets, ICP Assets, Real World Assets on ICP, Blockchain Pawnshop, Cryptocurrency Pawnshop, ${enhancedAsset.category}`}
+        ogTitle={`${enhancedAsset.assetName} - RWA on ICP`}
+        ogDescription={`${enhancedAsset.category} available on the ICP blockchain marketplace. Current bid: ${enhancedAsset.currentBid ? formatCurrency(enhancedAsset.currentBid) : formatCurrency(enhancedAsset.startingPrice)}`}
+        ogImage={enhancedAsset.imageUrl || undefined}
+      />
       {/* Back Navigation */}
       <div className="mb-6">
         <Link href="/marketplace">

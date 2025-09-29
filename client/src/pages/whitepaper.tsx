@@ -5,6 +5,7 @@ import { Separator } from "@/components/ui/separator";
 import { ExternalLink, Download, ArrowRight, Shield, TrendingUp, Users, Coins, Clock, Target, Globe, Award } from "lucide-react";
 import Footer from "@/components/footer";
 import { Link } from "wouter";
+import SEO from "@/components/seo";
 
 export default function WhitepaperPage() {
   const handleDownload = () => {
@@ -19,6 +20,13 @@ export default function WhitepaperPage() {
 
   return (
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: '#000000' }}>
+      <SEO 
+        title="Whitepaper - RWAPAWN Token | Real World Assets on ICP Blockchain"
+        description="Read the official RWAPAWN Token whitepaper. Learn about our revolutionary approach to pawning real world assets on the ICP blockchain, tokenomics, and cryptocurrency loans backed by RWA."
+        keywords="Real World Assets, ICP Blockchain, ICP Assets, Cryptocurrency Pawnshop, Blockchain Pawnshop, RWAPAWN Token, Whitepaper"
+        ogTitle="RWAPAWN Whitepaper - RWA on ICP Blockchain"
+        ogDescription="Discover how RWAPAWN revolutionizes real world asset lending through blockchain innovation. Download the official whitepaper."
+      />
       {/* Header */}
       <div className="container mx-auto px-4 py-8 sm:py-12 lg:py-16">
         <div className="text-center mb-12 sm:mb-16">

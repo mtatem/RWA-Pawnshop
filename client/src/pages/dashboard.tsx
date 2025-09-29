@@ -2,10 +2,18 @@ import Navigation from "@/components/navigation";
 import RwaSubmissionForm from "@/components/rwa-submission-form";
 import ActivePawns from "@/components/active-pawns";
 import Footer from "@/components/footer";
+import SEO from "@/components/seo";
 
 export default function Dashboard() {
   return (
     <div className="min-h-screen">
+      <SEO 
+        title="Dashboard - Pawn Your Real World Assets | RWAPAWN ICP Blockchain"
+        description="Submit your real world assets for pawning and manage active cryptocurrency loans. Track your ICP assets, view loan status, and get instant liquidity on the blockchain pawnshop."
+        keywords="Pawn Real World Assets, ICP Blockchain, Cryptocurrency Loans, ICP Assets, Real World Assets on ICP, Blockchain Pawnshop"
+        ogTitle="Dashboard - Manage Your RWA Pawn Loans"
+        ogDescription="Submit assets, track loans, and manage your real world assets on the ICP blockchain. Instant cryptocurrency loans at your fingertips."
+      />
       <Navigation />
       
       <section className="py-8 sm:py-12 lg:py-16 px-4 sm:px-6 lg:px-8">

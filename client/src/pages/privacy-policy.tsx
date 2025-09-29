@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Shield, Eye, Lock, Database } from "lucide-react";
+import SEO from "@/components/seo";
 
 export default function PrivacyPolicy() {
   const sections = [
@@ -268,6 +269,13 @@ This Privacy Policy is effective as of January 1, 2025, and was last updated on 
 
   return (
     <div className="min-h-screen bg-black">
+      <SEO 
+        title="Privacy Policy - Secure Real World Assets on ICP | RWAPAWN"
+        description="Privacy policy for pawning real world assets on the ICP blockchain. Learn how we protect your data on the blockchain pawnshop and cryptocurrency loan platform."
+        keywords="Real World Assets, ICP Blockchain, Privacy Policy, Blockchain Pawnshop"
+        ogTitle="Privacy Policy - RWAPAWN ICP Blockchain"
+        ogDescription="Data privacy and security for real world assets on the ICP blockchain pawnshop."
+      />
       <Navigation />
       
       <div className="container mx-auto px-4 py-16">

@@ -27,6 +27,7 @@ import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "wouter";
+import SEO from "@/components/seo";
 
 export default function ContactUs() {
   const { toast } = useToast();
@@ -144,6 +145,13 @@ export default function ContactUs() {
 
   return (
     <div className="min-h-screen bg-black">
+      <SEO 
+        title="Contact Us - Support for Real World Assets on ICP | RWAPAWN"
+        description="Get in touch with RWAPAWN support for help with pawning real world assets on the ICP blockchain. 24/7 support for cryptocurrency loans, ICP assets, and blockchain pawnshop services."
+        keywords="Pawning Real World Assets, ICP Blockchain, Real World Assets Support, ICP Assets, Cryptocurrency Loans, Blockchain Pawnshop"
+        ogTitle="Contact Us - RWAPAWN Support"
+        ogDescription="Contact RWAPAWN for support with real world assets on the ICP blockchain. 24/7 assistance available."
+      />
       <Navigation />
       
       <div className="container mx-auto px-4 py-16">
