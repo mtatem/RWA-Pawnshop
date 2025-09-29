@@ -2601,6 +2601,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         reviewedBy
       );
       
+      // Check if submission exists
+      if (!submission) {
+        return res.status(404).json({ error: "Submission not found" });
+      }
+      
       // If approved, create a pawn loan
       if (status === "approved") {
         const loanAmount = (parseFloat(submission.estimatedValue) * 0.7).toFixed(2);
