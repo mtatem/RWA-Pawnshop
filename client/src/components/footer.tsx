@@ -101,7 +101,11 @@ export default function Footer() {
           </div>
         </div>
 
-        <div className="flex justify-center mt-8 mb-6">
+        <div className="border-t border-border mt-8 pt-8 text-center text-sm text-muted-foreground">
+          <p>&copy; 2025 ICP RWA Pawn. All rights reserved. Powered by Internet Computer Protocol.</p>
+        </div>
+
+        <div className="flex justify-center mt-6">
           <Button 
             variant="outline" 
             size="sm"
@@ -112,10 +116,6 @@ export default function Footer() {
             <MessageCircle className="w-4 h-4 text-black hover:text-red-500" />
             <span>Start Live Chat</span>
           </Button>
-        </div>
-
-        <div className="border-t border-border pt-8 text-center text-sm text-muted-foreground">
-          <p>&copy; 2025 ICP RWA Pawn. All rights reserved. Powered by Internet Computer Protocol.</p>
         </div>
       </div>
       
