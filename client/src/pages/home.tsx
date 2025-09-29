@@ -1,5 +1,6 @@
 import Navigation from "@/components/navigation";
 import HeroSection from "@/components/hero-section";
+import MarketplacePreview from "@/components/marketplace-preview";
 import Footer from "@/components/footer";
 
 export default function Home() {
@@ -7,6 +8,7 @@ export default function Home() {
     <div className="min-h-screen">
       <Navigation />
       <HeroSection />
+      <MarketplacePreview />
       <Footer />
     </div>
   );
