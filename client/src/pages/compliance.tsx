@@ -193,7 +193,7 @@ export default function Compliance() {
             data protection laws, and industry standards across multiple jurisdictions.
           </p>
           <p className="text-sm text-muted-foreground mt-4">
-            Last updated: January 1, 2025
+            Last updated: September 29, 2025
           </p>
         </div>
 
@@ -385,22 +385,22 @@ export default function Compliance() {
                 <div>
                   <h4 className="font-semibold mb-2">Chief Compliance Officer</h4>
                   <p className="text-sm text-muted-foreground">
-                    compliance@rwapawn.io<br/>
-                    +1 (555) 123-4567
+                    info@rwapawn.io<br/>
+                    +1 (772) 834-5081
                   </p>
                 </div>
                 <div>
                   <h4 className="font-semibold mb-2">AML/BSA Officer</h4>
                   <p className="text-sm text-muted-foreground">
-                    aml@rwapawn.io<br/>
-                    +1 (555) 123-4568
+                    info@rwapawn.io<br/>
+                    +1 (772) 834-5081
                   </p>
                 </div>
                 <div>
                   <h4 className="font-semibold mb-2">Data Protection Officer</h4>
                   <p className="text-sm text-muted-foreground">
-                    privacy@rwapawn.io<br/>
-                    +1 (555) 123-4569
+                    info@rwapawn.io<br/>
+                    +1 (772) 834-5081
                   </p>
                 </div>
               </div>

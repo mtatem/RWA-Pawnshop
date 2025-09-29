@@ -155,10 +155,10 @@ The Platform operates as an intermediary between asset owners seeking liquidity 
       title: "15. Contact Information",
       content: `For questions about these Terms of Service, please contact us at:
 
-Email: legal@rwapawn.io
-Address: [Company Address]
+Email: info@rwapawn.io
+RWA Pawnshop 4406 SE Graham Dr., Stuart, Florida 34997
 
-These Terms are effective as of January 1, 2025, and were last updated on January 1, 2025.`
+These Terms are effective as of January 1, 2025, and were last updated on September 29, 2025.`
     }
   ];
 
@@ -177,7 +177,7 @@ These Terms are effective as of January 1, 2025, and were last updated on Januar
             By using ICP RWA Pawn, you agree to be bound by these terms.
           </p>
           <p className="text-sm text-muted-foreground mt-4">
-            Last updated: January 1, 2025
+            Last updated: September 29, 2025
           </p>
         </div>
 

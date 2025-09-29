@@ -101,7 +101,7 @@ export default function ContactUs() {
     onSuccess: () => {
       toast({
         title: "Message Sent!",
-        description: "Thank you for contacting us. We'll get back to you soon!",
+        description: "Thank you for contacting RWAPAWN.io. We'll get back to you soon. If this is an emergency please call us directly 772-834-5081",
       });
       // Reset form
       setFormData({
