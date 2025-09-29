@@ -1,9 +1,13 @@
 import Navigation from "@/components/navigation";
 import Footer from "@/components/footer";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { CheckCircle, Upload, Coins, Clock, ShoppingCart, RefreshCw } from "lucide-react";
+import { Link } from "wouter";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function HowItWorks() {
+  const { isAuthenticated } = useAuth();
   const steps = [
     {
       icon: <Upload className="w-8 h-8 text-primary" />,
@@ -123,6 +127,18 @@ export default function HowItWorks() {
               </CardContent>
             </Card>
           ))}
+        </div>
+
+        {/* Call to Action */}
+        <div className="mt-16 mb-8 text-center">
+          <Link href={isAuthenticated ? "/dashboard" : "/register"}>
+            <Button 
+              className="bg-white text-black hover:bg-gray-100 px-8 py-3 text-lg font-semibold"
+              data-testid="button-pawn-asset"
+            >
+              Pawn An Asset
+            </Button>
+          </Link>
         </div>
 
         {/* Features Section */}
