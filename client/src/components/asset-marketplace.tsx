@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { useICPWallet } from "@/hooks/useICPWallet";
 import { apiRequest } from "@/lib/queryClient";
 import type { MarketplaceAsset } from "@shared/schema";
+import luxuryHouseImage from "@assets/generated_images/Luxury_modern_house_exterior_4597f8e9.png";
+import diamondNecklaceImage from "@assets/generated_images/Diamond_tennis_necklace_display_ec61d518.png";
+import luxuryCarImage from "@assets/generated_images/Black_luxury_sports_car_d4206fb8.png";
 
 
 export default function AssetMarketplace() {
@@ -30,10 +33,123 @@ export default function AssetMarketplace() {
   const { user, isAuthenticated } = useAuth();
   const { wallet, sendTransaction } = useICPWallet();
 
+  // Demo marketplace assets
+  const demoAssets: MarketplaceAsset[] = [
+    {
+      id: "demo-real-estate-1",
+      loanId: "loan-demo-1",
+      assetName: "Modern Luxury Villa in Beverly Hills",
+      category: "Real Estate",
+      originalValue: "2850000.00",
+      startingPrice: "1995000.00",
+      currentBid: "2150000.00",
+      highestBidder: "user-demo-1",
+      imageUrl: luxuryHouseImage,
+      description: "Stunning contemporary 4-bedroom, 5-bathroom villa featuring open-concept living spaces, floor-to-ceiling windows, gourmet kitchen with premium appliances, infinity pool, and breathtaking city views. Located in the prestigious Beverly Hills area with 24/7 security.",
+      daysExpired: 7,
+      status: "available",
+      soldAt: null,
+      soldPrice: null,
+      createdAt: new Date("2024-12-15T00:00:00.000Z"),
+      updatedAt: new Date("2024-12-22T00:00:00.000Z"),
+    },
+    {
+      id: "demo-jewelry-1", 
+      loanId: "loan-demo-2",
+      assetName: "18K White Gold Diamond Tennis Necklace",
+      category: "Jewelry",
+      originalValue: "125000.00",
+      startingPrice: "87500.00",
+      currentBid: "95000.00",
+      highestBidder: "user-demo-2",
+      imageUrl: diamondNecklaceImage,
+      description: "Exquisite tennis necklace featuring 15 carats of premium VS1 clarity diamonds set in 18K white gold. Each diamond is expertly cut and hand-selected for maximum brilliance. Includes GIA certification and original Cartier presentation box.",
+      daysExpired: 3,
+      status: "available",
+      soldAt: null,
+      soldPrice: null,
+      createdAt: new Date("2024-12-18T00:00:00.000Z"),
+      updatedAt: new Date("2024-12-21T00:00:00.000Z"),
+    },
+    {
+      id: "demo-automotive-1",
+      loanId: "loan-demo-3",
+      assetName: "2023 Porsche 911 Turbo S Coupe",
+      category: "Automotive", 
+      originalValue: "285000.00",
+      startingPrice: "199500.00",
+      currentBid: "215000.00",
+      highestBidder: "user-demo-3",
+      imageUrl: luxuryCarImage,
+      description: "Pristine 2023 Porsche 911 Turbo S in Jet Black Metallic with only 1,200 miles. Features twin-turbo 3.8L flat-six engine producing 640 HP, PDK transmission, sport chrono package, premium leather interior, and ceramic composite brakes. Includes full manufacturer warranty.",
+      daysExpired: 12,
+      status: "available",
+      soldAt: null,
+      soldPrice: null,
+      createdAt: new Date("2024-12-10T00:00:00.000Z"),
+      updatedAt: new Date("2024-12-22T00:00:00.000Z"),
+    }
+  ];
+
   // Fetch real marketplace assets from API
-  const { data: assets = [], isLoading } = useQuery<MarketplaceAsset[]>({
+  const { data: apiAssets = [], isLoading } = useQuery<MarketplaceAsset[]>({
     queryKey: ["/api/marketplace/assets"],
   });
+
+  // Combine demo assets with API assets
+  const allAssets = useMemo(() => {
+    return [...demoAssets, ...apiAssets];
+  }, [apiAssets]);
+
+  // Apply filters to the combined assets
+  const filteredAssets = useMemo(() => {
+    let filtered = [...allAssets];
+
+    // Filter by category
+    if (filters.category !== "all") {
+      filtered = filtered.filter(asset => asset.category === filters.category);
+    }
+
+    // Filter by price range
+    if (filters.minPrice) {
+      const minPrice = parseFloat(filters.minPrice);
+      filtered = filtered.filter(asset => {
+        const currentPrice = asset.currentBid ? parseFloat(asset.currentBid) : parseFloat(asset.startingPrice);
+        return currentPrice >= minPrice;
+      });
+    }
+
+    if (filters.maxPrice) {
+      const maxPrice = parseFloat(filters.maxPrice);
+      filtered = filtered.filter(asset => {
+        const currentPrice = asset.currentBid ? parseFloat(asset.currentBid) : parseFloat(asset.startingPrice);
+        return currentPrice <= maxPrice;
+      });
+    }
+
+    // Sort assets
+    if (filters.sortBy) {
+      filtered.sort((a, b) => {
+        const aCurrentPrice = a.currentBid ? parseFloat(a.currentBid) : parseFloat(a.startingPrice);
+        const bCurrentPrice = b.currentBid ? parseFloat(b.currentBid) : parseFloat(b.startingPrice);
+
+        switch (filters.sortBy) {
+          case "price-low":
+            return aCurrentPrice - bCurrentPrice;
+          case "price-high":
+            return bCurrentPrice - aCurrentPrice;
+          case "recent":
+            return new Date(b.createdAt || "").getTime() - new Date(a.createdAt || "").getTime();
+          case "ending":
+            return a.daysExpired - b.daysExpired;
+          default:
+            return 0;
+        }
+      });
+    }
+
+    return filtered;
+  }, [allAssets, filters]);
 
   const bidMutation = useMutation({
     mutationFn: async ({ assetId, amount }: { assetId: string; amount: string }) => {
@@ -43,6 +159,11 @@ export default function AssetMarketplace() {
       
       if (!wallet) {
         throw new Error('Please connect your ICP wallet to place bids');
+      }
+
+      // Handle demo assets differently
+      if (assetId.startsWith('demo-')) {
+        throw new Error('This is a demo asset for demonstration purposes only. Bidding is not available on demo listings.');
       }
 
       const bidAmountICP = parseFloat(amount);
@@ -151,7 +272,9 @@ export default function AssetMarketplace() {
               </SelectTrigger>
               <SelectContent className="bg-background dark:bg-black border-border dark:border-gray-800">
                 <SelectItem value="all">All Categories</SelectItem>
-                <SelectItem value="jewelry">💎 Jewelry</SelectItem>
+                <SelectItem value="Real Estate">🏠 Real Estate</SelectItem>
+                <SelectItem value="Jewelry">💎 Jewelry</SelectItem>
+                <SelectItem value="Automotive">🚗 Automotive</SelectItem>
                 <SelectItem value="art-collectibles">🎨 Art & Collectibles</SelectItem>
                 <SelectItem value="electronics">📱 Electronics</SelectItem>
                 <SelectItem value="luxury-goods">⌚ Luxury Goods</SelectItem>
@@ -194,14 +317,14 @@ export default function AssetMarketplace() {
         </Card>
 
         {/* Asset Grid - Mobile Optimized */}
-        {assets.length === 0 ? (
+        {filteredAssets.length === 0 ? (
           <div className="text-center py-12 sm:py-16 text-muted-foreground">
-            <p className="text-sm sm:text-base">No assets available in the marketplace.</p>
-            <p className="text-xs sm:text-sm mt-2">Check back later for new listings!</p>
+            <p className="text-sm sm:text-base">No assets available in the marketplace{filters.category !== "all" ? ` for ${filters.category}` : ""}.</p>
+            <p className="text-xs sm:text-sm mt-2">Check back later for new listings or try different filters!</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
-            {assets.map((asset) => (
+            {filteredAssets.map((asset) => (
               <Card
                 key={asset.id}
                 className="bg-card border border-border overflow-hidden hover:border-primary transition-colors glass-effect h-fit"
