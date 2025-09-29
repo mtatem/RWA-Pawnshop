@@ -88,7 +88,8 @@ export default function Footer() {
 
           {/* Brand */}
           <div className="sm:col-span-2 lg:col-span-1 mb-6 sm:mb-0">
-            <div className="mb-3 sm:mb-4">
+            <p className="text-xs sm:text-sm text-muted-foreground mb-3 sm:mb-4">RWAPAWN is the worlds first Real World Assets Pawnshop on the ICP Blockchain. Once approved, receive up to 70% of your asset's value as an instant ICP loan directly to your connected wallet. Get immediate access to funds without selling your valuable assets.</p>
+            <div>
               <Link href="/">
                 <img 
                   src={logoImage} 
@@ -97,7 +98,6 @@ export default function Footer() {
                 />
               </Link>
             </div>
-            <p className="text-xs sm:text-sm text-muted-foreground">RWAPAWN is the worlds first Real World Assets Pawnshop on the ICP Blockchain. Once approved, receive up to 70% of your asset's value as an instant ICP loan directly to your connected wallet. Get immediate access to funds without selling your valuable assets.</p>
           </div>
         </div>
 
