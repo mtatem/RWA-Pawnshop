@@ -88,7 +88,7 @@ export default function Footer() {
 
           {/* Brand */}
           <div className="sm:col-span-2 lg:col-span-1 mb-6 sm:mb-0">
-            <div className="mb-3 sm:mb-4 flex items-center gap-4">
+            <div className="mb-3 sm:mb-4">
               <Link href="/">
                 <img 
                   src={logoImage} 
@@ -96,22 +96,25 @@ export default function Footer() {
                   className="h-10 w-auto sm:h-12 object-contain cursor-pointer hover:opacity-80 transition-opacity"
                 />
               </Link>
-              <Button 
-                variant="outline" 
-                size="sm"
-                className="inline-flex items-center space-x-2 bg-white text-black border-2 border-black hover:bg-gray-50 hover:text-red-500" 
-                onClick={() => setIsChatOpen(true)}
-                data-testid="footer-live-chat"
-              >
-                <MessageCircle className="w-4 h-4 text-black hover:text-red-500" />
-                <span>Start Live Chat</span>
-              </Button>
             </div>
             <p className="text-xs sm:text-sm text-muted-foreground">RWAPAWN is the worlds first Real World Assets Pawnshop on the ICP Blockchain. Once approved, receive up to 70% of your asset's value as an instant ICP loan directly to your connected wallet. Get immediate access to funds without selling your valuable assets.</p>
           </div>
         </div>
 
-        <div className="border-t border-border mt-8 pt-8 text-center text-sm text-muted-foreground">
+        <div className="flex justify-center mt-8 mb-6">
+          <Button 
+            variant="outline" 
+            size="sm"
+            className="inline-flex items-center space-x-2 bg-white text-black border-2 border-black hover:bg-gray-50 hover:text-red-500" 
+            onClick={() => setIsChatOpen(true)}
+            data-testid="footer-live-chat"
+          >
+            <MessageCircle className="w-4 h-4 text-black hover:text-red-500" />
+            <span>Start Live Chat</span>
+          </Button>
+        </div>
+
+        <div className="border-t border-border pt-8 text-center text-sm text-muted-foreground">
           <p>&copy; 2025 ICP RWA Pawn. All rights reserved. Powered by Internet Computer Protocol.</p>
         </div>
       </div>
