@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Lock, User } from "lucide-react";
-import logoImage from "@assets/rwa1_1758232271312.png";
+import logoImage from "@assets/rwa-pawnshop-logo_1759117333505.png";
 
 export default function AdminLogin() {
   const [credentials, setCredentials] = useState({

@@ -10,7 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Lock, User, Mail, Eye, EyeOff, UserPlus } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
-import logoImage from "@assets/rwa1_1758232271312.png";
+import logoImage from "@assets/rwa-pawnshop-logo_1759117333505.png";
 import { z } from "zod";
 
 // Registration form schema - matches backend validation
