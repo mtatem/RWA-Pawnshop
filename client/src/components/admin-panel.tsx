@@ -31,8 +31,12 @@ export default function AdminPanel() {
 
   const { data: stats } = useQuery({
     queryKey: ["/api/admin/stats"],
+    queryFn: async () => {
+      const response = await apiRequest("GET", "/api/admin/dashboard/kpis");
+      return response.json();
+    },
     initialData: {
-      pendingApprovals: 12,
+      pendingApprovals: 2,
       activeLoans: 157,
       expiringSoon: 8,
       totalRevenue: "48300",
@@ -40,12 +44,23 @@ export default function AdminPanel() {
   });
 
   // Fetch real pending submissions from API
-  const { data: pendingSubmissions = [] } = useQuery({
+  const { data: pendingSubmissions = [], isLoading, error } = useQuery({
     queryKey: ["/api/rwa-submissions/pending"],
     queryFn: async () => {
-      const response = await apiRequest("GET", "/api/rwa-submissions/pending", {});
-      return response.json();
+      console.log("AdminPanel: Fetching pending submissions...");
+      const response = await apiRequest("GET", "/api/rwa-submissions/pending");
+      const data = await response.json();
+      console.log("AdminPanel: Received pending submissions:", data);
+      return data;
     },
+  });
+  
+  // Debug logging
+  console.log("AdminPanel rendered:", {
+    pendingSubmissions,
+    isLoading,
+    error,
+    user: user?.email
   });
 
   const approvalMutation = useMutation({
