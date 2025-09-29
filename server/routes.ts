@@ -3,6 +3,12 @@ import { createServer, type Server } from "http";
 import rateLimit from 'express-rate-limit';
 import multer from 'multer';
 import Stripe from "stripe";
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { 
@@ -4888,6 +4894,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     }
   );
+
+  // Whitepaper PDF download endpoint
+  app.get('/api/whitepaper/download-pdf', async (req, res) => {
+    try {
+      // Path to the whitepaper markdown file
+      const whitepaperPath = path.join(__dirname, '..', 'RWAPAWN_Whitepaper.md');
+      
+      if (!fs.existsSync(whitepaperPath)) {
+        return res.status(404).json({
+          success: false,
+          error: 'Whitepaper file not found',
+          code: 'FILE_NOT_FOUND'
+        });
+      }
+
+      // For now, serve the markdown file with appropriate headers
+      // In the future, this could be enhanced with actual PDF generation
+      const markdownContent = fs.readFileSync(whitepaperPath, 'utf8');
+      
+      // Set headers for file download
+      res.setHeader('Content-Type', 'text/markdown');
+      res.setHeader('Content-Disposition', 'attachment; filename="RWAPAWN_Whitepaper.md"');
+      res.setHeader('Cache-Control', 'public, max-age=3600'); // Cache for 1 hour
+      
+      res.send(markdownContent);
+      
+    } catch (error) {
+      console.error('Error serving whitepaper:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to serve whitepaper',
+        code: 'INTERNAL_ERROR',
+        timestamp: new Date().toISOString()
+      });
+    }
+  });
 
   const httpServer = createServer(app);
   return httpServer;

@@ -4,13 +4,14 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ExternalLink, Download, ArrowRight, Shield, TrendingUp, Users, Coins, Clock, Target, Globe, Award } from "lucide-react";
 import Footer from "@/components/footer";
+import { Link } from "wouter";
 
 export default function WhitepaperPage() {
   const handleDownload = () => {
-    // Create a link to download the whitepaper
+    // Create a link to download the whitepaper PDF
     const element = document.createElement('a');
-    element.href = '/RWAPAWN_Whitepaper.md';
-    element.download = 'RWAPAWN_Whitepaper.md';
+    element.href = '/api/whitepaper/download-pdf';
+    element.download = 'RWAPAWN_Whitepaper.pdf';
     document.body.appendChild(element);
     element.click();
     document.body.removeChild(element);
@@ -341,9 +342,11 @@ export default function WhitepaperPage() {
                 <Download className="w-4 h-4 mr-2" />
                 Download Full Whitepaper
               </Button>
-              <Button className="bg-blue-600 hover:bg-blue-700" data-testid="button-start-staking">
-                Start Staking <ArrowRight className="w-4 h-4 ml-2" />
-              </Button>
+              <Link href="/token">
+                <Button className="bg-blue-600 hover:bg-blue-700" data-testid="button-start-staking">
+                  Start Staking <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
+              </Link>
             </div>
           </CardContent>
         </Card>
