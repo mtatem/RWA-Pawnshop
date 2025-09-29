@@ -1,6 +1,7 @@
 import { Coins, MessageCircle } from "lucide-react";
 import logoImage from "@assets/rwapawnshop-logo_1759110907225.png";
 import { useState } from "react";
+import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import ChatPopup from "@/components/chat-popup";
 
@@ -88,11 +89,13 @@ export default function Footer() {
           {/* Brand */}
           <div className="sm:col-span-2 lg:col-span-1 mb-6 sm:mb-0">
             <div className="mb-3 sm:mb-4 flex items-center gap-4">
-              <img 
-                src={logoImage} 
-                alt="RWA Pawnshop" 
-                className="h-10 w-auto sm:h-12 object-contain"
-              />
+              <Link href="/">
+                <img 
+                  src={logoImage} 
+                  alt="RWA Pawnshop on the ICP Blockchain. Pawn Your Real World Assets" 
+                  className="h-10 w-auto sm:h-12 object-contain cursor-pointer hover:opacity-80 transition-opacity"
+                />
+              </Link>
               <Button 
                 variant="outline" 
                 size="sm"
