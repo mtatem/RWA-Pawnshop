@@ -53,14 +53,15 @@ export default function Navigation() {
   const baseNavItems = [
     { href: "/", label: "Home" },
     { href: "/how-it-works", label: "How it Works" },
-    { href: "/dashboard", label: "Dashboard" },
+    { href: "/dashboard", label: "Pawn RWA" },
     { href: "/marketplace", label: "Marketplace" },
     { href: "/bridge", label: "Bridge" },
   ];
 
-  // Only show admin menu to users with admin access permissions
+  // Build nav items with conditional menu items
   const navItems = [
     ...baseNavItems,
+    ...(isAuthenticated ? [{ href: "/profile", label: "Your Account" }] : []),
     ...(isAuthenticated && permissions.canAccessAdmin ? [{ href: "/admin", label: "Admin" }] : [])
   ];
 
