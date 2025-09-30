@@ -3,9 +3,15 @@
 @tailwind utilities;
 
 /* Ensure black background for the entire page */
-html, body {
+html, body, #root {
   background-color: #000000 !important;
   color: #ebebeb;
+  min-height: 100vh;
+}
+
+/* Apply black background to all main containers */
+main, section, div[class*="container"], div[class*="wrapper"] {
+  background-color: inherit;
 }
 
 :root {
