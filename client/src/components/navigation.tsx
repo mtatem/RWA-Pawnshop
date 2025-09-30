@@ -176,13 +176,13 @@ export default function Navigation() {
               </Dialog>
             )}
 
-            {/* Authentication - Mobile Optimized */}
+            {/* Authentication - Desktop Only */}
             {isLoading ? (
-              <Button disabled className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs sm:text-sm px-2 sm:px-3 h-8 sm:h-9">
+              <Button disabled className="hidden md:flex bg-primary hover:bg-primary/90 text-primary-foreground text-xs sm:text-sm px-2 sm:px-3 h-8 sm:h-9">
                 Loading...
               </Button>
             ) : isAuthenticated ? (
-              <div className="flex items-center space-x-1 sm:space-x-2">
+              <div className="hidden md:flex items-center space-x-1 sm:space-x-2">
                 <Link href="/profile">
                   <Button
                     variant="outline"
@@ -210,7 +210,7 @@ export default function Navigation() {
                 </Button>
               </div>
             ) : (
-              <div className="flex items-center space-x-1 sm:space-x-2">
+              <div className="hidden md:flex items-center space-x-1 sm:space-x-2">
                 <Button
                   onClick={handleLogin}
                   className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs sm:text-sm px-2 sm:px-3 h-8 sm:h-9"
@@ -244,6 +244,60 @@ export default function Navigation() {
               <SheetContent side="right" className="w-64">
                 <div className="flex flex-col space-y-4 mt-8">
                   <NavItems mobile />
+                  
+                  {/* Mobile Auth Buttons */}
+                  {!isAuthenticated && !isLoading && (
+                    <div className="pt-4 border-t space-y-2">
+                      <Button
+                        onClick={handleLogin}
+                        className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
+                        data-testid="button-login-mobile"
+                      >
+                        <User className="mr-2 h-4 w-4" />
+                        Login
+                      </Button>
+                      <Link href="/register">
+                        <Button
+                          variant="outline"
+                          className="w-full"
+                          data-testid="button-register-mobile"
+                        >
+                          <UserPlus className="mr-2 h-4 w-4" />
+                          Register
+                        </Button>
+                      </Link>
+                    </div>
+                  )}
+                  
+                  {/* Mobile User Profile & Logout */}
+                  {isAuthenticated && (
+                    <div className="pt-4 border-t space-y-2">
+                      <Link href="/profile">
+                        <Button
+                          variant="outline"
+                          className="w-full flex items-center justify-start"
+                          data-testid="button-user-profile-mobile"
+                        >
+                          <Avatar className="h-6 w-6 mr-2">
+                            <AvatarImage src={user?.profileImageUrl || ""} />
+                            <AvatarFallback className="text-xs">
+                              {(user?.firstName?.[0] || user?.username?.[0] || "U").toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          {user?.firstName || user?.username || "User"}
+                        </Button>
+                      </Link>
+                      <Button
+                        onClick={handleLogout}
+                        variant="outline"
+                        className="w-full"
+                        data-testid="button-logout-mobile"
+                      >
+                        <LogOut className="mr-2 h-4 w-4" />
+                        Logout
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </SheetContent>
             </Sheet>
