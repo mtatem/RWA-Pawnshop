@@ -17,56 +17,26 @@ import { useAuth } from "@/hooks/useAuth";
 export default function Admin() {
   const [, setLocation] = useLocation();
   const { user, permissions, isLoading, isAuthenticated } = useAuth();
-  const [adminVerified, setAdminVerified] = useState(false);
-  const [checkingAdmin, setCheckingAdmin] = useState(true);
-
-  // Check admin token authentication
-  useEffect(() => {
-    const adminToken = localStorage.getItem('adminToken');
-    
-    if (adminToken) {
-      // Verify admin token
-      fetch('/api/admin/verify', {
-        headers: {
-          'Authorization': `Bearer ${adminToken}`
-        }
-      })
-      .then(res => {
-        if (res.ok) {
-          setAdminVerified(true);
-          setCheckingAdmin(false);
-        } else {
-          localStorage.removeItem('adminToken');
-          setCheckingAdmin(false);
-        }
-      })
-      .catch(() => {
-        localStorage.removeItem('adminToken');
-        setCheckingAdmin(false);
-      });
-    } else {
-      setCheckingAdmin(false);
-    }
-  }, []);
 
   useEffect(() => {
-    // Wait for both regular auth and admin token check to complete
-    if (!isLoading && !checkingAdmin) {
-      // Allow access if either:
-      // 1. Valid admin token exists, OR
-      // 2. User is authenticated with admin permissions
-      const hasAccess = adminVerified || (isAuthenticated && permissions.canAccessAdmin);
+    // Require user to be authenticated with admin permissions
+    if (!isLoading) {
+      if (!isAuthenticated) {
+        // User not authenticated, redirect to login
+        setLocation('/login');
+        return;
+      }
       
-      if (!hasAccess) {
-        // No admin access, redirect to admin login
-        setLocation('/admin-login');
+      if (!permissions.canAccessAdmin) {
+        // User doesn't have admin permissions, deny access
+        setLocation('/');
         return;
       }
     }
-  }, [isLoading, checkingAdmin, isAuthenticated, adminVerified, permissions.canAccessAdmin, setLocation]);
+  }, [isLoading, isAuthenticated, permissions.canAccessAdmin, setLocation]);
 
   // Show loading state while authentication is being verified
-  if (isLoading || checkingAdmin) {
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 admin-dark-bg">
         <Navigation />
@@ -79,10 +49,8 @@ export default function Admin() {
     );
   }
 
-  // Check if user has admin access (either via token or permissions)
-  const hasAdminAccess = adminVerified || (isAuthenticated && permissions.canAccessAdmin);
-  
-  if (!hasAdminAccess) {
+  // If not authenticated or no admin permissions, useEffect will handle redirects
+  if (!isAuthenticated || !permissions.canAccessAdmin) {
     return null; // Will redirect via useEffect
   }
   return (
