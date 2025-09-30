@@ -1334,20 +1334,20 @@ export default function Profile() {
                     </div>
                   ) : isConnected && wallet ? (
                     <div className="space-y-4">
-                      <div className="flex items-center justify-between p-4 border rounded-lg bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800">
+                      <div className="flex items-center justify-between p-4 border rounded-lg bg-black dark:bg-black border-gray-700 dark:border-gray-700">
                         <div className="space-y-2">
                           <div className="flex items-center space-x-3">
-                            <div className="p-2 bg-green-100 dark:bg-green-900/50 rounded-full">
-                              <Wallet className="h-5 w-5 text-green-600 dark:text-green-400" />
+                            <div className="p-2 bg-green-900/50 dark:bg-green-900/50 rounded-full">
+                              <Wallet className="h-5 w-5 text-green-400 dark:text-green-400" />
                             </div>
                             <div>
                               <div className="flex items-center space-x-2">
-                                <span className="font-semibold text-green-800 dark:text-green-200">
+                                <span className="font-semibold text-white dark:text-white">
                                   {wallet.walletType === 'plug' ? 'Plug Wallet' : 'Internet Identity'}
                                 </span>
                                 <Badge className="bg-green-500 text-white">Connected</Badge>
                               </div>
-                              <p className="text-sm text-green-700 dark:text-green-300">Ready for transactions</p>
+                              <p className="text-sm text-gray-300 dark:text-gray-300">Ready for transactions</p>
                             </div>
                           </div>
                           
@@ -1393,11 +1393,11 @@ export default function Profile() {
                             </div>
                           </div>
                           
-                          <div className="flex items-center justify-between pt-2 border-t">
+                          <div className="flex items-center justify-between pt-2 border-t border-gray-700">
                             <div className="flex items-center space-x-2">
-                              <Coins className="h-5 w-5 text-blue-500" />
-                              <span className="font-semibold text-lg">{wallet.balance.toFixed(4)} ICP</span>
-                              <span className="text-sm text-muted-foreground">≈ ${(wallet.balance * 12.50).toFixed(2)} USD</span>
+                              <Coins className="h-5 w-5 text-blue-400" />
+                              <span className="font-semibold text-lg text-white">{wallet.balance.toFixed(4)} ICP</span>
+                              <span className="text-sm text-gray-400">≈ ${(wallet.balance * 12.50).toFixed(2)} USD</span>
                             </div>
                             <Button 
                               variant="outline" 
