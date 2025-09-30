@@ -15,29 +15,38 @@ export default function AdminLogin() {
   });
   const [isLoading, setIsLoading] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [checkingAuth, setCheckingAuth] = useState(true);
   const [, setLocation] = useLocation();
   const { toast } = useToast();
 
-  // Check if already authenticated
-  const adminToken = localStorage.getItem('adminToken');
-  if (adminToken && !isAuthenticated) {
-    // Verify token with server
-    fetch('/api/admin/verify', {
-      headers: {
-        'Authorization': `Bearer ${adminToken}`
-      }
-    })
-    .then(res => {
-      if (res.ok) {
-        setIsAuthenticated(true);
-      } else {
+  // Check if already authenticated on mount
+  useEffect(() => {
+    const adminToken = localStorage.getItem('adminToken');
+    
+    if (adminToken) {
+      // Verify token with server
+      fetch('/api/admin/verify', {
+        headers: {
+          'Authorization': `Bearer ${adminToken}`
+        }
+      })
+      .then(res => {
+        if (res.ok) {
+          setIsAuthenticated(true);
+        } else {
+          localStorage.removeItem('adminToken');
+        }
+      })
+      .catch(() => {
         localStorage.removeItem('adminToken');
-      }
-    })
-    .catch(() => {
-      localStorage.removeItem('adminToken');
-    });
-  }
+      })
+      .finally(() => {
+        setCheckingAuth(false);
+      });
+    } else {
+      setCheckingAuth(false);
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
