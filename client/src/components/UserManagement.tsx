@@ -1601,8 +1601,19 @@ function EditUserForm({ user, onSuccess, updateUserMutation }: {
   }, [user, editUserForm]);
 
   const handleUpdateUser = async (values: z.infer<typeof editUserFormSchema>) => {
+    // Sync role with isAdmin
+    const updates = {
+      ...values,
+      // If isAdmin is checked, set role to administrator
+      // If isAdmin is unchecked and current role is administrator, set to registered
+      // Otherwise, keep the existing role
+      role: values.isAdmin 
+        ? 'administrator' 
+        : (user.role === 'administrator' ? 'registered' : user.role)
+    };
+    
     updateUserMutation.mutate(
-      { userId: user.id, updates: values },
+      { userId: user.id, updates },
       {
         onSuccess: () => {
           editUserForm.reset();
