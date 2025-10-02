@@ -131,10 +131,15 @@ async function getUserFromRequest(req: any): Promise<RoleUser | null> {
     }
   }
 
-  // If no JWT token or invalid JWT token, check Replit Auth session
-  if (req.isAuthenticated && req.isAuthenticated() && req.user?.claims?.sub) {
+  // If no JWT token or invalid JWT token, check session auth (Replit Auth or traditional)
+  if (req.isAuthenticated && req.isAuthenticated()) {
     try {
-      const userId = req.user.claims.sub;
+      // Support both Replit Auth (req.user.claims.sub) and traditional auth (req.user.id)
+      const userId = req.user?.claims?.sub || req.user?.id;
+      if (!userId) {
+        return null;
+      }
+      
       const user = await storage.getUser(userId);
       
       if (user) {
@@ -169,10 +174,15 @@ export const requireAdminAuth: RequestHandler = async (req: any, res, next) => {
     }
   }
 
-  // If no JWT token or invalid JWT token, check Replit Auth session
-  if (req.isAuthenticated && req.isAuthenticated() && req.user?.claims?.sub) {
+  // If no JWT token or invalid JWT token, check session auth (Replit Auth or traditional)
+  if (req.isAuthenticated && req.isAuthenticated()) {
     try {
-      const userId = req.user.claims.sub;
+      // Support both Replit Auth (req.user.claims.sub) and traditional auth (req.user.id)
+      const userId = req.user?.claims?.sub || req.user?.id;
+      if (!userId) {
+        return null;
+      }
+      
       const user = await storage.getUser(userId);
       
       // Check for admin role using the new role system
