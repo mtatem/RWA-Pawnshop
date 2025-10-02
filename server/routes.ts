@@ -220,11 +220,11 @@ const checkRateLimit = (userId: string): { allowed: boolean; reason?: string } =
 // Middleware for checking if user is admin
 const isAdmin = async (req: any, res: any, next: any) => {
   try {
-    if (!req.user?.claims?.sub) {
+    if (!req.user?.id) {
       return res.status(401).json({ message: "Unauthorized" });
     }
     
-    const user = await storage.getUser(req.user.claims.sub);
+    const user = await storage.getUser(req.user.id);
     if (!user?.isAdmin) {
       return res.status(403).json({ message: "Admin access required" });
     }
@@ -238,12 +238,12 @@ const isAdmin = async (req: any, res: any, next: any) => {
 // Middleware for checking ownership
 const checkOwnership = async (req: any, res: any, next: any) => {
   try {
-    if (!req.user?.claims?.sub) {
+    if (!req.user?.id) {
       return res.status(401).json({ message: "Unauthorized" });
     }
     
     const userId = req.params.userId || req.body.userId;
-    if (req.user.claims.sub !== userId) {
+    if (req.user.id !== userId) {
       return res.status(403).json({ message: "Access denied - not owner" });
     }
     
@@ -639,7 +639,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     async (req: any, res) => {
       try {
         const { currentPassword, newPassword } = req.body;
-        const userId = req.user.claims.sub as string;
+        const userId = req.user.id as string;
         
         // Get current user
         const user = await storage.getUser(userId);
@@ -738,7 +738,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     rateLimitConfigs.api,
     async (req: any, res) => {
       try {
-        const userId = req.user.claims.sub as string;
+        const userId = req.user.id as string;
         const user = await storage.getUser(userId);
         
         if (!user) {
@@ -799,7 +799,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     validateRequest(mfaEnableSchema, 'body'),
     async (req: any, res) => {
       try {
-        const userId = req.user.claims.sub as string;
+        const userId = req.user.id as string;
         const { totpToken } = req.body;
         
         const user = await storage.getUser(userId);
@@ -888,7 +888,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     validateRequest(mfaVerifySchema, 'body'),
     async (req: any, res) => {
       try {
-        const userId = req.user.claims.sub as string;
+        const userId = req.user.id as string;
         const { totpToken } = req.body;
         
         const user = await storage.getUser(userId);
@@ -953,7 +953,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     validateRequest(mfaBackupCodeSchema, 'body'),
     async (req: any, res) => {
       try {
-        const userId = req.user.claims.sub as string;
+        const userId = req.user.id as string;
         const { backupCode } = req.body;
         
         const user = await storage.getUser(userId);
@@ -1017,7 +1017,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     rateLimitConfigs.api,
     async (req: any, res) => {
       try {
-        const userId = req.user.claims.sub as string;
+        const userId = req.user.id as string;
         
         const user = await storage.getUser(userId);
         if (!user) {
@@ -1296,7 +1296,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const userId = req.params.id;
         
         // Check if user is updating their own profile
-        if (req.user.claims.sub !== userId) {
+        if (req.user.id !== userId) {
           return res.status(403).json({
             success: false,
             error: "Access denied - not owner",
@@ -1367,7 +1367,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Update user profile
   app.patch("/api/user/profile", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub as string;
+      const userId = req.user.id as string;
       const updateData = req.body;
       
       // Remove any fields that shouldn't be updated directly
@@ -1418,7 +1418,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Upload endpoint for profile images
   app.post("/api/upload", isAuthenticated, upload.single('file'), async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       
       if (!req.file) {
         return res.status(400).json({ error: "No file provided" });
@@ -1454,7 +1454,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // KYC Information endpoints
   app.get("/api/user/kyc", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       
       const kycInfo = await storage.getKycInformation(userId);
       
@@ -1529,7 +1529,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     ]),
     async (req: any, res) => {
       try {
-        const userId = req.user.claims.sub;
+        const userId = req.user.id;
         
         // Check if KYC already exists and is not rejected
         const existingKyc = await storage.getKycInformation(userId);
@@ -1797,7 +1797,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // User Wallet Information endpoints
   app.get("/api/user/wallets", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       
       // Get user's wallet bindings
       const walletBindings = await storage.getWalletBindings(userId);
@@ -1837,7 +1837,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // User Activity endpoints
   app.get("/api/user/activity", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       
       // Get user's activity history
       const userActivity = await storage.getUserActivityLog(userId);
@@ -1877,7 +1877,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Secure Wallet Binding endpoints
   app.post("/api/wallet/bind-intent", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const { walletType } = walletBindIntentSchema.parse(req.body);
       
       // Generate a secure challenge with proper format
@@ -1908,7 +1908,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/wallet/verify-binding", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const { principalId, nonce, walletType, proof, signature } = walletBindVerificationSchema.parse(req.body);
       
       // SECURITY: Check rate limiting
@@ -2065,7 +2065,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     validateRequest(paymentIntentSchema, 'body'),
     async (req: any, res) => {
       try {
-        const userId = req.user.claims.sub;
+        const userId = req.user.id;
         const { type, amount, metadata } = req.body; // Already validated
         
         // Additional financial validation
@@ -2129,7 +2129,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // CRITICAL SECURITY: Payment Verification endpoint - queries ICP Ledger to confirm payments
   app.post("/api/payments/verify", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const { 
         transactionId,
         expectedRecipient, 
@@ -2222,7 +2222,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     validateRequest(rwapawnPaymentIntentSchema, 'body'),
     async (req: any, res) => {
       try {
-        const userId = req.user.claims.sub;
+        const userId = req.user.id;
         const { amount, idempotencyKey } = req.body; // USD amount, already validated
         
         // Generate idempotency key if not provided
@@ -2341,7 +2341,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     validateRequest(rwapawnPaymentConfirmSchema, 'body'),
     async (req: any, res) => {
       try {
-        const userId = req.user.claims.sub;
+        const userId = req.user.id;
         const { paymentIntentId, purchaseId } = req.body;
 
         // Verify the purchase belongs to the authenticated user
@@ -2466,7 +2466,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     isAuthenticated,
     async (req: any, res) => {
       try {
-        const userId = req.user.claims.sub;
+        const userId = req.user.id;
         let balance = await storage.getRwapawnBalance(userId);
         
         if (!balance) {
@@ -2507,7 +2507,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     isAuthenticated,
     async (req: any, res) => {
       try {
-        const userId = req.user.claims.sub;
+        const userId = req.user.id;
         const purchases = await storage.getRwapawnPurchasesByUser(userId);
 
         res.json({
@@ -2534,7 +2534,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // RWA Submission routes
   app.post("/api/rwa-submissions", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub as string; // Derive userId from authenticated user
+      const userId = req.user.id as string; // Derive userId from authenticated user
       
       // Check KYC verification requirement
       const user = await storage.getUser(userId);
@@ -2671,7 +2671,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch("/api/pawn-loans/:id/redeem", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub as string;
+      const userId = req.user.id as string;
       const loan = await storage.getPawnLoan(req.params.id);
       
       if (!loan || loan.status !== "active") {
@@ -2727,7 +2727,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/marketplace/assets/:id/bid", isAuthenticated, async (req: any, res) => {
     try {
-      const bidderId = req.user.claims.sub as string; // Derive bidderId from authenticated user
+      const bidderId = req.user.id as string; // Derive bidderId from authenticated user
       const bidData = insertBidSchema.parse({
         assetId: req.params.id,
         bidderId, // Use authenticated user ID
@@ -2813,7 +2813,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create bridge intent with PRODUCTION-READY address validation
   app.post("/api/bridge/initiate", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub as string;
+      const userId = req.user.id as string;
       const initiationData = bridgeInitiationSchema.parse(req.body);
       
       // CRITICAL SECURITY: Validate addresses with proper checksums
@@ -2885,7 +2885,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get user bridge history with filtering
   app.get("/api/bridge/history", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub as string;
+      const userId = req.user.id as string;
       const filters = bridgeHistoryFilterSchema.parse({
         status: req.query.status,
         fromNetwork: req.query.fromNetwork,
@@ -2908,7 +2908,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/bridge/cancel/:id", isAuthenticated, async (req: any, res) => {
     try {
       const bridgeId = req.params.id;
-      const userId = req.user.claims.sub as string;
+      const userId = req.user.id as string;
       
       const bridge = await chainFusionBridge.getBridgeStatus(bridgeId);
       if (!bridge) {
@@ -3619,7 +3619,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Upload document and start analysis
   app.post("/api/documents/upload", isAuthenticated, upload.single('file'), async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       
       // Check if file was uploaded
       if (!req.file) {
@@ -3690,7 +3690,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/documents/:id/analysis", isAuthenticated, async (req: any, res) => {
     try {
       const documentId = req.params.id;
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       
       // Get document and verify ownership
       const document = await storage.getDocument(documentId);
@@ -3725,7 +3725,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/documents/:id/reanalyze", isAuthenticated, async (req: any, res) => {
     try {
       const documentId = req.params.id;
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       
       // Validate analysis options
       const analysisRequest = documentAnalysisRequestSchema.parse({
@@ -3767,7 +3767,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/submissions/:id/documents", isAuthenticated, async (req: any, res) => {
     try {
       const submissionId = req.params.id;
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       
       // Check if user owns the submission
       const submission = await storage.getRwaSubmission(submissionId);
@@ -3952,7 +3952,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/admin/alerts/fraud", requireAdminAuth, async (req: any, res) => {
     try {
       const alertData = req.body;
-      const adminId = req.user.claims.sub;
+      const adminId = req.user.id;
       
       if (!alertData.alertType || !alertData.targetType || !alertData.targetId) {
         return res.status(400).json({ error: "Missing required alert fields" });
@@ -3976,7 +3976,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { alertId } = req.params;
       const updates = req.body;
-      const adminId = req.user.claims.sub;
+      const adminId = req.user.id;
       
       const result = await adminService.updateFraudAlert(alertId, updates, adminId);
       
@@ -4032,7 +4032,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { submissionId } = req.params;
       const { reviewType, priority } = req.body;
-      const adminId = req.user.claims.sub;
+      const adminId = req.user.id;
       
       if (!reviewType) {
         return res.status(400).json({ error: "Review type is required" });
@@ -4056,7 +4056,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { reviewId } = req.params;
       const updates = req.body;
-      const adminId = req.user.claims.sub;
+      const adminId = req.user.id;
       
       const result = await adminService.updateAssetReview(reviewId, updates, adminId);
       
@@ -4076,7 +4076,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { submissionId } = req.params;
       const { estimatedValue, reasoning, conditions } = req.body;
-      const adminId = req.user.claims.sub;
+      const adminId = req.user.id;
       
       // Update submission status to approved
       await storage.updateRwaSubmissionStatus(submissionId, "approved", reasoning, adminId);
@@ -4107,7 +4107,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { submissionId } = req.params;
       const { reasoning } = req.body;
-      const adminId = req.user.claims.sub;
+      const adminId = req.user.id;
       
       if (!reasoning) {
         return res.status(400).json({ error: "Rejection reasoning is required" });
@@ -4290,7 +4290,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { userId } = req.params;
       const updates = req.body;
-      const adminId = req.user.claims.sub;
+      const adminId = req.user.id;
       
       // Get existing user
       const existingUser = await storage.getUser(userId);
@@ -4353,7 +4353,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { userId } = req.params;
       const flagData = { ...req.body, userId };
-      const adminId = req.user.claims.sub;
+      const adminId = req.user.id;
       
       if (!flagData.flagType || !flagData.severity || !flagData.flagReason) {
         return res.status(400).json({ error: "Flag type, severity, and reason are required" });
@@ -4377,7 +4377,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { flagId } = req.params;
       const updates = req.body;
-      const adminId = req.user.claims.sub;
+      const adminId = req.user.id;
       
       const updatedFlag = await storage.updateUserFlag(flagId, updates);
       
@@ -4406,7 +4406,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { userId } = req.params;
       const { restrictions, reason } = req.body;
-      const adminId = req.user.claims.sub;
+      const adminId = req.user.id;
       
       if (!restrictions || !reason) {
         return res.status(400).json({ error: "Restrictions and reason are required" });
@@ -4776,7 +4776,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Update user profile image
   app.patch('/api/user/profile-image', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub as string;
+      const userId = req.user.id as string;
       const { profileImageUrl } = req.body;
 
       if (!profileImageUrl) {
