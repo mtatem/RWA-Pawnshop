@@ -304,7 +304,8 @@ export default function Profile() {
     queryFn: async () => {
       const res = await fetch("/api/user/kyc", { credentials: "include" });
       if (!res.ok) throw new Error(`${res.status}: ${res.statusText}`);
-      return res.json();
+      const json = await res.json();
+      return json.data; // Extract the data field from API response
     },
     enabled: !!user?.id
   });
@@ -1088,13 +1089,15 @@ export default function Profile() {
                         </span>
                       </div>
                     </div>
-                    <Link href="/kyc">
-                      <Button variant="outline" data-testid="button-kyc-verification">
-                        {user.kycStatus === "completed" ? "View Status" : 
-                         user.kycStatus === "pending" || user.kycStatus === "in_progress" ? "View Status" :
-                         "Start Verification"}
-                      </Button>
-                    </Link>
+                    <Button 
+                      variant="outline" 
+                      data-testid="button-kyc-verification"
+                      onClick={() => setActiveTab('kyc')}
+                    >
+                      {user.kycStatus === "completed" ? "View Status" : 
+                       user.kycStatus === "pending" || user.kycStatus === "in_progress" ? "View Status" :
+                       "Start Verification"}
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
