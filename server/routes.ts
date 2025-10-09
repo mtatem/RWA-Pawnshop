@@ -43,6 +43,7 @@ import {
 import { randomUUID } from "crypto";
 import bcrypt from "bcryptjs";
 import { MFAService } from "./mfa-service";
+import { EncryptionService } from "./encryption-service";
 
 // Import comprehensive validation middleware and utilities
 import { 
@@ -1564,38 +1565,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         }
 
-        // For now, store file names as placeholders (in production, these would be uploaded to secure storage)
+        // Save uploaded files to disk (TODO: Migrate to object storage in production)
         const documentImageFile = req.files.documentImage[0];
         const documentBackImageFile = req.files.documentBackImage?.[0];
         const selfieImageFile = req.files.selfieImage[0];
 
-        // Encrypt sensitive PII data before storage
-        const documentImageKey = `document_${userId}_${Date.now()}`;
-        const documentBackImageKey = documentBackImageFile ? `document_back_${userId}_${Date.now()}` : null;
-        const selfieImageKey = `selfie_${userId}_${Date.now()}`;
+        // Create uploads directory if it doesn't exist
+        const uploadsDir = path.join(__dirname, '../uploads/kyc');
+        if (!fs.existsSync(uploadsDir)) {
+          fs.mkdirSync(uploadsDir, { recursive: true });
+        }
 
-        // Prepare KYC data with both plaintext (for schema validation) and encrypted fields (for storage)
+        // Generate unique file paths and save files
+        const documentImageKey = `document_${userId}_${Date.now()}${path.extname(documentImageFile.originalname)}`;
+        const documentImagePath = path.join(uploadsDir, documentImageKey);
+        fs.writeFileSync(documentImagePath, documentImageFile.buffer);
+
+        let documentBackImageKey = null;
+        if (documentBackImageFile) {
+          documentBackImageKey = `document_back_${userId}_${Date.now()}${path.extname(documentBackImageFile.originalname)}`;
+          const documentBackImagePath = path.join(uploadsDir, documentBackImageKey);
+          fs.writeFileSync(documentBackImagePath, documentBackImageFile.buffer);
+        }
+
+        const selfieImageKey = `selfie_${userId}_${Date.now()}${path.extname(selfieImageFile.originalname)}`;
+        const selfieImagePath = path.join(uploadsDir, selfieImageKey);
+        fs.writeFileSync(selfieImagePath, selfieImageFile.buffer);
+
+        // Prepare KYC data with encrypted fields for storage
+        // Note: The schema only stores encrypted versions of PII data
         const kycData = {
           userId,
           documentType: formData.documentType,
-          documentNumber: formData.documentNumber, // Required by schema
           documentCountry: formData.documentCountry,
-          fullName: formData.fullName, // Required by schema
-          dateOfBirth: formData.dateOfBirth, // Required by schema
-          nationality: formData.nationality, // Required by schema
-          occupation: formData.occupation,
           sourceOfFunds: formData.sourceOfFunds,
           annualIncome: formData.annualIncome,
-          status: 'pending',
-          // Encrypted fields for secure storage
-          documentNumberEncrypted: formData.documentNumber, // TODO: Add proper encryption in production
-          fullNameEncrypted: formData.fullName, // TODO: Add proper encryption in production
-          dateOfBirthEncrypted: formData.dateOfBirth, // TODO: Add proper encryption in production
-          nationalityEncrypted: formData.nationality, // TODO: Add proper encryption in production
-          occupationEncrypted: formData.occupation, // TODO: Add proper encryption in production
-          documentImageKeyEncrypted: documentImageKey, // TODO: Add proper encryption in production
-          documentBackImageKeyEncrypted: documentBackImageKey, // TODO: Add proper encryption in production
-          selfieImageKeyEncrypted: selfieImageKey // TODO: Add proper encryption in production
+          status: 'pending' as const,
+          // Encrypted PII fields using AES-256-GCM encryption
+          documentNumberEncrypted: EncryptionService.encrypt(formData.documentNumber),
+          fullNameEncrypted: EncryptionService.encrypt(formData.fullName),
+          dateOfBirthEncrypted: EncryptionService.encrypt(formData.dateOfBirth),
+          nationalityEncrypted: EncryptionService.encrypt(formData.nationality),
+          occupationEncrypted: EncryptionService.encrypt(formData.occupation),
+          documentImageKeyEncrypted: EncryptionService.encrypt(documentImageKey),
+          documentBackImageKeyEncrypted: documentBackImageKey ? EncryptionService.encrypt(documentBackImageKey) : null,
+          selfieImageKeyEncrypted: EncryptionService.encrypt(selfieImageKey)
         };
 
         // Create KYC information

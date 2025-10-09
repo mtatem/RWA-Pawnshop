@@ -1633,18 +1633,13 @@ export const adminDashboardFiltersSchema = z.object({
 });
 
 // Enhanced validation schemas for new tables
+// Note: KYC insert schema matches database columns (encrypted PII fields only)
 export const insertKycInformationSchema = createInsertSchema(kycInformation).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
   submittedAt: true,
   reviewedAt: true,
-}).extend({
-  documentType: z.enum(['passport', 'drivers_license', 'national_id']),
-  fullName: z.string().min(1, 'Full name is required').max(100, 'Full name too long'),
-  documentNumber: z.string().min(1, 'Document number is required').max(50, 'Document number too long'),
-  documentCountry: z.string().min(2, 'Country code required').max(3, 'Invalid country code'),
-  nationality: z.string().min(2, 'Nationality required').max(50, 'Nationality too long'),
 });
 
 export const insertWalletBindingSchema = createInsertSchema(walletBindings).omit({

@@ -298,8 +298,14 @@ export default function Profile() {
   });
 
   // Fetch user's KYC information
+  // Use user-scoped cache key to prevent cross-user data leakage
   const { data: kycInfo, isLoading: kycLoading, error: kycError } = useQuery<KYCInformation>({
     queryKey: ["/api/user/kyc", user?.id],
+    queryFn: async () => {
+      const res = await fetch("/api/user/kyc", { credentials: "include" });
+      if (!res.ok) throw new Error(`${res.status}: ${res.statusText}`);
+      return res.json();
+    },
     enabled: !!user?.id
   });
 
