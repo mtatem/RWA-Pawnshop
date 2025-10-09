@@ -55,7 +55,7 @@ export default function HeroSection() {
           </Card>
 
           <Card className="bg-card border border-border p-4 sm:p-6 glass-effect hover:shadow-lg transition-shadow">
-            <div className="text-xl sm:text-2xl lg:text-3xl font-bold text-accent" data-testid="stat-assets-listed">
+            <div className="text-xl sm:text-2xl lg:text-3xl font-bold text-[#ffffff]" data-testid="stat-assets-listed">
               89
             </div>
             <div className="text-xs sm:text-sm text-muted-foreground mt-1 sm:mt-2">Assets for Sale</div>
