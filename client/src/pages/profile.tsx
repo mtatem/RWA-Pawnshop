@@ -208,6 +208,11 @@ export default function Profile() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [showPawnForm, setShowPawnForm] = useState(false);
   
+  // KYC document upload state
+  const [documentFrontFile, setDocumentFrontFile] = useState<File | null>(null);
+  const [documentBackFile, setDocumentBackFile] = useState<File | null>(null);
+  const [selfieFile, setSelfieFile] = useState<File | null>(null);
+  
   // MFA state management
   const [showMfaSetup, setShowMfaSetup] = useState(false);
   const [mfaSetupData, setMfaSetupData] = useState<{
@@ -454,10 +459,37 @@ export default function Profile() {
   };
 
   const onKYCSubmit = (data: KYCForm) => {
+    // Validate files before submission
+    if (!documentFrontFile) {
+      toast({
+        title: "Document Required",
+        description: "Please upload the front of your ID document",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    if (!selfieFile) {
+      toast({
+        title: "Selfie Required", 
+        description: "Please upload a selfie photo",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     const formData = new FormData();
     Object.entries(data).forEach(([key, value]) => {
       formData.append(key, value);
     });
+    
+    // Append file uploads
+    formData.append('documentImage', documentFrontFile);
+    if (documentBackFile) {
+      formData.append('documentBackImage', documentBackFile);
+    }
+    formData.append('selfieImage', selfieFile);
+    
     submitKYCMutation.mutate(formData);
   };
 
@@ -1279,6 +1311,91 @@ export default function Profile() {
                               </FormItem>
                             )}
                           />
+                        </div>
+
+                        {/* Document Upload Section */}
+                        <div className="space-y-4 pt-4 border-t">
+                          <h3 className="text-lg font-semibold">Document Uploads</h3>
+                          
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {/* Document Front */}
+                            <div className="space-y-2">
+                              <Label htmlFor="document-front">
+                                ID Document (Front) <span className="text-red-500">*</span>
+                              </Label>
+                              <div className="flex items-center gap-4">
+                                <Input
+                                  id="document-front"
+                                  type="file"
+                                  accept="image/*"
+                                  onChange={(e) => setDocumentFrontFile(e.target.files?.[0] || null)}
+                                  data-testid="input-document-front"
+                                  className="cursor-pointer"
+                                />
+                                {documentFrontFile && (
+                                  <CheckCircle className="h-5 w-5 text-green-500" />
+                                )}
+                              </div>
+                              {documentFrontFile && (
+                                <p className="text-sm text-muted-foreground">
+                                  {documentFrontFile.name}
+                                </p>
+                              )}
+                            </div>
+
+                            {/* Document Back */}
+                            <div className="space-y-2">
+                              <Label htmlFor="document-back">
+                                ID Document (Back) <span className="text-muted-foreground">(Optional)</span>
+                              </Label>
+                              <div className="flex items-center gap-4">
+                                <Input
+                                  id="document-back"
+                                  type="file"
+                                  accept="image/*"
+                                  onChange={(e) => setDocumentBackFile(e.target.files?.[0] || null)}
+                                  data-testid="input-document-back"
+                                  className="cursor-pointer"
+                                />
+                                {documentBackFile && (
+                                  <CheckCircle className="h-5 w-5 text-green-500" />
+                                )}
+                              </div>
+                              {documentBackFile && (
+                                <p className="text-sm text-muted-foreground">
+                                  {documentBackFile.name}
+                                </p>
+                              )}
+                            </div>
+
+                            {/* Selfie */}
+                            <div className="space-y-2 md:col-span-2">
+                              <Label htmlFor="selfie">
+                                Selfie Photo <span className="text-red-500">*</span>
+                              </Label>
+                              <div className="flex items-center gap-4">
+                                <Input
+                                  id="selfie"
+                                  type="file"
+                                  accept="image/*"
+                                  onChange={(e) => setSelfieFile(e.target.files?.[0] || null)}
+                                  data-testid="input-selfie"
+                                  className="cursor-pointer"
+                                />
+                                {selfieFile && (
+                                  <CheckCircle className="h-5 w-5 text-green-500" />
+                                )}
+                              </div>
+                              {selfieFile && (
+                                <p className="text-sm text-muted-foreground">
+                                  {selfieFile.name}
+                                </p>
+                              )}
+                              <p className="text-sm text-muted-foreground">
+                                Please upload a clear photo of yourself holding your ID document
+                              </p>
+                            </div>
+                          </div>
                         </div>
 
                         <Alert>
