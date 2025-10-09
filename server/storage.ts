@@ -694,7 +694,9 @@ export class DatabaseStorage implements IStorage {
       const [kyc] = await db.insert(kycInformation).values(kycData).returning();
       return kyc;
     } catch (error) {
-      throw new Error('KYC functionality not yet available - database schema needs migration');
+      console.error('KYC creation error:', error);
+      console.error('KYC data being inserted:', JSON.stringify(kycData, null, 2));
+      throw error; // Re-throw the actual error instead of hiding it
     }
   }
 
