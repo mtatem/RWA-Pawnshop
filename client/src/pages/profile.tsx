@@ -104,7 +104,7 @@ const pawnAssetSchema = z.object({
 
 type PawnAssetForm = z.infer<typeof pawnAssetSchema>;
 
-// KYC form schema
+// KYC form schema - must match backend validation
 const kycSchema = z.object({
   documentType: z.enum(["passport", "drivers_license", "national_id"], {
     required_error: "Document type is required"
@@ -115,7 +115,7 @@ const kycSchema = z.object({
   dateOfBirth: z.string().min(1, "Date of birth is required"),
   nationality: z.string().min(1, "Nationality is required"),
   occupation: z.string().min(1, "Occupation is required"),
-  sourceOfFunds: z.enum(["employment", "business", "investment", "inheritance", "other"], {
+  sourceOfFunds: z.enum(["employment", "business_ownership", "investments", "inheritance", "savings", "pension", "other"], {
     required_error: "Source of funds is required"
   }),
   annualIncome: z.enum(["under_25k", "25k_50k", "50k_100k", "100k_250k", "250k_500k", "over_500k"], {
@@ -1240,10 +1240,12 @@ export default function Profile() {
                                     </SelectTrigger>
                                   </FormControl>
                                   <SelectContent className="bg-gray-900 dark:bg-gray-900 text-white dark:text-white border-gray-700">
-                                    <SelectItem value="employment">Employment</SelectItem>
-                                    <SelectItem value="business">Business</SelectItem>
-                                    <SelectItem value="investment">Investment</SelectItem>
+                                    <SelectItem value="employment">Employment/Salary</SelectItem>
+                                    <SelectItem value="business_ownership">Business Ownership</SelectItem>
+                                    <SelectItem value="investments">Investments/Trading</SelectItem>
                                     <SelectItem value="inheritance">Inheritance</SelectItem>
+                                    <SelectItem value="savings">Personal Savings</SelectItem>
+                                    <SelectItem value="pension">Pension/Retirement</SelectItem>
                                     <SelectItem value="other">Other</SelectItem>
                                   </SelectContent>
                                 </Select>
