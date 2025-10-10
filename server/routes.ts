@@ -1530,7 +1530,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     ]),
     async (req: any, res) => {
       try {
-        const userId = req.user.id;
+        const userId = req.user.claims.sub;
         
         // Check if KYC already exists and is not rejected
         const existingKyc = await storage.getKycInformation(userId);
