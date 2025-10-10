@@ -1612,6 +1612,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           selfieImageKeyEncrypted: EncryptionService.encrypt(selfieImageKey)
         };
 
+        // Debug: Log kycData before database insert
+        console.log('kycData before insert:', JSON.stringify(kycData, null, 2));
+        console.log('userId variable:', userId);
+        console.log('req.user:', req.user);
+        
         // Create KYC information
         const kycInfo = await storage.createKycInformation(kycData);
         
