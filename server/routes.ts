@@ -4834,6 +4834,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     async (req, res) => {
       try {
         const formData = req.body;
+        const userId = req.user?.claims?.sub || null;
+        
+        // Save form submission to database
+        const submission = await storage.createFormSubmission({
+          userId,
+          formType: 'contact',
+          name: formData.name,
+          email: formData.email,
+          subject: formData.subject,
+          category: formData.category,
+          priority: formData.priority || 'normal',
+          message: formData.message,
+          status: 'pending',
+          ipAddress: req.ip || null,
+          userAgent: req.get('User-Agent') || null,
+          metadata: null
+        });
         
         // Send email with contact form data
         const emailSent = await emailService.sendContactFormSubmission(formData);
@@ -4842,6 +4859,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           res.json({
             success: true,
             message: 'Your message has been sent successfully. We will get back to you soon!',
+            submissionId: submission.id,
             timestamp: new Date().toISOString()
           });
         } else {

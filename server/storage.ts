@@ -358,6 +358,13 @@ export interface IStorage {
   createRwapawnBalance(balance: InsertRwapawnBalance): Promise<RwapawnBalance>;
   updateRwapawnBalance(userId: string, updates: Partial<RwapawnBalance>): Promise<RwapawnBalance>;
   addTokensToBalance(userId: string, amount: number): Promise<RwapawnBalance>;
+  
+  // Form submission operations
+  createFormSubmission(submission: InsertFormSubmission): Promise<FormSubmission>;
+  getFormSubmission(id: string): Promise<FormSubmission | undefined>;
+  getAllFormSubmissions(limit?: number, offset?: number, filters?: any): Promise<FormSubmission[]>;
+  getFormSubmissionCount(filters?: any): Promise<number>;
+  updateFormSubmissionStatus(id: string, status: string, responseNotes?: string, assignedTo?: string): Promise<FormSubmission>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2703,6 +2710,75 @@ export class DatabaseStorage implements IStorage {
     }
     
     return balance;
+  }
+
+  // Form submission operations
+  async createFormSubmission(submission: InsertFormSubmission): Promise<FormSubmission> {
+    const [result] = await db.insert(formSubmissions).values([submission]).returning();
+    return result;
+  }
+
+  async getFormSubmission(id: string): Promise<FormSubmission | undefined> {
+    const [submission] = await db.select().from(formSubmissions).where(eq(formSubmissions.id, id));
+    return submission || undefined;
+  }
+
+  async getAllFormSubmissions(limit: number = 100, offset: number = 0, filters: any = {}): Promise<FormSubmission[]> {
+    let query = db.select().from(formSubmissions);
+    
+    if (filters.status) {
+      query = query.where(eq(formSubmissions.status, filters.status)) as any;
+    }
+    
+    if (filters.formType) {
+      query = query.where(eq(formSubmissions.formType, filters.formType)) as any;
+    }
+    
+    return await query
+      .orderBy(desc(formSubmissions.createdAt))
+      .limit(limit)
+      .offset(offset);
+  }
+
+  async getFormSubmissionCount(filters: any = {}): Promise<number> {
+    let query = db.select({ count: sql<number>`count(*)::int` }).from(formSubmissions);
+    
+    if (filters.status) {
+      query = query.where(eq(formSubmissions.status, filters.status)) as any;
+    }
+    
+    if (filters.formType) {
+      query = query.where(eq(formSubmissions.formType, filters.formType)) as any;
+    }
+    
+    const [result] = await query;
+    return result?.count || 0;
+  }
+
+  async updateFormSubmissionStatus(id: string, status: string, responseNotes?: string, assignedTo?: string): Promise<FormSubmission> {
+    const updates: any = { 
+      status,
+      updatedAt: new Date()
+    };
+    
+    if (responseNotes !== undefined) {
+      updates.responseNotes = responseNotes;
+    }
+    
+    if (assignedTo !== undefined) {
+      updates.assignedTo = assignedTo;
+    }
+    
+    if (status === 'resolved' || status === 'closed') {
+      updates.resolvedAt = new Date();
+    }
+    
+    const [submission] = await db
+      .update(formSubmissions)
+      .set(updates)
+      .where(eq(formSubmissions.id, id))
+      .returning();
+    return submission;
   }
 }
 

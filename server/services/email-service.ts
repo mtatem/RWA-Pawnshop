@@ -61,10 +61,10 @@ ${message}
 This message was sent from the RWAPAWN contact form at https://rwapawn.io/contact-us
       `;
 
-      // Send email
+      // Send email to both addresses
       const mailOptions = {
         from: process.env.SMTP_FROM || 'noreply@rwapawn.io',
-        to: 'info@tatemwebdesign.com',
+        to: ['mtatem@gmail.com', 'tatem@tatemweb.com'],
         subject: `[RWAPAWN Contact] ${subject}`,
         text: textContent,
         html: htmlContent,
