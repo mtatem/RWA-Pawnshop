@@ -128,8 +128,9 @@ export interface IStorage {
   // KYC operations
   createKycInformation(kycData: InsertKycInformation): Promise<KycInformation>;
   getKycInformation(userId: string): Promise<KycInformation | undefined>;
-  updateKycStatus(userId: string, status: string, reviewNotes?: string, reviewedBy?: string): Promise<KycInformation>;
-  getPendingKycSubmissions(): Promise<KycInformation[]>;
+  updateKycStatus(kycId: string, status: string, reviewNotes?: string, reviewedBy?: string, rejectionReason?: string): Promise<KycInformation>;
+  getPendingKycSubmissions(): Promise<any[]>;
+  getAllKycSubmissions(): Promise<any[]>;
   
   // Wallet binding operations
   createWalletBinding(bindingData: InsertWalletBinding): Promise<WalletBinding>;
@@ -709,7 +710,7 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async updateKycStatus(userId: string, status: string, reviewNotes?: string, reviewedBy?: string): Promise<KycInformation> {
+  async updateKycStatus(kycId: string, status: string, reviewNotes?: string, reviewedBy?: string, rejectionReason?: string): Promise<KycInformation> {
     try {
       // Update KYC information
       const [kyc] = await db.update(kycInformation)
@@ -717,13 +718,15 @@ export class DatabaseStorage implements IStorage {
           status: status as any,
           reviewNotes,
           reviewedBy,
+          rejectionReason,
           reviewedAt: new Date(),
           updatedAt: new Date()
         })
-        .where(eq(kycInformation.userId, userId))
+        .where(eq(kycInformation.id, kycId))
         .returning();
 
       // Get current user for role promotion logic
+      const userId = kyc.userId;
       const currentUser = await this.getUser(userId);
       
       // Auto-promote user role when KYC is completed
@@ -756,11 +759,68 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async getPendingKycSubmissions(): Promise<KycInformation[]> {
+  async getPendingKycSubmissions(): Promise<any[]> {
     try {
-      const kycSubmissions = await db.select().from(kycInformation)
+      const kycSubmissions = await db
+        .select({
+          id: kycInformation.id,
+          userId: kycInformation.userId,
+          documentType: kycInformation.documentType,
+          documentCountry: kycInformation.documentCountry,
+          status: kycInformation.status,
+          reviewNotes: kycInformation.reviewNotes,
+          rejectionReason: kycInformation.rejectionReason,
+          submittedAt: kycInformation.submittedAt,
+          reviewedAt: kycInformation.reviewedAt,
+          reviewedBy: kycInformation.reviewedBy,
+          user: {
+            id: users.id,
+            username: users.username,
+            email: users.email,
+            firstName: users.firstName,
+            lastName: users.lastName
+          }
+        })
+        .from(kycInformation)
+        .leftJoin(users, eq(kycInformation.userId, users.id))
         .where(eq(kycInformation.status as any, 'pending'))
         .orderBy(desc(kycInformation.submittedAt));
+      
+      return kycSubmissions;
+    } catch (error: any) {
+      if (error?.code === '42703' || error?.message?.includes('table') || error?.message?.includes('does not exist')) {
+        return [];
+      }
+      throw error;
+    }
+  }
+
+  async getAllKycSubmissions(): Promise<any[]> {
+    try {
+      const kycSubmissions = await db
+        .select({
+          id: kycInformation.id,
+          userId: kycInformation.userId,
+          documentType: kycInformation.documentType,
+          documentCountry: kycInformation.documentCountry,
+          status: kycInformation.status,
+          reviewNotes: kycInformation.reviewNotes,
+          rejectionReason: kycInformation.rejectionReason,
+          submittedAt: kycInformation.submittedAt,
+          reviewedAt: kycInformation.reviewedAt,
+          reviewedBy: kycInformation.reviewedBy,
+          user: {
+            id: users.id,
+            username: users.username,
+            email: users.email,
+            firstName: users.firstName,
+            lastName: users.lastName
+          }
+        })
+        .from(kycInformation)
+        .leftJoin(users, eq(kycInformation.userId, users.id))
+        .orderBy(desc(kycInformation.submittedAt));
+      
       return kycSubmissions;
     } catch (error: any) {
       if (error?.code === '42703' || error?.message?.includes('table') || error?.message?.includes('does not exist')) {

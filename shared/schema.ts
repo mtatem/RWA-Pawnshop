@@ -166,6 +166,32 @@ export const userActivityLog = pgTable("user_activity_log", {
   userActivityTypeSuccessIdx: index("user_activity_type_success_idx").on(table.activityType, table.success, table.createdAt)
 }));
 
+// Form submissions table for contact forms and other submissions
+export const formSubmissions = pgTable("form_submissions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id), // Optional - can be null for non-authenticated submissions
+  formType: varchar("form_type").notNull(), // contact, support, feedback, etc.
+  name: varchar("name"),
+  email: varchar("email").notNull(),
+  subject: varchar("subject"),
+  category: varchar("category"), // issue type/category
+  priority: varchar("priority").default("normal"), // low, normal, high, urgent
+  message: text("message").notNull(),
+  status: varchar("status").default("pending"), // pending, in_progress, resolved, closed
+  assignedTo: varchar("assigned_to").references(() => users.id), // Admin assigned to handle this
+  responseNotes: text("response_notes"), // Admin's response or notes
+  resolvedAt: timestamp("resolved_at"),
+  ipAddress: varchar("ip_address"),
+  userAgent: text("user_agent"),
+  metadata: jsonb("metadata"), // Additional form-specific data
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().$onUpdate(() => new Date()),
+}, (table) => ({
+  formSubmissionsEmailIdx: index("form_submissions_email_idx").on(table.email),
+  formSubmissionsStatusIdx: index("form_submissions_status_idx").on(table.status, table.createdAt),
+  formSubmissionsTypeIdx: index("form_submissions_type_idx").on(table.formType, table.createdAt)
+}));
+
 // RWA submissions table
 export const rwaSubmissions = pgTable("rwa_submissions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -1669,6 +1695,18 @@ export const insertUserActivityLogSchema = createInsertSchema(userActivityLog).o
   activityType: z.enum(['login', 'logout', 'password_change', 'profile_update', 'wallet_bind', 'kyc_submit', 'mfa_setup', 'mfa_disable']),
 });
 
+export const insertFormSubmissionSchema = createInsertSchema(formSubmissions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  resolvedAt: true,
+}).extend({
+  formType: z.enum(['contact', 'support', 'feedback', 'technical', 'billing']),
+  email: z.string().email('Invalid email format'),
+  priority: z.enum(['low', 'normal', 'high', 'urgent']).default('normal'),
+  status: z.enum(['pending', 'in_progress', 'resolved', 'closed']).default('pending'),
+});
+
 // User profile management schemas
 export const userRegistrationSchema = z.object({
   email: z.string().email('Invalid email format').max(320, 'Email too long'),
@@ -1827,6 +1865,8 @@ export type MfaToken = typeof mfaTokens.$inferSelect;
 export type InsertMfaToken = z.infer<typeof insertMfaTokenSchema>;
 export type UserActivityLog = typeof userActivityLog.$inferSelect;
 export type InsertUserActivityLog = z.infer<typeof insertUserActivityLogSchema>;
+export type FormSubmission = typeof formSubmissions.$inferSelect;
+export type InsertFormSubmission = z.infer<typeof insertFormSubmissionSchema>;
 
 // User authentication form types
 export type UserRegistration = z.infer<typeof userRegistrationSchema>;

@@ -1690,10 +1690,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { status, search } = req.query;
       
-      // Get KYC submissions based on filters
-      const kycSubmissions = status === 'pending' 
-        ? await storage.getPendingKycSubmissions()
-        : await storage.getPendingKycSubmissions(); // For now, just use pending - can enhance later
+      // Get all KYC submissions (filtering will be done in storage layer)
+      const kycSubmissions = await storage.getAllKycSubmissions();
       
       // Calculate breakdown by status
       const breakdown = {
@@ -1734,14 +1732,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { kycId } = req.params;
       const reviewData = kycReviewSchema.parse(req.body);
-      const adminUserId = req.user?.id || 'admin'; // Get admin user ID
+      const adminUserId = req.user?.claims?.sub || req.user?.id || 'admin'; // Get admin user ID
       
       // Update KYC status and review information
       const updatedKyc = await storage.updateKycStatus(
         kycId, 
         reviewData.status, 
         reviewData.reviewNotes, 
-        adminUserId
+        adminUserId,
+        reviewData.rejectionReason
       );
       
       if (!updatedKyc) {
