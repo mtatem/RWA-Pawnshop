@@ -9,6 +9,7 @@ import AssetReview from "@/components/AssetReview";
 import UserManagement from "@/components/UserManagement";
 import BridgeMonitoring from "@/components/BridgeMonitoring";
 import KycManagement from "@/components/KycManagement";
+import FormSubmissionsManagement from "@/components/FormSubmissionsManagement";
 import Footer from "@/components/footer";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
@@ -69,7 +70,7 @@ export default function Admin() {
         <Tabs defaultValue="dashboard" className="w-full">
           {/* Mobile-first responsive tabs */}
           <div className="overflow-x-auto mb-6 sm:mb-8">
-            <TabsList className="grid w-full grid-cols-8 lg:grid-cols-8 min-w-max">
+            <TabsList className="grid w-full grid-cols-9 lg:grid-cols-9 min-w-max">
               <TabsTrigger value="dashboard" data-testid="tab-dashboard" className="text-xs px-2 sm:px-3 sm:text-sm whitespace-nowrap">
                 Dashboard
               </TabsTrigger>
@@ -93,6 +94,9 @@ export default function Admin() {
               </TabsTrigger>
               <TabsTrigger value="kyc" data-testid="tab-kyc" className="text-xs px-2 sm:px-3 sm:text-sm whitespace-nowrap">
                 KYC
+              </TabsTrigger>
+              <TabsTrigger value="forms" data-testid="tab-forms" className="text-xs px-2 sm:px-3 sm:text-sm whitespace-nowrap">
+                Forms
               </TabsTrigger>
             </TabsList>
           </div>
@@ -127,6 +131,10 @@ export default function Admin() {
           
           <TabsContent value="kyc" className="space-y-4">
             <KycManagement />
+          </TabsContent>
+          
+          <TabsContent value="forms" className="space-y-4">
+            <FormSubmissionsManagement />
           </TabsContent>
         </Tabs>
       </div>

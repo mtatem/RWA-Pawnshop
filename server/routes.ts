@@ -4890,6 +4890,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   );
 
+  // Admin Form Submissions endpoints
+  app.get('/api/admin/form-submissions', requireAdminAuth, async (req: any, res) => {
+    try {
+      const { status } = req.query;
+      const filters = status ? { status } : {};
+      
+      const submissions = await storage.getAllFormSubmissions(100, 0, filters);
+      
+      res.json(submissions);
+    } catch (error) {
+      console.error('Error fetching form submissions:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to fetch form submissions',
+        timestamp: new Date().toISOString()
+      });
+    }
+  });
+
+  app.patch('/api/admin/form-submissions/:id/status', requireAdminAuth, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { status, responseNotes } = req.body;
+      const adminId = req.user?.claims?.sub || req.user?.id;
+      
+      const updatedSubmission = await storage.updateFormSubmissionStatus(
+        id,
+        status,
+        responseNotes,
+        adminId
+      );
+      
+      res.json({
+        success: true,
+        submission: updatedSubmission,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('Error updating form submission status:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to update form submission status',
+        timestamp: new Date().toISOString()
+      });
+    }
+  });
+
   // Chat API endpoint
   app.post(
     '/api/chat',
