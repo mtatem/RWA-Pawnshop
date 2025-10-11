@@ -1813,6 +1813,150 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin KYC Documents endpoint - retrieve encrypted document URLs
+  app.get("/api/admin/kyc/:kycId/documents", rateLimitConfigs.api, requireAdminAuth, async (req: any, res) => {
+    try {
+      const { kycId } = req.params;
+      
+      // Fetch KYC submission
+      const kycSubmission = await storage.getKycSubmission(kycId);
+      
+      if (!kycSubmission) {
+        return res.status(404).json({
+          success: false,
+          error: "KYC submission not found",
+          code: 'KYC_NOT_FOUND',
+          timestamp: new Date().toISOString()
+        });
+      }
+      
+      // Decrypt storage keys and create admin-accessible URLs
+      const documents: any = {
+        documentFront: null,
+        documentBack: null,
+        selfie: null
+      };
+      
+      try {
+        if (kycSubmission.documentImageKeyEncrypted) {
+          const decryptedKey = EncryptionService.decrypt(kycSubmission.documentImageKeyEncrypted);
+          // Create admin URL for the document
+          documents.documentFront = `/api/admin/kyc/document/${kycId}/front`;
+        }
+        
+        if (kycSubmission.documentBackImageKeyEncrypted) {
+          const decryptedKey = EncryptionService.decrypt(kycSubmission.documentBackImageKeyEncrypted);
+          documents.documentBack = `/api/admin/kyc/document/${kycId}/back`;
+        }
+        
+        if (kycSubmission.selfieImageKeyEncrypted) {
+          const decryptedKey = EncryptionService.decrypt(kycSubmission.selfieImageKeyEncrypted);
+          documents.selfie = `/api/admin/kyc/document/${kycId}/selfie`;
+        }
+      } catch (decryptError) {
+        console.error("Error decrypting document keys:", {
+          kycId,
+          error: decryptError instanceof Error ? decryptError.message : decryptError,
+          timestamp: new Date().toISOString()
+        });
+        
+        return res.status(500).json({
+          success: false,
+          error: "Failed to decrypt document keys",
+          code: 'DECRYPTION_ERROR',
+          timestamp: new Date().toISOString()
+        });
+      }
+      
+      res.json(successResponse(documents, 'KYC documents retrieved successfully'));
+    } catch (error) {
+      console.error("Error fetching KYC documents:", {
+        kycId: req.params?.kycId,
+        error: error instanceof Error ? error.message : error,
+        stack: error instanceof Error ? error.stack : undefined,
+        timestamp: new Date().toISOString(),
+        ip: req.ip
+      });
+      
+      res.status(500).json({
+        success: false,
+        error: "Failed to fetch KYC documents",
+        code: 'INTERNAL_ERROR',
+        timestamp: new Date().toISOString()
+      });
+    }
+  });
+
+  // Admin endpoint to serve KYC document images
+  app.get("/api/admin/kyc/document/:kycId/:documentType", rateLimitConfigs.api, requireAdminAuth, async (req: any, res) => {
+    try {
+      const { kycId, documentType } = req.params;
+      
+      // Fetch KYC submission
+      const kycSubmission = await storage.getKycSubmission(kycId);
+      
+      if (!kycSubmission) {
+        return res.status(404).json({
+          success: false,
+          error: "KYC submission not found",
+          code: 'KYC_NOT_FOUND'
+        });
+      }
+      
+      // Get the appropriate encrypted key
+      let encryptedKey: string | null = null;
+      if (documentType === 'front') {
+        encryptedKey = kycSubmission.documentImageKeyEncrypted;
+      } else if (documentType === 'back') {
+        encryptedKey = kycSubmission.documentBackImageKeyEncrypted;
+      } else if (documentType === 'selfie') {
+        encryptedKey = kycSubmission.selfieImageKeyEncrypted;
+      }
+      
+      if (!encryptedKey) {
+        return res.status(404).json({
+          success: false,
+          error: "Document not found",
+          code: 'DOCUMENT_NOT_FOUND'
+        });
+      }
+      
+      // Decrypt the storage key
+      const decryptedKey = EncryptionService.decrypt(encryptedKey);
+      
+      // Get the file from object storage
+      const objectStorageService = new ObjectStorageService();
+      const objectFile = await objectStorageService.getObjectEntityFile(decryptedKey);
+      
+      // Stream the file to response
+      await objectStorageService.downloadObject(objectFile, res);
+      
+    } catch (error) {
+      console.error("Error serving KYC document:", {
+        kycId: req.params?.kycId,
+        documentType: req.params?.documentType,
+        error: error instanceof Error ? error.message : error,
+        timestamp: new Date().toISOString()
+      });
+      
+      if (error instanceof ObjectNotFoundError) {
+        return res.status(404).json({
+          success: false,
+          error: "Document file not found in storage",
+          code: 'FILE_NOT_FOUND'
+        });
+      }
+      
+      if (!res.headersSent) {
+        res.status(500).json({
+          success: false,
+          error: "Failed to serve document",
+          code: 'INTERNAL_ERROR'
+        });
+      }
+    }
+  });
+
   // User Wallet Information endpoints
   app.get("/api/user/wallets", isAuthenticated, async (req: any, res) => {
     try {

@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { 
   Shield, 
   User, 
@@ -56,6 +56,12 @@ interface KycSubmission {
     firstName?: string;
     lastName?: string;
   };
+}
+
+interface KycDocuments {
+  documentFront: string | null;
+  documentBack: string | null;
+  selfie: string | null;
 }
 
 interface KycSubmissionsData {
@@ -155,6 +161,128 @@ export default function KycManagement() {
     return <Badge variant="outline">{formattedType}</Badge>;
   };
 
+  // State for document blob URLs
+  const [documentImages, setDocumentImages] = useState<{
+    documentFront: string | null;
+    documentBack: string | null;
+    selfie: string | null;
+  }>({
+    documentFront: null,
+    documentBack: null,
+    selfie: null
+  });
+  const [loadingImages, setLoadingImages] = useState(false);
+
+  // Fetch KYC documents when reviewing
+  const { data: kycDocuments, isLoading: documentsLoading } = useQuery({
+    queryKey: ['/api/admin/kyc', selectedKyc?.id, 'documents'],
+    queryFn: getAdminQueryFn({ on401: "throw" }),
+    enabled: !!selectedKyc?.id && isReviewDialogOpen,
+  });
+
+  // Fetch images with authentication and create blob URLs
+  useEffect(() => {
+    let isMounted = true;
+    const urls: string[] = [];
+    
+    const fetchImages = async () => {
+      if (!kycDocuments?.data || !isReviewDialogOpen || !selectedKyc) {
+        // Reset images when dialog closes
+        setDocumentImages({ documentFront: null, documentBack: null, selfie: null });
+        return;
+      }
+      
+      setLoadingImages(true);
+      const images: any = {
+        documentFront: null,
+        documentBack: null,
+        selfie: null
+      };
+
+      try {
+        const docs = (kycDocuments as any).data;
+        
+        // Fetch document front
+        if (docs.documentFront && isMounted) {
+          try {
+            const response = await adminApiRequest('GET', docs.documentFront);
+            if (response.ok && isMounted) {
+              const blob = await response.blob();
+              if (isMounted) {
+                const blobUrl = URL.createObjectURL(blob);
+                images.documentFront = blobUrl;
+                urls.push(blobUrl);
+              }
+            }
+          } catch (err) {
+            console.error('Error fetching document front:', err);
+          }
+        }
+
+        // Fetch document back
+        if (docs.documentBack && isMounted) {
+          try {
+            const response = await adminApiRequest('GET', docs.documentBack);
+            if (response.ok && isMounted) {
+              const blob = await response.blob();
+              if (isMounted) {
+                const blobUrl = URL.createObjectURL(blob);
+                images.documentBack = blobUrl;
+                urls.push(blobUrl);
+              }
+            }
+          } catch (err) {
+            console.error('Error fetching document back:', err);
+          }
+        }
+
+        // Fetch selfie
+        if (docs.selfie && isMounted) {
+          try {
+            const response = await adminApiRequest('GET', docs.selfie);
+            if (response.ok && isMounted) {
+              const blob = await response.blob();
+              if (isMounted) {
+                const blobUrl = URL.createObjectURL(blob);
+                images.selfie = blobUrl;
+                urls.push(blobUrl);
+              }
+            }
+          } catch (err) {
+            console.error('Error fetching selfie:', err);
+          }
+        }
+
+        if (isMounted) {
+          setDocumentImages(images);
+        }
+      } catch (error) {
+        console.error('Error fetching KYC documents:', error);
+        if (isMounted) {
+          toast({
+            title: "Error Loading Documents",
+            description: "Failed to load KYC documents. Please try again.",
+            variant: "destructive",
+          });
+        }
+      } finally {
+        if (isMounted) {
+          setLoadingImages(false);
+        }
+      }
+    };
+
+    fetchImages();
+
+    // Cleanup blob URLs when dialog closes or effect re-runs
+    return () => {
+      isMounted = false;
+      urls.forEach(url => URL.revokeObjectURL(url));
+      // Reset state when unmounting
+      setDocumentImages({ documentFront: null, documentBack: null, selfie: null });
+    };
+  }, [kycDocuments, isReviewDialogOpen, selectedKyc, toast]);
+
   const handleReviewClick = (kyc: KycSubmission) => {
     setSelectedKyc(kyc);
     reviewForm.reset({
@@ -186,8 +314,8 @@ export default function KycManagement() {
     );
   }
 
-  const submissions = kycData?.data?.submissions || [];
-  const breakdown = kycData?.data?.breakdown || { byStatus: {} };
+  const submissions = (kycData as any)?.data?.submissions || [];
+  const breakdown = (kycData as any)?.data?.breakdown || { byStatus: {} };
 
   return (
     <div className="space-y-6">
@@ -387,6 +515,66 @@ export default function KycManagement() {
                 <p className="text-sm text-muted-foreground">
                   Document: {selectedKyc?.documentType?.replace('_', ' ').toUpperCase() || 'Not specified'} ({selectedKyc?.documentCountry || 'N/A'})
                 </p>
+              </div>
+
+              {/* KYC Documents Display */}
+              <div className="space-y-3">
+                <h4 className="font-medium text-sm">Submitted Documents</h4>
+                {documentsLoading || loadingImages ? (
+                  <div className="flex items-center justify-center py-4">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 gap-3">
+                    {documentImages.documentFront && (
+                      <div className="space-y-1">
+                        <Label className="text-xs">Document Front</Label>
+                        <div className="border rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800">
+                          <img 
+                            src={documentImages.documentFront} 
+                            alt="Document Front" 
+                            className="w-full h-auto"
+                            data-testid="img-document-front"
+                          />
+                        </div>
+                      </div>
+                    )}
+                    
+                    {documentImages.documentBack && (
+                      <div className="space-y-1">
+                        <Label className="text-xs">Document Back</Label>
+                        <div className="border rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800">
+                          <img 
+                            src={documentImages.documentBack} 
+                            alt="Document Back" 
+                            className="w-full h-auto"
+                            data-testid="img-document-back"
+                          />
+                        </div>
+                      </div>
+                    )}
+                    
+                    {documentImages.selfie && (
+                      <div className="space-y-1">
+                        <Label className="text-xs">Selfie Verification</Label>
+                        <div className="border rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800">
+                          <img 
+                            src={documentImages.selfie} 
+                            alt="Selfie" 
+                            className="w-full h-auto"
+                            data-testid="img-selfie"
+                          />
+                        </div>
+                      </div>
+                    )}
+                    
+                    {!documentImages.documentFront && !documentImages.documentBack && !documentImages.selfie && (
+                      <div className="text-center py-4 text-muted-foreground text-sm">
+                        No documents available
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <Form {...reviewForm}>
