@@ -4997,26 +4997,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
           metadata: null
         });
         
-        // Send email with contact form data
+        // Try to send email with contact form data (non-blocking)
+        // If email fails, we still return success since the submission is saved
         const emailSent = await emailService.sendContactFormSubmission(formData);
         
-        if (emailSent) {
-          res.json({
-            success: true,
-            message: 'Your message has been sent successfully. We will get back to you soon!',
-            submissionId: submission.id,
-            timestamp: new Date().toISOString()
-          });
-        } else {
-          // Email failed but don't reveal details to user
-          console.error('Contact form email failed for:', formData.email);
-          res.status(500).json({
-            success: false,
-            error: 'Failed to send message. Please try again later.',
-            code: 'EMAIL_SEND_FAILED',
-            timestamp: new Date().toISOString()
-          });
+        if (!emailSent) {
+          // Log email failure but don't fail the request
+          console.error('Contact form email failed for:', formData.email, 'but submission saved with ID:', submission.id);
         }
+        
+        // Always return success since the submission is saved to the database
+        res.json({
+          success: true,
+          message: 'Your message has been sent successfully. We will get back to you soon!',
+          submissionId: submission.id,
+          timestamp: new Date().toISOString()
+        });
         
       } catch (error) {
         console.error('Contact form submission error:', {

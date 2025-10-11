@@ -27,6 +27,7 @@ import {
   walletBindings,
   mfaTokens,
   userActivityLog,
+  formSubmissions,
   type User,
   type InsertUser,
   type RwaSubmission,
@@ -85,6 +86,8 @@ import {
   type InsertMfaToken,
   type UserActivityLog,
   type InsertUserActivityLog,
+  type FormSubmission,
+  type InsertFormSubmission,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, or, lt, gte, sql, ilike } from "drizzle-orm";
