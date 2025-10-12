@@ -185,10 +185,10 @@ export const requireAdminAuth: RequestHandler = async (req: any, res, next) => {
       
       const user = await storage.getUser(userId);
       
-      // Check for admin role using the new role system
-      const userRole = user.role || USER_ROLES.REGISTERED;
-      if (hasRoleAtLeast(userRole, USER_ROLES.MANAGER)) {
-        // User is authenticated via Replit Auth and has admin privileges (manager or administrator)
+      // Check for admin role using the new role system OR legacy isAdmin field
+      const userRole = (user.role as UserRole) || (user.isAdmin ? USER_ROLES.ADMINISTRATOR : USER_ROLES.REGISTERED);
+      if (hasRoleAtLeast(userRole, USER_ROLES.MANAGER) || user.isAdmin) {
+        // User is authenticated via Replit Auth and has admin privileges (manager, administrator, or legacy isAdmin)
         req.adminUser = { 
           username: user.email || user.username || 'replit-admin', 
           isAdmin: true as const,
