@@ -466,14 +466,22 @@ export default function KycManagement() {
                       
                       <div className="flex items-center space-x-2">
                         <Button
-                          variant="outline"
+                          variant={kyc.status === 'completed' ? 'default' : 'outline'}
                           size="sm"
                           onClick={() => handleReviewClick(kyc)}
-                          disabled={kyc.status === 'completed'}
                           data-testid={`review-kyc-${kyc.id}`}
                         >
-                          <Edit className="h-4 w-4 mr-1" />
-                          {kyc.status === 'completed' ? 'Verified' : 'Review'}
+                          {kyc.status === 'completed' ? (
+                            <>
+                              <CheckCircle className="h-4 w-4 mr-1" />
+                              View Verified
+                            </>
+                          ) : (
+                            <>
+                              <Edit className="h-4 w-4 mr-1" />
+                              Review
+                            </>
+                          )}
                         </Button>
                       </div>
                     </div>
@@ -656,87 +664,141 @@ export default function KycManagement() {
                 )}
               </div>
 
-              <Form {...reviewForm}>
-                <form onSubmit={reviewForm.handleSubmit(onReviewSubmit)} className="space-y-4">
-                  <FormField
-                    control={reviewForm.control}
-                    name="status"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Review Decision</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger data-testid="select-review-status">
-                              <SelectValue placeholder="Select review decision" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="completed">Approve & Verify</SelectItem>
-                            <SelectItem value="rejected">Reject</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={reviewForm.control}
-                    name="reviewNotes"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Review Notes</FormLabel>
-                        <FormControl>
-                          <Textarea 
-                            {...field} 
-                            placeholder="Add notes about your review decision..."
-                            data-testid="textarea-review-notes"
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  {reviewForm.watch('status') === 'rejected' && (
+              {/* Show review form only for pending/in-progress submissions */}
+              {selectedKyc.status !== 'completed' && selectedKyc.status !== 'rejected' ? (
+                <Form {...reviewForm}>
+                  <form onSubmit={reviewForm.handleSubmit(onReviewSubmit)} className="space-y-4">
                     <FormField
                       control={reviewForm.control}
-                      name="rejectionReason"
+                      name="status"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Rejection Reason</FormLabel>
+                          <FormLabel>Review Decision</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger data-testid="select-review-status">
+                                <SelectValue placeholder="Select review decision" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="completed">Approve & Verify</SelectItem>
+                              <SelectItem value="rejected">Reject</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={reviewForm.control}
+                      name="reviewNotes"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Review Notes</FormLabel>
                           <FormControl>
                             <Textarea 
                               {...field} 
-                              placeholder="Explain why this KYC submission is being rejected..."
-                              data-testid="textarea-rejection-reason"
+                              placeholder="Add notes about your review decision..."
+                              data-testid="textarea-review-notes"
                             />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
+
+                    {reviewForm.watch('status') === 'rejected' && (
+                      <FormField
+                        control={reviewForm.control}
+                        name="rejectionReason"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Rejection Reason</FormLabel>
+                            <FormControl>
+                              <Textarea 
+                                {...field} 
+                                placeholder="Explain why this KYC submission is being rejected..."
+                                data-testid="textarea-rejection-reason"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    )}
+
+                    <div className="flex justify-end space-x-2 pt-4">
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        onClick={() => setIsReviewDialogOpen(false)}
+                        data-testid="button-cancel-review"
+                      >
+                        Cancel
+                      </Button>
+                      <Button 
+                        type="submit" 
+                        disabled={reviewKycMutation.isPending}
+                        data-testid="button-submit-review"
+                      >
+                        {reviewKycMutation.isPending ? "Submitting..." : "Submit Review"}
+                      </Button>
+                    </div>
+                  </form>
+                </Form>
+              ) : (
+                /* For approved/rejected submissions, show status info and close button */
+                <div className="space-y-4">
+                  {selectedKyc.status === 'completed' && (
+                    <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+                      <div className="flex items-center space-x-2 text-green-700 dark:text-green-300">
+                        <CheckCircle className="h-5 w-5" />
+                        <span className="font-semibold">KYC Verified</span>
+                      </div>
+                      {selectedKyc.reviewNotes && (
+                        <p className="mt-2 text-sm text-green-600 dark:text-green-400">
+                          <strong>Review Notes:</strong> {selectedKyc.reviewNotes}
+                        </p>
+                      )}
+                      {selectedKyc.reviewedAt && (
+                        <p className="mt-1 text-xs text-green-600 dark:text-green-400">
+                          Verified on: {new Date(selectedKyc.reviewedAt).toLocaleDateString()}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                  
+                  {selectedKyc.status === 'rejected' && (
+                    <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+                      <div className="flex items-center space-x-2 text-red-700 dark:text-red-300">
+                        <XCircle className="h-5 w-5" />
+                        <span className="font-semibold">KYC Rejected</span>
+                      </div>
+                      {selectedKyc.rejectionReason && (
+                        <p className="mt-2 text-sm text-red-600 dark:text-red-400">
+                          <strong>Reason:</strong> {selectedKyc.rejectionReason}
+                        </p>
+                      )}
+                      {selectedKyc.reviewedAt && (
+                        <p className="mt-1 text-xs text-red-600 dark:text-red-400">
+                          Rejected on: {new Date(selectedKyc.reviewedAt).toLocaleDateString()}
+                        </p>
+                      )}
+                    </div>
                   )}
 
-                  <div className="flex justify-end space-x-2 pt-4">
+                  <div className="flex justify-end pt-4">
                     <Button 
                       type="button" 
-                      variant="outline" 
                       onClick={() => setIsReviewDialogOpen(false)}
-                      data-testid="button-cancel-review"
+                      data-testid="button-close-review"
                     >
-                      Cancel
-                    </Button>
-                    <Button 
-                      type="submit" 
-                      disabled={reviewKycMutation.isPending}
-                      data-testid="button-submit-review"
-                    >
-                      {reviewKycMutation.isPending ? "Submitting..." : "Submit Review"}
+                      Close
                     </Button>
                   </div>
-                </form>
-              </Form>
+                </div>
+              )}
             </div>
           )}
         </DialogContent>
