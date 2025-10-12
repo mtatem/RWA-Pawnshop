@@ -130,11 +130,18 @@ export default function KYC() {
   const [selfiePreview, setSelfiePreview] = useState<string | null>(null);
   const [showPreview, setShowPreview] = useState<{ type: string; url: string } | null>(null);
 
-  // Fetch existing KYC information
-  const { data: kycInfo, isLoading: kycLoading } = useQuery<KYCInformation | null>({
-    queryKey: ["/api/user/kyc"],
+  const [isEditMode, setIsEditMode] = useState(false);
+
+  // Fetch existing KYC submission
+  const { data: kycSubmission, isLoading: kycLoading } = useQuery<any>({
+    queryKey: ["/api/user/kyc/my-submission"],
     enabled: !!user
   });
+
+  // Determine if submission exists and is editable
+  const hasExisting = kycSubmission?.data !== null && kycSubmission?.data !== undefined;
+  const canEdit = hasExisting && (kycSubmission?.data?.status === 'pending' || kycSubmission?.data?.status === 'rejected');
+  const isVerified = hasExisting && kycSubmission?.data?.status === 'completed';
 
   // KYC form
   const form = useForm<KYCSubmissionForm>({
@@ -152,7 +159,25 @@ export default function KYC() {
     }
   });
 
-  // KYC submission mutation
+  // Pre-fill form when editing existing submission
+  useEffect(() => {
+    if (hasExisting && kycSubmission?.data && isEditMode) {
+      const data = kycSubmission.data;
+      form.reset({
+        documentType: data.documentType,
+        documentNumber: data.documentNumber || "",
+        documentCountry: data.documentCountry || "US",
+        fullName: data.fullName || "",
+        dateOfBirth: data.dateOfBirth || "",
+        nationality: data.nationality || "",
+        occupation: data.occupation || "",
+        sourceOfFunds: data.sourceOfFunds,
+        annualIncome: data.annualIncome
+      });
+    }
+  }, [hasExisting, kycSubmission, isEditMode, form]);
+
+  // KYC submission/update mutation
   const submitKycMutation = useMutation({
     mutationFn: async (data: KYCSubmissionForm) => {
       const formData = new FormData();
@@ -169,29 +194,41 @@ export default function KYC() {
       if (data.documentBackImage) formData.append('documentBackImage', data.documentBackImage[0]);
       if (data.selfieImage) formData.append('selfieImage', data.selfieImage[0]);
 
-      const response = await fetch("/api/user/kyc", {
-        method: "POST",
+      // Use PATCH for updates, POST for new submissions
+      const method = hasExisting ? "PATCH" : "POST";
+      const endpoint = hasExisting ? "/api/user/kyc/my-submission" : "/api/user/kyc";
+
+      const response = await fetch(endpoint, {
+        method,
         body: formData,
         credentials: "include"
       });
 
       if (!response.ok) {
-        throw new Error(await response.text() || "KYC submission failed");
+        const errorData = await response.json();
+        throw new Error(errorData.error || "KYC submission failed");
       }
 
       return response.json();
     },
     onSuccess: () => {
       toast({
-        title: "KYC Submitted Successfully",
-        description: "Your KYC information has been submitted for review. We'll notify you of the status within 2-3 business days.",
+        title: hasExisting ? "KYC Updated Successfully" : "KYC Submitted Successfully",
+        description: hasExisting 
+          ? "Your KYC information has been updated and is pending review."
+          : "Your KYC information has been submitted for review. We'll notify you of the status within 2-3 business days.",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/user/kyc"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/user/kyc/my-submission"] });
       queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      setIsEditMode(false);
+      // Clear file previews
+      setDocumentPreview(null);
+      setDocumentBackPreview(null);
+      setSelfiePreview(null);
     },
     onError: (error: any) => {
       toast({
-        title: "KYC Submission Failed",
+        title: hasExisting ? "KYC Update Failed" : "KYC Submission Failed",
         description: error.message || "Failed to submit KYC information. Please try again.",
         variant: "destructive",
       });
@@ -240,22 +277,25 @@ export default function KYC() {
   };
 
   const onSubmit = (data: KYCSubmissionForm) => {
-    if (!data.documentImage) {
-      toast({
-        title: "Document Required",
-        description: "Please upload a clear image of your identification document.",
-        variant: "destructive",
-      });
-      return;
-    }
+    // For new submissions, require all documents
+    if (!hasExisting) {
+      if (!data.documentImage) {
+        toast({
+          title: "Document Required",
+          description: "Please upload a clear image of your identification document.",
+          variant: "destructive",
+        });
+        return;
+      }
 
-    if (!data.selfieImage) {
-      toast({
-        title: "Selfie Required", 
-        description: "Please upload a clear selfie holding your identification document.",
-        variant: "destructive",
-      });
-      return;
+      if (!data.selfieImage) {
+        toast({
+          title: "Selfie Required",
+          description: "Please upload a clear selfie holding your identification document.",
+          variant: "destructive",
+        });
+        return;
+      }
     }
 
     submitKycMutation.mutate(data);
@@ -320,8 +360,9 @@ export default function KYC() {
     );
   }
 
-  // If KYC already exists and is not rejected
-  if (kycInfo && kycInfo.status !== 'rejected') {
+  // If KYC exists and is verified (not editable), show status only
+  if (hasExisting && !isEditMode && (isVerified || (!canEdit))) {
+    const data = kycSubmission?.data;
     return (
       <div className="min-h-screen bg-black">
         <Navigation />
@@ -345,42 +386,42 @@ export default function KYC() {
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="text-center">
-                  {getStatusBadge(kycInfo.status)}
+                  {getStatusBadge(data?.status)}
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Document Type</Label>
                     <p className="text-sm text-muted-foreground capitalize">
-                      {kycInfo?.documentType?.replace('_', ' ') || 'Not specified'}
+                      {data?.documentType?.replace('_', ' ') || 'Not specified'}
                     </p>
                   </div>
                   
                   <div className="space-y-2">
                     <Label>Country</Label>
                     <p className="text-sm text-muted-foreground">
-                      {countries.find(c => c.value === kycInfo.documentCountry)?.label || kycInfo.documentCountry}
+                      {countries.find(c => c.value === data?.documentCountry)?.label || data?.documentCountry}
                     </p>
                   </div>
                   
                   <div className="space-y-2">
                     <Label>Submitted</Label>
                     <p className="text-sm text-muted-foreground">
-                      {new Date(kycInfo.submittedAt).toLocaleDateString()}
+                      {data?.submittedAt ? new Date(data.submittedAt).toLocaleDateString() : 'N/A'}
                     </p>
                   </div>
                   
-                  {kycInfo.reviewedAt && (
+                  {data?.reviewedAt && (
                     <div className="space-y-2">
                       <Label>Reviewed</Label>
                       <p className="text-sm text-muted-foreground">
-                        {new Date(kycInfo.reviewedAt).toLocaleDateString()}
+                        {new Date(data.reviewedAt).toLocaleDateString()}
                       </p>
                     </div>
                   )}
                 </div>
                 
-                {kycInfo.status === 'pending' && (
+                {data?.status === 'pending' && (
                   <Alert>
                     <Clock className="h-4 w-4" />
                     <AlertDescription>
@@ -389,7 +430,7 @@ export default function KYC() {
                   </Alert>
                 )}
                 
-                {kycInfo.status === 'needs_review' && (
+                {data?.status === 'needs_review' && (
                   <Alert>
                     <AlertCircle className="h-4 w-4" />
                     <AlertDescription>
@@ -398,31 +439,43 @@ export default function KYC() {
                   </Alert>
                 )}
                 
-                {kycInfo.status === 'approved' && (
-                  <Alert className="border-green-200 bg-green-50">
+                {data?.status === 'completed' && (
+                  <Alert className="border-green-200 bg-green-50 dark:bg-green-900/20 dark:border-green-800">
                     <CheckCircle className="h-4 w-4 text-green-600" />
-                    <AlertDescription className="text-green-800">
+                    <AlertDescription className="text-green-800 dark:text-green-300">
                       Your identity has been successfully verified. You now have full access to all platform features.
                     </AlertDescription>
                   </Alert>
                 )}
                 
-                {kycInfo.reviewNotes && (
+                {data?.reviewNotes && (
                   <div className="space-y-2">
                     <Label>Review Notes</Label>
-                    <p className="text-sm text-muted-foreground bg-gray-50 p-3 rounded-lg">
-                      {kycInfo.reviewNotes}
+                    <p className="text-sm text-muted-foreground bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
+                      {data.reviewNotes}
                     </p>
                   </div>
                 )}
                 
-                {kycInfo.rejectionReason && (
+                {data?.rejectionReason && (
                   <Alert variant="destructive">
                     <AlertCircle className="h-4 w-4" />
                     <AlertDescription>
-                      <strong>Rejection Reason:</strong> {kycInfo.rejectionReason}
+                      <strong>Rejection Reason:</strong> {data.rejectionReason}
                     </AlertDescription>
                   </Alert>
+                )}
+
+                {/* Edit button for pending/rejected submissions */}
+                {canEdit && (
+                  <Button 
+                    onClick={() => setIsEditMode(true)} 
+                    className="w-full"
+                    data-testid="button-edit-kyc"
+                  >
+                    <Edit className="mr-2 h-4 w-4" />
+                    Edit Submission
+                  </Button>
                 )}
               </CardContent>
             </Card>

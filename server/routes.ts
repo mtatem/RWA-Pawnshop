@@ -1779,11 +1779,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         }
         
-        // Only allow editing if status is pending or rejected
+        // CRITICAL SECURITY CHECK: Only allow editing if status is pending or rejected
+        // This prevents users from modifying verified/completed submissions
         if (existingKyc.status !== 'pending' && existingKyc.status !== 'rejected') {
+          console.warn("Attempted to edit non-editable KYC submission:", {
+            userId,
+            kycId: existingKyc.id,
+            currentStatus: existingKyc.status,
+            timestamp: new Date().toISOString()
+          });
+          
           return res.status(403).json({
             success: false,
-            error: "Cannot edit KYC submission with status: " + existingKyc.status,
+            error: `Cannot edit KYC submission with status: ${existingKyc.status}. Only pending or rejected submissions can be edited.`,
             code: 'EDIT_NOT_ALLOWED'
           });
         }
