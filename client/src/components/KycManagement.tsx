@@ -195,17 +195,29 @@ export default function KycManagement() {
       try {
         const kyc = selectedKyc as any;
         
+        console.log('Fetching images for KYC:', {
+          id: selectedKyc.id,
+          hasDocumentImageKey: !!kyc.documentImageKey,
+          hasDocumentBackImageKey: !!kyc.documentBackImageKey,
+          hasSelfieImageKey: !!kyc.selfieImageKey
+        });
+        
         // Fetch document front using storage key
         if (kyc.documentImageKey && isMounted) {
           try {
             const response = await adminApiRequest('GET', `/api/admin/kyc/document/${selectedKyc.id}/front`);
+            console.log('Document front response:', { status: response.status, ok: response.ok });
             if (response.ok && isMounted) {
               const blob = await response.blob();
               if (isMounted) {
                 const blobUrl = URL.createObjectURL(blob);
                 images.documentFront = blobUrl;
                 urls.push(blobUrl);
+                console.log('Document front loaded successfully');
               }
+            } else {
+              const errorText = await response.text();
+              console.error('Document front fetch failed:', { status: response.status, error: errorText });
             }
           } catch (err) {
             console.error('Error fetching document front:', err);
@@ -216,13 +228,18 @@ export default function KycManagement() {
         if (kyc.documentBackImageKey && isMounted) {
           try {
             const response = await adminApiRequest('GET', `/api/admin/kyc/document/${selectedKyc.id}/back`);
+            console.log('Document back response:', { status: response.status, ok: response.ok });
             if (response.ok && isMounted) {
               const blob = await response.blob();
               if (isMounted) {
                 const blobUrl = URL.createObjectURL(blob);
                 images.documentBack = blobUrl;
                 urls.push(blobUrl);
+                console.log('Document back loaded successfully');
               }
+            } else {
+              const errorText = await response.text();
+              console.error('Document back fetch failed:', { status: response.status, error: errorText });
             }
           } catch (err) {
             console.error('Error fetching document back:', err);
@@ -233,13 +250,18 @@ export default function KycManagement() {
         if (kyc.selfieImageKey && isMounted) {
           try {
             const response = await adminApiRequest('GET', `/api/admin/kyc/document/${selectedKyc.id}/selfie`);
+            console.log('Selfie response:', { status: response.status, ok: response.ok });
             if (response.ok && isMounted) {
               const blob = await response.blob();
               if (isMounted) {
                 const blobUrl = URL.createObjectURL(blob);
                 images.selfie = blobUrl;
                 urls.push(blobUrl);
+                console.log('Selfie loaded successfully');
               }
+            } else {
+              const errorText = await response.text();
+              console.error('Selfie fetch failed:', { status: response.status, error: errorText });
             }
           } catch (err) {
             console.error('Error fetching selfie:', err);
