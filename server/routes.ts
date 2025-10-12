@@ -1297,8 +1297,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         const userId = req.params.id;
         
+        // Support both Replit Auth (req.user.claims.sub) and traditional auth (req.user.id)
+        const authenticatedUserId = req.user?.claims?.sub || req.user?.id;
+        
         // Check if user is updating their own profile
-        if (req.user.id !== userId) {
+        if (authenticatedUserId !== userId) {
           return res.status(403).json({
             success: false,
             error: "Access denied - not owner",

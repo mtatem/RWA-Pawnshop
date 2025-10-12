@@ -44,7 +44,7 @@ The Platform operates as an intermediary between asset owners seeking liquidity 
 
 4.3 Verification Process: All submitted assets undergo review by our verification team and automated fraud detection systems. We reserve the right to reject any submission.
 
-4.4 Platform Fee: A non-refundable platform fee of 5 ICP is required for each asset submission to cover processing costs.`
+4.4 Platform Fee: A non-refundable platform fee of 25 USDC is required for each asset listing to cover processing costs. Additionally, a 3% marketplace transaction fee is charged on the final bid amount for successful sales.`
     },
     {
       title: "5. Loan Terms and Conditions",

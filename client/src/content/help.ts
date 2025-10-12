@@ -206,14 +206,14 @@ export const helpArticles: HelpArticle[] = [
         heading: "Interest Rates and Fees",
         paragraphs: [
           "Our standard interest rate is 8.5% APR, calculated monthly. This competitive rate reflects the secured nature of asset-backed lending.",
-          "Additional fees include a 5 ICP platform fee for asset submission and 0.5% for cross-chain bridge transactions when applicable."
+          "Additional fees include a 25 USDC platform fee for listing assets, 3% marketplace transaction fee on final bids, and 0.5% for cross-chain bridge transactions when applicable."
         ],
         list: [
           "8.5% APR interest rate on all loans",
-          "5 ICP platform fee for asset submission",
+          "25 USDC platform fee for asset listing",
+          "3% marketplace transaction fee on final bids",
           "0.5% bridge fee for cross-chain transactions",
-          "1% fee for loan extensions (per 30-day period)",
-          "Express processing available for 1 ICP"
+          "1% fee for loan extensions (per 30-day period)"
         ]
       },
       {

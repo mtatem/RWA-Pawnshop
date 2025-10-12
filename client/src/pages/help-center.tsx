@@ -75,11 +75,11 @@ export default function HelpCenter() {
     fees: [
       {
         question: "What fees do you charge?",
-        answer: "We charge a 5 ICP platform fee for asset submission, 8.5% APR interest on loans, and 0.5% for cross-chain bridge transactions. All fees are disclosed upfront with no hidden charges."
+        answer: "We charge a 25 USDC listing fee for asset submission, 3% marketplace transaction fee on final bids, 8.5% APR interest on loans, and 0.5% for cross-chain bridge transactions. All fees are disclosed upfront with no hidden charges."
       },
       {
         question: "Are there any additional costs?",
-        answer: "Optional services include express processing (1 ICP), loan extensions (1% of loan amount), and physical inspection (50 USDC). Insurance coverage is available for 2% of asset value per year."
+        answer: "Optional services include loan extensions (1% of loan amount), and physical inspection (50 USDC). Insurance coverage is available for 2% of asset value per year."
       },
       {
         question: "Do you offer any discounts?",

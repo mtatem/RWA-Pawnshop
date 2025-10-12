@@ -10,8 +10,8 @@ export default function Fees() {
     {
       icon: <Coins className="w-8 h-8 text-primary" />,
       title: "Platform Fee",
-      amount: "5 ICP",
-      description: "One-time fee paid when submitting an asset for pawning evaluation.",
+      amount: "25 USDC",
+      description: "Flat fee for listing an asset on the marketplace.",
       details: [
         "Covers document analysis and OCR processing",
         "Includes fraud detection and verification",
@@ -50,6 +50,11 @@ export default function Fees() {
 
   const additionalFees = [
     {
+      service: "Marketplace Transaction Fee",
+      fee: "3% of final bid",
+      description: "Commission on successful marketplace transactions"
+    },
+    {
       service: "Loan Extension",
       fee: "1% of loan amount",
       description: "Extend your 90-day loan term by an additional 30 days"
@@ -58,16 +63,6 @@ export default function Fees() {
       service: "Asset Storage",
       fee: "Free for 90 days",
       description: "Digital asset documentation storage and security"
-    },
-    {
-      service: "Marketplace Listing",
-      fee: "5% of sale price",
-      description: "Commission on assets sold through our marketplace"
-    },
-    {
-      service: "Express Processing",
-      fee: "1 ICP",
-      description: "Priority review and approval within 24 hours"
     },
     {
       service: "Physical Inspection",
@@ -86,25 +81,25 @@ export default function Fees() {
       assetType: "Gold Jewelry",
       assetValue: "$1,000",
       loanAmount: "$700", 
-      platformFee: "5 ICP (~$50)",
+      platformFee: "25 USDC",
       monthlyInterest: "$4.96",
-      totalCost: "$34.84"
+      totalCost: "$39.88"
     },
     {
       assetType: "Luxury Watch", 
       assetValue: "$5,000",
       loanAmount: "$3,500",
-      platformFee: "5 ICP (~$50)", 
+      platformFee: "25 USDC", 
       monthlyInterest: "$24.79",
-      totalCost: "$94.37"
+      totalCost: "$99.37"
     },
     {
       assetType: "Vintage Car",
       assetValue: "$25,000", 
       loanAmount: "$17,500",
-      platformFee: "5 ICP (~$50)",
+      platformFee: "25 USDC",
       monthlyInterest: "$123.96",
-      totalCost: "$391.88"
+      totalCost: "$396.88"
     }
   ];
 
@@ -112,7 +107,7 @@ export default function Fees() {
     <div className="min-h-screen bg-black">
       <SEO 
         title="Fees & Pricing - Cryptocurrency Loans on ICP Blockchain | RWAPAWN"
-        description="Transparent fee structure for pawning real world assets on the ICP blockchain. 5 ICP platform fee, 8.5% APR on cryptocurrency loans, 0.5% bridge fee. No hidden charges on the blockchain pawnshop."
+        description="Transparent fee structure for pawning real world assets on the ICP blockchain. 25 USDC listing fee, 3% marketplace fee, 8.5% APR on cryptocurrency loans, 0.5% bridge fee. No hidden charges on the blockchain pawnshop."
         keywords="Cryptocurrency Loans, ICP Blockchain, Real World Assets, Pawning Real World Assets, ICP Assets, Blockchain Pawnshop Fees"
         ogTitle="Fees - Transparent Pricing for RWA Loans"
         ogDescription="View our competitive fee structure for pawning real world assets and getting cryptocurrency loans on ICP blockchain."

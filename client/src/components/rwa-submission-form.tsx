@@ -196,9 +196,9 @@ export default function RwaSubmissionForm() {
         throw new Error('Please connect your ICP wallet to submit an RWA');
       }
 
-      // Check if user has sufficient balance for fee
-      if (wallet.balance < 2) {
-        throw new Error('Insufficient ICP balance. You need at least 5 ICP to cover the pawning fee.');
+      // Check if user has sufficient balance for fee (25 USDC)
+      if (wallet.balance < 25) {
+        throw new Error('Insufficient USDC balance. You need at least 25 USDC to cover the listing fee.');
       }
 
       // Create submission first (without documents)
@@ -647,13 +647,17 @@ export default function RwaSubmissionForm() {
           {/* Fee Information */}
           <Card className="bg-muted p-4">
             <div className="flex justify-between items-center mb-2">
-              <span className="text-sm">Pawning Fee:</span>
-              <span className="font-medium">5 ICP</span>
+              <span className="text-sm">Listing Fee:</span>
+              <span className="font-medium">25 USDC</span>
+            </div>
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-sm">Marketplace Fee:</span>
+              <span className="font-medium">3% of final bid</span>
             </div>
             <div className="flex justify-between items-center mb-2">
               <span className="text-sm">Your Balance:</span>
-              <span className={`font-medium ${wallet && wallet.balance < 5 ? 'text-destructive' : 'text-foreground'}`}>
-                {wallet ? `${wallet.balance.toFixed(4)} ICP` : 'Not connected'}
+              <span className={`font-medium ${wallet && wallet.balance < 25 ? 'text-destructive' : 'text-foreground'}`}>
+                {wallet ? `${wallet.balance.toFixed(2)} USDC` : 'Not connected'}
               </span>
             </div>
             <div className="flex justify-between items-center text-sm text-muted-foreground">
@@ -665,7 +669,7 @@ export default function RwaSubmissionForm() {
           <Button
             type="submit"
             className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
-            disabled={submitMutation.isPending || !isAuthenticated || !isConnected || (wallet ? wallet.balance < 5 : false) || user?.kycStatus !== "completed"}
+            disabled={submitMutation.isPending || !isAuthenticated || !isConnected || (wallet ? wallet.balance < 25 : false) || user?.kycStatus !== "completed"}
             data-testid="button-submit-rwa"
           >
             {submitMutation.isPending 
@@ -676,9 +680,9 @@ export default function RwaSubmissionForm() {
               ? "Complete KYC Verification First"
               : !isConnected 
               ? "Connect ICP Wallet First" 
-              : wallet && wallet.balance < 5 
-              ? "Insufficient ICP Balance" 
-              : "Submit for Pawning (5 ICP)"}
+              : wallet && wallet.balance < 25 
+              ? "Insufficient USDC Balance" 
+              : "Submit for Listing (25 USDC)"}
           </Button>
         </form>
       </Form>
