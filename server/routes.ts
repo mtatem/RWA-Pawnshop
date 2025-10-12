@@ -1689,6 +1689,195 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   );
 
+  // User endpoint to get their own KYC submission
+  app.get("/api/user/kyc/my-submission", rateLimitConfigs.api, isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      
+      // Get user's KYC submission
+      const kycSubmission = await storage.getKycByUserId(userId);
+      
+      if (!kycSubmission) {
+        return res.json(successResponse(null, 'No KYC submission found'));
+      }
+      
+      // Decrypt sensitive fields for user viewing
+      try {
+        const decrypted = {
+          ...stripEncryptedFields(kycSubmission),
+          documentNumber: kycSubmission.documentNumberEncrypted 
+            ? EncryptionService.decrypt(kycSubmission.documentNumberEncrypted) 
+            : null,
+          fullName: kycSubmission.fullNameEncrypted 
+            ? EncryptionService.decrypt(kycSubmission.fullNameEncrypted) 
+            : null,
+          dateOfBirth: kycSubmission.dateOfBirthEncrypted 
+            ? EncryptionService.decrypt(kycSubmission.dateOfBirthEncrypted) 
+            : null,
+          nationality: kycSubmission.nationalityEncrypted 
+            ? EncryptionService.decrypt(kycSubmission.nationalityEncrypted) 
+            : null,
+          occupation: kycSubmission.occupationEncrypted 
+            ? EncryptionService.decrypt(kycSubmission.occupationEncrypted) 
+            : null,
+          // Include flags for document presence
+          hasDocumentFront: !!kycSubmission.documentImageKeyEncrypted,
+          hasDocumentBack: !!kycSubmission.documentBackImageKeyEncrypted,
+          hasSelfie: !!kycSubmission.selfieImageKeyEncrypted
+        };
+        
+        return res.json(successResponse(decrypted, 'KYC submission retrieved successfully'));
+      } catch (decryptError) {
+        console.error("Error decrypting user KYC data:", {
+          userId,
+          error: decryptError instanceof Error ? decryptError.message : decryptError,
+          timestamp: new Date().toISOString()
+        });
+        
+        return res.status(500).json({
+          success: false,
+          error: "Failed to decrypt KYC data",
+          code: 'DECRYPTION_ERROR'
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching user KYC:", {
+        userId: req.user?.id,
+        error: error instanceof Error ? error.message : error,
+        timestamp: new Date().toISOString()
+      });
+      
+      res.status(500).json({
+        success: false,
+        error: "Failed to fetch KYC submission",
+        code: 'INTERNAL_ERROR'
+      });
+    }
+  });
+
+  // User endpoint to update their own KYC submission (only if pending or rejected)
+  app.patch("/api/user/kyc/my-submission",
+    isAuthenticated,
+    kycUpload.fields([
+      { name: 'documentImage', maxCount: 1 },
+      { name: 'documentBackImage', maxCount: 1 },
+      { name: 'selfieImage', maxCount: 1 }
+    ]),
+    async (req: any, res) => {
+      try {
+        const userId = req.user.id;
+        const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+        
+        // Get existing KYC submission
+        const existingKyc = await storage.getKycByUserId(userId);
+        
+        if (!existingKyc) {
+          return res.status(404).json({
+            success: false,
+            error: "No KYC submission found",
+            code: 'KYC_NOT_FOUND'
+          });
+        }
+        
+        // Only allow editing if status is pending or rejected
+        if (existingKyc.status !== 'pending' && existingKyc.status !== 'rejected') {
+          return res.status(403).json({
+            success: false,
+            error: "Cannot edit KYC submission with status: " + existingKyc.status,
+            code: 'EDIT_NOT_ALLOWED'
+          });
+        }
+        
+        // Parse and validate the update data
+        const kycUpdateSchema = z.object({
+          documentType: z.enum(['passport', 'drivers_license', 'national_id']).optional(),
+          documentNumber: z.string().min(3).max(50).optional(),
+          documentCountry: z.string().min(2).max(3).optional(),
+          fullName: z.string().min(2).max(100).optional(),
+          dateOfBirth: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+          nationality: z.string().min(2).max(100).optional(),
+          occupation: z.string().min(2).max(100).optional(),
+          sourceOfFunds: z.enum(['employment', 'business_ownership', 'investments', 'inheritance', 'savings', 'pension', 'other']).optional(),
+          annualIncome: z.enum(['under_25k', '25k_50k', '50k_100k', '100k_250k', '250k_500k', 'over_500k']).optional()
+        });
+        
+        const updateData = kycUpdateSchema.parse(req.body);
+        
+        // Initialize object storage service
+        const objectStorageService = new ObjectStorageService();
+        
+        // Process file uploads (if any)
+        let documentImageKey = existingKyc.documentImageKeyEncrypted;
+        let documentBackImageKey = existingKyc.documentBackImageKeyEncrypted;
+        let selfieImageKey = existingKyc.selfieImageKeyEncrypted;
+        
+        if (files?.documentImage?.[0]) {
+          const storageKey = await objectStorageService.uploadKycDocument(files.documentImage[0], userId, 'front');
+          documentImageKey = EncryptionService.encrypt(storageKey);
+        }
+        
+        if (files?.documentBackImage?.[0]) {
+          const storageKey = await objectStorageService.uploadKycDocument(files.documentBackImage[0], userId, 'back');
+          documentBackImageKey = EncryptionService.encrypt(storageKey);
+        }
+        
+        if (files?.selfieImage?.[0]) {
+          const storageKey = await objectStorageService.uploadKycDocument(files.selfieImage[0], userId, 'selfie');
+          selfieImageKey = EncryptionService.encrypt(storageKey);
+        }
+        
+        // Prepare update object with encrypted fields
+        const kycUpdate: any = {
+          ...updateData,
+          documentNumberEncrypted: updateData.documentNumber ? EncryptionService.encrypt(updateData.documentNumber) : existingKyc.documentNumberEncrypted,
+          fullNameEncrypted: updateData.fullName ? EncryptionService.encrypt(updateData.fullName) : existingKyc.fullNameEncrypted,
+          dateOfBirthEncrypted: updateData.dateOfBirth ? EncryptionService.encrypt(updateData.dateOfBirth) : existingKyc.dateOfBirthEncrypted,
+          nationalityEncrypted: updateData.nationality ? EncryptionService.encrypt(updateData.nationality) : existingKyc.nationalityEncrypted,
+          occupationEncrypted: updateData.occupation ? EncryptionService.encrypt(updateData.occupation) : existingKyc.occupationEncrypted,
+          documentImageKeyEncrypted: documentImageKey,
+          documentBackImageKeyEncrypted: documentBackImageKey,
+          selfieImageKeyEncrypted: selfieImageKey,
+          status: 'pending', // Reset to pending after edit
+          updatedAt: new Date()
+        };
+        
+        // Remove plain text fields before saving
+        delete kycUpdate.documentNumber;
+        delete kycUpdate.fullName;
+        delete kycUpdate.dateOfBirth;
+        delete kycUpdate.nationality;
+        delete kycUpdate.occupation;
+        
+        // Update KYC submission
+        await storage.updateKycSubmission(existingKyc.id, kycUpdate);
+        
+        res.json(successResponse({ id: existingKyc.id }, 'KYC submission updated successfully'));
+      } catch (error) {
+        console.error("Error updating user KYC:", {
+          userId: req.user?.id,
+          error: error instanceof Error ? error.message : error,
+          stack: error instanceof Error ? error.stack : undefined,
+          timestamp: new Date().toISOString()
+        });
+        
+        if (error instanceof z.ZodError) {
+          return res.status(400).json({
+            success: false,
+            error: "Invalid KYC update data",
+            details: error.errors,
+            code: 'VALIDATION_ERROR'
+          });
+        }
+        
+        res.status(500).json({
+          success: false,
+          error: "Failed to update KYC submission",
+          code: 'INTERNAL_ERROR'
+        });
+      }
+    }
+  );
+
   // Helper function to recursively strip all encrypted fields from an object
   const stripEncryptedFields = (obj: any): any => {
     if (!obj || typeof obj !== 'object') return obj;
