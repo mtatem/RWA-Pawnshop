@@ -1155,6 +1155,16 @@ export default function Profile() {
                           </AlertDescription>
                         </Alert>
                       )}
+
+                      {/* Link to KYC page for editing */}
+                      {(kycInfo.status === "pending" || kycInfo.status === "rejected") && (
+                        <Link href="/kyc">
+                          <Button variant="outline" className="w-full" data-testid="button-go-to-kyc">
+                            <Edit className="mr-2 h-4 w-4" />
+                            Edit KYC Submission
+                          </Button>
+                        </Link>
+                      )}
                     </div>
                   ) : (
                     /* KYC Submission Form */

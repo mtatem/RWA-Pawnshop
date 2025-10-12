@@ -131,6 +131,7 @@ export interface IStorage {
   // KYC operations
   createKycInformation(kycData: InsertKycInformation): Promise<KycInformation>;
   getKycInformation(userId: string): Promise<KycInformation | undefined>;
+  getKycByUserId(userId: string): Promise<KycInformation | undefined>;
   getKycSubmission(kycId: string): Promise<KycInformation | undefined>;
   updateKycStatus(kycId: string, status: string, reviewNotes?: string, reviewedBy?: string, rejectionReason?: string): Promise<KycInformation>;
   getPendingKycSubmissions(): Promise<any[]>;
@@ -719,6 +720,11 @@ export class DatabaseStorage implements IStorage {
     } catch (error) {
       return undefined;
     }
+  }
+
+  async getKycByUserId(userId: string): Promise<KycInformation | undefined> {
+    // Alias for getKycInformation for consistency with API naming
+    return this.getKycInformation(userId);
   }
 
   async getKycSubmission(kycId: string): Promise<KycInformation | undefined> {
