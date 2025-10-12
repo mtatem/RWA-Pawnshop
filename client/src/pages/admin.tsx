@@ -39,11 +39,11 @@ export default function Admin() {
   // Show loading state while authentication is being verified
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 admin-dark-bg">
+      <div className="min-h-screen bg-black">
         <Navigation />
         <div className="container mx-auto px-4 py-8">
-          <Card className="p-8 text-center">
-            <div className="text-lg">Verifying admin access...</div>
+          <Card className="p-8 text-center bg-gray-900 border-gray-800">
+            <div className="text-lg text-white">Verifying admin access...</div>
           </Card>
         </div>
       </div>
@@ -55,14 +55,14 @@ export default function Admin() {
     return null; // Will redirect via useEffect
   }
   return (
-    <div className="min-h-screen bg-gray-50 admin-dark-bg">
+    <div className="min-h-screen bg-black">
       <Navigation />
       <div className="container mx-auto px-4 py-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold tracking-tight dark:text-white text-[#ffffff]">
+          <h1 className="text-3xl font-bold tracking-tight text-white">
             Admin Dashboard
           </h1>
-          <p className="text-muted-foreground">
+          <p className="text-gray-400">
             Comprehensive platform oversight and management
           </p>
         </div>
