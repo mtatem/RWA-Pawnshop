@@ -1689,6 +1689,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   );
 
+  // Helper function to recursively strip all encrypted fields from an object
+  const stripEncryptedFields = (obj: any): any => {
+    if (!obj || typeof obj !== 'object') return obj;
+    
+    // Handle arrays
+    if (Array.isArray(obj)) {
+      return obj.map(item => stripEncryptedFields(item));
+    }
+    
+    // Handle objects
+    const cleaned: any = {};
+    for (const key in obj) {
+      if (key.endsWith('Encrypted') || key.endsWith('_encrypted')) {
+        // Skip encrypted fields
+        continue;
+      }
+      
+      if (typeof obj[key] === 'object' && obj[key] !== null) {
+        // Recursively clean nested objects and arrays
+        cleaned[key] = stripEncryptedFields(obj[key]);
+      } else {
+        cleaned[key] = obj[key];
+      }
+    }
+    return cleaned;
+  };
+
   // Admin KYC Management endpoints
   app.get("/api/admin/kyc", rateLimitConfigs.api, requireAdminAuth, async (req: any, res) => {
     try {
@@ -1697,17 +1724,78 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get all KYC submissions (filtering will be done in storage layer)
       const kycSubmissions = await storage.getAllKycSubmissions();
       
+      // Decrypt sensitive fields for admin viewing
+      const decryptedSubmissions = kycSubmissions.map((kyc: any) => {
+        try {
+          // Decrypt document image storage keys
+          let documentFrontKey = null;
+          let documentBackKey = null;
+          let selfieKey = null;
+          
+          if (kyc.documentImageKeyEncrypted) {
+            documentFrontKey = EncryptionService.decrypt(kyc.documentImageKeyEncrypted);
+          }
+          if (kyc.documentBackImageKeyEncrypted) {
+            documentBackKey = EncryptionService.decrypt(kyc.documentBackImageKeyEncrypted);
+          }
+          if (kyc.selfieImageKeyEncrypted) {
+            selfieKey = EncryptionService.decrypt(kyc.selfieImageKeyEncrypted);
+          }
+          
+          // First strip all encrypted fields from original object
+          const stripped = stripEncryptedFields(kyc);
+          
+          // Then add decrypted values to the clean object
+          return {
+            ...stripped,
+            documentNumber: kyc.documentNumberEncrypted ? EncryptionService.decrypt(kyc.documentNumberEncrypted) : null,
+            fullName: kyc.fullNameEncrypted ? EncryptionService.decrypt(kyc.fullNameEncrypted) : null,
+            dateOfBirth: kyc.dateOfBirthEncrypted ? EncryptionService.decrypt(kyc.dateOfBirthEncrypted) : null,
+            nationality: kyc.nationalityEncrypted ? EncryptionService.decrypt(kyc.nationalityEncrypted) : null,
+            occupation: kyc.occupationEncrypted ? EncryptionService.decrypt(kyc.occupationEncrypted) : null,
+            address: kyc.user?.addressEncrypted ? EncryptionService.decrypt(kyc.user.addressEncrypted) : null,
+            documentImageKey: documentFrontKey,
+            documentBackImageKey: documentBackKey,
+            selfieImageKey: selfieKey
+          };
+        } catch (decryptError) {
+          console.error(`Error decrypting KYC data for ${kyc.id}:`, {
+            error: decryptError instanceof Error ? decryptError.message : decryptError,
+            kycId: kyc.id,
+            timestamp: new Date().toISOString()
+          });
+          
+          // Strip all encrypted fields and return null values on error
+          const sanitized = stripEncryptedFields({
+            ...kyc,
+            decryptionError: true,
+            // Set decrypted fields to null on error
+            documentNumber: null,
+            fullName: null,
+            dateOfBirth: null,
+            nationality: null,
+            occupation: null,
+            address: null,
+            documentImageKey: null,
+            documentBackImageKey: null,
+            selfieImageKey: null
+          });
+          
+          return sanitized;
+        }
+      });
+      
       // Calculate breakdown by status
       const breakdown = {
-        byStatus: kycSubmissions.reduce((acc: any, kyc: any) => {
+        byStatus: decryptedSubmissions.reduce((acc: any, kyc: any) => {
           acc[kyc.status] = (acc[kyc.status] || 0) + 1;
           return acc;
         }, {})
       };
       
       res.json(successResponse({
-        submissions: kycSubmissions,
-        totalCount: kycSubmissions.length,
+        submissions: decryptedSubmissions,
+        totalCount: decryptedSubmissions.length,
         breakdown
       }));
     } catch (error) {

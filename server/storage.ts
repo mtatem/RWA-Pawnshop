@@ -823,6 +823,14 @@ export class DatabaseStorage implements IStorage {
           userId: kycInformation.userId,
           documentType: kycInformation.documentType,
           documentCountry: kycInformation.documentCountry,
+          documentNumberEncrypted: kycInformation.documentNumberEncrypted,
+          fullNameEncrypted: kycInformation.fullNameEncrypted,
+          dateOfBirthEncrypted: kycInformation.dateOfBirthEncrypted,
+          nationalityEncrypted: kycInformation.nationalityEncrypted,
+          occupationEncrypted: kycInformation.occupationEncrypted,
+          documentImageKeyEncrypted: kycInformation.documentImageKeyEncrypted,
+          documentBackImageKeyEncrypted: kycInformation.documentBackImageKeyEncrypted,
+          selfieImageKeyEncrypted: kycInformation.selfieImageKeyEncrypted,
           status: kycInformation.status,
           reviewNotes: kycInformation.reviewNotes,
           rejectionReason: kycInformation.rejectionReason,
@@ -834,7 +842,12 @@ export class DatabaseStorage implements IStorage {
             username: users.username,
             email: users.email,
             firstName: users.firstName,
-            lastName: users.lastName
+            lastName: users.lastName,
+            city: users.city,
+            state: users.state,
+            country: users.country,
+            postalCode: users.postalCode,
+            addressEncrypted: users.addressEncrypted
           }
         })
         .from(kycInformation)

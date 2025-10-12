@@ -173,20 +173,13 @@ export default function KycManagement() {
   });
   const [loadingImages, setLoadingImages] = useState(false);
 
-  // Fetch KYC documents when reviewing
-  const { data: kycDocuments, isLoading: documentsLoading } = useQuery({
-    queryKey: ['/api/admin/kyc', selectedKyc?.id, 'documents'],
-    queryFn: getAdminQueryFn({ on401: "throw" }),
-    enabled: !!selectedKyc?.id && isReviewDialogOpen,
-  });
-
-  // Fetch images with authentication and create blob URLs
+  // Fetch images with authentication using decrypted storage keys
   useEffect(() => {
     let isMounted = true;
     const urls: string[] = [];
     
     const fetchImages = async () => {
-      if (!kycDocuments?.data || !isReviewDialogOpen || !selectedKyc) {
+      if (!isReviewDialogOpen || !selectedKyc) {
         // Reset images when dialog closes
         setDocumentImages({ documentFront: null, documentBack: null, selfie: null });
         return;
@@ -200,12 +193,12 @@ export default function KycManagement() {
       };
 
       try {
-        const docs = (kycDocuments as any).data;
+        const kyc = selectedKyc as any;
         
-        // Fetch document front
-        if (docs.documentFront && isMounted) {
+        // Fetch document front using storage key
+        if (kyc.documentImageKey && isMounted) {
           try {
-            const response = await adminApiRequest('GET', docs.documentFront);
+            const response = await adminApiRequest('GET', `/api/admin/kyc/document/${selectedKyc.id}/front`);
             if (response.ok && isMounted) {
               const blob = await response.blob();
               if (isMounted) {
@@ -219,10 +212,10 @@ export default function KycManagement() {
           }
         }
 
-        // Fetch document back
-        if (docs.documentBack && isMounted) {
+        // Fetch document back using storage key
+        if (kyc.documentBackImageKey && isMounted) {
           try {
-            const response = await adminApiRequest('GET', docs.documentBack);
+            const response = await adminApiRequest('GET', `/api/admin/kyc/document/${selectedKyc.id}/back`);
             if (response.ok && isMounted) {
               const blob = await response.blob();
               if (isMounted) {
@@ -236,10 +229,10 @@ export default function KycManagement() {
           }
         }
 
-        // Fetch selfie
-        if (docs.selfie && isMounted) {
+        // Fetch selfie using storage key
+        if (kyc.selfieImageKey && isMounted) {
           try {
-            const response = await adminApiRequest('GET', docs.selfie);
+            const response = await adminApiRequest('GET', `/api/admin/kyc/document/${selectedKyc.id}/selfie`);
             if (response.ok && isMounted) {
               const blob = await response.blob();
               if (isMounted) {
@@ -281,7 +274,7 @@ export default function KycManagement() {
       // Reset state when unmounting
       setDocumentImages({ documentFront: null, documentBack: null, selfie: null });
     };
-  }, [kycDocuments, isReviewDialogOpen, selectedKyc, toast]);
+  }, [isReviewDialogOpen, selectedKyc, toast]);
 
   const handleReviewClick = (kyc: KycSubmission) => {
     setSelectedKyc(kyc);
@@ -494,35 +487,121 @@ export default function KycManagement() {
 
       {/* Review Dialog */}
       <Dialog open={isReviewDialogOpen} onOpenChange={setIsReviewDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Review KYC Submission</DialogTitle>
             <DialogDescription>
-              Review and approve or reject this KYC verification
+              Review all submitted information and documents before approving or rejecting
             </DialogDescription>
           </DialogHeader>
           
           {selectedKyc && (
-            <div className="space-y-4">
-              <div className="bg-gray-50 dark:bg-gray-900 p-3 rounded">
-                <p className="font-medium">
-                  {selectedKyc.user?.firstName && selectedKyc.user?.lastName 
-                    ? `${selectedKyc.user.firstName} ${selectedKyc.user.lastName}`
-                    : selectedKyc.user?.username || 'Unknown User'
-                  }
-                </p>
-                <p className="text-sm text-muted-foreground">{selectedKyc.user?.email}</p>
-                <p className="text-sm text-muted-foreground">
-                  Document: {selectedKyc?.documentType?.replace('_', ' ').toUpperCase() || 'Not specified'} ({selectedKyc?.documentCountry || 'N/A'})
-                </p>
+            <div className="space-y-6">
+              {/* User Information Section */}
+              <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-lg space-y-3">
+                <h4 className="font-semibold text-sm text-primary">User Information</h4>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Account Name</Label>
+                    <p className="text-sm font-medium">
+                      {selectedKyc.user?.firstName && selectedKyc.user?.lastName 
+                        ? `${selectedKyc.user.firstName} ${selectedKyc.user.lastName}`
+                        : selectedKyc.user?.username || 'Unknown User'
+                      }
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Email</Label>
+                    <p className="text-sm font-medium">{selectedKyc.user?.email}</p>
+                  </div>
+                </div>
               </div>
+
+              {/* KYC Document Information Section */}
+              <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-lg space-y-3">
+                <h4 className="font-semibold text-sm text-primary">Identity Document Information</h4>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Document Type</Label>
+                    <p className="text-sm font-medium">
+                      {selectedKyc?.documentType?.replace('_', ' ').toUpperCase() || 'Not specified'}
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Document Country</Label>
+                    <p className="text-sm font-medium">{selectedKyc?.documentCountry || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Document Number</Label>
+                    <p className="text-sm font-medium">{(selectedKyc as any)?.documentNumber || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Full Name (on Document)</Label>
+                    <p className="text-sm font-medium">{(selectedKyc as any)?.fullName || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Date of Birth</Label>
+                    <p className="text-sm font-medium">{(selectedKyc as any)?.dateOfBirth || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Nationality</Label>
+                    <p className="text-sm font-medium">{(selectedKyc as any)?.nationality || 'N/A'}</p>
+                  </div>
+                  {(selectedKyc as any)?.occupation && (
+                    <div className="col-span-2">
+                      <Label className="text-xs text-muted-foreground">Occupation</Label>
+                      <p className="text-sm font-medium">{(selectedKyc as any)?.occupation}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Address Information Section */}
+              {((selectedKyc as any)?.address || (selectedKyc as any).user?.city || (selectedKyc as any).user?.state) && (
+                <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-lg space-y-3">
+                  <h4 className="font-semibold text-sm text-primary">Address Information</h4>
+                  <div className="grid grid-cols-2 gap-3">
+                    {(selectedKyc as any)?.address && (
+                      <div className="col-span-2">
+                        <Label className="text-xs text-muted-foreground">Street Address</Label>
+                        <p className="text-sm font-medium">{(selectedKyc as any)?.address}</p>
+                      </div>
+                    )}
+                    {(selectedKyc as any).user?.city && (
+                      <div>
+                        <Label className="text-xs text-muted-foreground">City</Label>
+                        <p className="text-sm font-medium">{(selectedKyc as any).user.city}</p>
+                      </div>
+                    )}
+                    {(selectedKyc as any).user?.state && (
+                      <div>
+                        <Label className="text-xs text-muted-foreground">State/Province</Label>
+                        <p className="text-sm font-medium">{(selectedKyc as any).user.state}</p>
+                      </div>
+                    )}
+                    {(selectedKyc as any).user?.country && (
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Country</Label>
+                        <p className="text-sm font-medium">{(selectedKyc as any).user.country}</p>
+                      </div>
+                    )}
+                    {(selectedKyc as any).user?.postalCode && (
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Postal Code</Label>
+                        <p className="text-sm font-medium">{(selectedKyc as any).user.postalCode}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* KYC Documents Display */}
               <div className="space-y-3">
-                <h4 className="font-medium text-sm">Submitted Documents</h4>
-                {documentsLoading || loadingImages ? (
+                <h4 className="font-semibold text-sm text-primary">Submitted Documents</h4>
+                {loadingImages ? (
                   <div className="flex items-center justify-center py-4">
                     <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                    <span className="ml-2 text-sm text-muted-foreground">Loading documents...</span>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 gap-3">
