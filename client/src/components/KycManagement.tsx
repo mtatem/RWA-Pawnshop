@@ -506,12 +506,12 @@ export default function KycManagement() {
           {selectedKyc && (
             <div className="space-y-6">
               {/* User Information Section */}
-              <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-lg space-y-3">
-                <h4 className="font-semibold text-sm text-primary">User Information</h4>
+              <div className="bg-gray-800 border border-gray-700 p-4 rounded-lg space-y-3">
+                <h4 className="font-semibold text-sm text-blue-400">User Information</h4>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <Label className="text-xs text-muted-foreground">Account Name</Label>
-                    <p className="text-sm font-medium">
+                    <Label className="text-xs text-gray-400">Account Name</Label>
+                    <p className="text-sm font-medium text-white">
                       {selectedKyc.user?.firstName && selectedKyc.user?.lastName 
                         ? `${selectedKyc.user.firstName} ${selectedKyc.user.lastName}`
                         : selectedKyc.user?.username || 'Unknown User'
@@ -519,46 +519,46 @@ export default function KycManagement() {
                     </p>
                   </div>
                   <div>
-                    <Label className="text-xs text-muted-foreground">Email</Label>
-                    <p className="text-sm font-medium">{selectedKyc.user?.email}</p>
+                    <Label className="text-xs text-gray-400">Email</Label>
+                    <p className="text-sm font-medium text-white">{selectedKyc.user?.email}</p>
                   </div>
                 </div>
               </div>
 
               {/* KYC Document Information Section */}
-              <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-lg space-y-3">
-                <h4 className="font-semibold text-sm text-primary">Identity Document Information</h4>
+              <div className="bg-gray-800 border border-gray-700 p-4 rounded-lg space-y-3">
+                <h4 className="font-semibold text-sm text-blue-400">Identity Document Information</h4>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <Label className="text-xs text-muted-foreground">Document Type</Label>
-                    <p className="text-sm font-medium">
+                    <Label className="text-xs text-gray-400">Document Type</Label>
+                    <p className="text-sm font-medium text-white" data-testid="text-document-type">
                       {selectedKyc?.documentType?.replace('_', ' ').toUpperCase() || 'Not specified'}
                     </p>
                   </div>
                   <div>
-                    <Label className="text-xs text-muted-foreground">Document Country</Label>
-                    <p className="text-sm font-medium">{selectedKyc?.documentCountry || 'N/A'}</p>
+                    <Label className="text-xs text-gray-400">Document Country</Label>
+                    <p className="text-sm font-medium text-white" data-testid="text-document-country">{selectedKyc?.documentCountry || 'N/A'}</p>
                   </div>
                   <div>
-                    <Label className="text-xs text-muted-foreground">Document Number</Label>
-                    <p className="text-sm font-medium">{(selectedKyc as any)?.documentNumber || 'N/A'}</p>
+                    <Label className="text-xs text-gray-400">Document Number</Label>
+                    <p className="text-sm font-medium text-white" data-testid="text-document-number">{(selectedKyc as any)?.documentNumber || 'N/A'}</p>
                   </div>
                   <div>
-                    <Label className="text-xs text-muted-foreground">Full Name (on Document)</Label>
-                    <p className="text-sm font-medium">{(selectedKyc as any)?.fullName || 'N/A'}</p>
+                    <Label className="text-xs text-gray-400">Full Name (on Document)</Label>
+                    <p className="text-sm font-medium text-white" data-testid="text-full-name">{(selectedKyc as any)?.fullName || 'N/A'}</p>
                   </div>
                   <div>
-                    <Label className="text-xs text-muted-foreground">Date of Birth</Label>
-                    <p className="text-sm font-medium">{(selectedKyc as any)?.dateOfBirth || 'N/A'}</p>
+                    <Label className="text-xs text-gray-400">Date of Birth</Label>
+                    <p className="text-sm font-medium text-white" data-testid="text-dob">{(selectedKyc as any)?.dateOfBirth || 'N/A'}</p>
                   </div>
                   <div>
-                    <Label className="text-xs text-muted-foreground">Nationality</Label>
-                    <p className="text-sm font-medium">{(selectedKyc as any)?.nationality || 'N/A'}</p>
+                    <Label className="text-xs text-gray-400">Nationality</Label>
+                    <p className="text-sm font-medium text-white" data-testid="text-nationality">{(selectedKyc as any)?.nationality || 'N/A'}</p>
                   </div>
                   {(selectedKyc as any)?.occupation && (
                     <div className="col-span-2">
-                      <Label className="text-xs text-muted-foreground">Occupation</Label>
-                      <p className="text-sm font-medium">{(selectedKyc as any)?.occupation}</p>
+                      <Label className="text-xs text-gray-400">Occupation</Label>
+                      <p className="text-sm font-medium text-white" data-testid="text-occupation">{(selectedKyc as any)?.occupation}</p>
                     </div>
                   )}
                 </div>
@@ -566,37 +566,37 @@ export default function KycManagement() {
 
               {/* Address Information Section */}
               {((selectedKyc as any)?.address || (selectedKyc as any).user?.city || (selectedKyc as any).user?.state) && (
-                <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-lg space-y-3">
-                  <h4 className="font-semibold text-sm text-primary">Address Information</h4>
+                <div className="bg-gray-800 border border-gray-700 p-4 rounded-lg space-y-3">
+                  <h4 className="font-semibold text-sm text-blue-400">Address Information</h4>
                   <div className="grid grid-cols-2 gap-3">
                     {(selectedKyc as any)?.address && (
                       <div className="col-span-2">
-                        <Label className="text-xs text-muted-foreground">Street Address</Label>
-                        <p className="text-sm font-medium">{(selectedKyc as any)?.address}</p>
+                        <Label className="text-xs text-gray-400">Street Address</Label>
+                        <p className="text-sm font-medium text-white" data-testid="text-address">{(selectedKyc as any)?.address}</p>
                       </div>
                     )}
                     {(selectedKyc as any).user?.city && (
                       <div>
-                        <Label className="text-xs text-muted-foreground">City</Label>
-                        <p className="text-sm font-medium">{(selectedKyc as any).user.city}</p>
+                        <Label className="text-xs text-gray-400">City</Label>
+                        <p className="text-sm font-medium text-white">{(selectedKyc as any).user.city}</p>
                       </div>
                     )}
                     {(selectedKyc as any).user?.state && (
                       <div>
-                        <Label className="text-xs text-muted-foreground">State/Province</Label>
-                        <p className="text-sm font-medium">{(selectedKyc as any).user.state}</p>
+                        <Label className="text-xs text-gray-400">State/Province</Label>
+                        <p className="text-sm font-medium text-white">{(selectedKyc as any).user.state}</p>
                       </div>
                     )}
                     {(selectedKyc as any).user?.country && (
                       <div>
-                        <Label className="text-xs text-muted-foreground">Country</Label>
-                        <p className="text-sm font-medium">{(selectedKyc as any).user.country}</p>
+                        <Label className="text-xs text-gray-400">Country</Label>
+                        <p className="text-sm font-medium text-white">{(selectedKyc as any).user.country}</p>
                       </div>
                     )}
                     {(selectedKyc as any).user?.postalCode && (
                       <div>
-                        <Label className="text-xs text-muted-foreground">Postal Code</Label>
-                        <p className="text-sm font-medium">{(selectedKyc as any).user.postalCode}</p>
+                        <Label className="text-xs text-gray-400">Postal Code</Label>
+                        <p className="text-sm font-medium text-white">{(selectedKyc as any).user.postalCode}</p>
                       </div>
                     )}
                   </div>
