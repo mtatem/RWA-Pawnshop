@@ -15,6 +15,7 @@ import {
   Eye, 
   EyeOff,
   Camera,
+  Edit,
   Edit3,
   Save,
   X,
