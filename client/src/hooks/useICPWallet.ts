@@ -30,14 +30,14 @@ export function useICPWallet(): UseICPWalletReturn {
   // Check if Plug is available
   const isPlugAvailable = icpWallet.isPlugAvailable();
 
-  // Update user principal ID in backend
-  const updateUserPrincipalMutation = useMutation({
-    mutationFn: async (principalId: string) => {
+  // Update user principal ID in backend after wallet connection
+  const connectWalletMutation = useMutation({
+    mutationFn: async ({ principalId, walletType }: { principalId: string; walletType: string }) => {
       if (!user?.id) throw new Error('User not authenticated');
       
-      const response = await apiRequest('PATCH', `/api/users/${user.id}`, {
+      const response = await apiRequest('POST', '/api/user/connect-wallet', {
         principalId,
-        walletAddress: principalId, // Also update walletAddress for compatibility
+        walletType,
       });
       return response.json();
     },
@@ -54,10 +54,8 @@ export function useICPWallet(): UseICPWalletReturn {
         const restoredWallet = await icpWallet.restoreConnection();
         if (restoredWallet) {
           setWallet(restoredWallet);
-          // Update user profile if authenticated and principal differs
-          if (isAuthenticated && user && (user as any).principalId !== restoredWallet.principalId) {
-            await updateUserPrincipalMutation.mutateAsync(restoredWallet.principalId);
-          }
+          // Note: Principal ID should already be set from previous connection
+          // No need to update again on restore
         }
       } catch (error) {
         console.error('Failed to restore wallet connection:', error);
@@ -88,7 +86,10 @@ export function useICPWallet(): UseICPWalletReturn {
 
       // Update user profile if authenticated
       if (isAuthenticated && user) {
-        await updateUserPrincipalMutation.mutateAsync(connectedWallet.principalId);
+        await connectWalletMutation.mutateAsync({
+          principalId: connectedWallet.principalId,
+          walletType: 'plug',
+        });
       }
 
       toast({
@@ -106,7 +107,7 @@ export function useICPWallet(): UseICPWalletReturn {
     } finally {
       setIsConnecting(false);
     }
-  }, [isPlugAvailable, isAuthenticated, user, toast, updateUserPrincipalMutation]);
+  }, [isPlugAvailable, isAuthenticated, user, toast, connectWalletMutation]);
 
   // Connect to Internet Identity
   const connectInternetIdentity = useCallback(async () => {
@@ -119,7 +120,10 @@ export function useICPWallet(): UseICPWalletReturn {
 
       // Update user profile if authenticated
       if (isAuthenticated && user) {
-        await updateUserPrincipalMutation.mutateAsync(connectedWallet.principalId);
+        await connectWalletMutation.mutateAsync({
+          principalId: connectedWallet.principalId,
+          walletType: 'internetIdentity',
+        });
       }
 
       toast({
@@ -137,7 +141,7 @@ export function useICPWallet(): UseICPWalletReturn {
     } finally {
       setIsConnecting(false);
     }
-  }, [isAuthenticated, user, toast, updateUserPrincipalMutation]);
+  }, [isAuthenticated, user, toast, connectWalletMutation]);
 
   // Disconnect wallet
   const disconnect = useCallback(async () => {

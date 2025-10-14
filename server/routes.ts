@@ -1420,6 +1420,94 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update user principal ID after wallet connection
+  // This endpoint allows principal updates after successful wallet authentication
+  // The wallet connection itself (Internet Identity or Plug) already proves ownership
+  app.post("/api/user/connect-wallet", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub || req.user?.id;
+      
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          error: "User not authenticated",
+          code: 'UNAUTHORIZED',
+          timestamp: new Date().toISOString()
+        });
+      }
+
+      const { principalId, walletType } = req.body;
+
+      if (!principalId || !walletType) {
+        return res.status(400).json({
+          success: false,
+          error: "Missing required fields: principalId and walletType",
+          code: 'MISSING_FIELDS',
+          timestamp: new Date().toISOString()
+        });
+      }
+
+      // Validate wallet type
+      if (!['internetIdentity', 'plug'].includes(walletType)) {
+        return res.status(400).json({
+          success: false,
+          error: "Invalid wallet type. Must be 'internetIdentity' or 'plug'",
+          code: 'INVALID_WALLET_TYPE',
+          timestamp: new Date().toISOString()
+        });
+      }
+
+      // Check if principal is already used by another user
+      const existingUser = await storage.getUserByPrincipalId?.(principalId);
+      if (existingUser && existingUser.id !== userId) {
+        return res.status(409).json({
+          success: false,
+          error: "This wallet is already connected to another account",
+          code: 'PRINCIPAL_ALREADY_USED',
+          timestamp: new Date().toISOString()
+        });
+      }
+
+      // Update user with principal ID
+      const updatedUser = await storage.updateUser(userId, { 
+        principalId,
+        walletAddress: principalId // Also update walletAddress for compatibility
+      });
+
+      if (!updatedUser) {
+        return res.status(404).json({
+          success: false,
+          error: "User not found",
+          code: 'USER_NOT_FOUND',
+          timestamp: new Date().toISOString()
+        });
+      }
+
+      console.log('Wallet connected successfully:', {
+        userId,
+        principalId,
+        walletType,
+        timestamp: new Date().toISOString(),
+        ip: req.ip
+      });
+
+      res.json(successResponse(updatedUser, 'Wallet connected successfully'));
+    } catch (error) {
+      console.error("Error connecting wallet:", {
+        userId: req.user?.id,
+        error: error instanceof Error ? error.message : error,
+        timestamp: new Date().toISOString(),
+        ip: req.ip
+      });
+      res.status(500).json({
+        success: false,
+        error: "Failed to connect wallet",
+        code: 'INTERNAL_ERROR',
+        timestamp: new Date().toISOString()
+      });
+    }
+  });
+
   // Upload endpoint for profile images
   app.post("/api/upload", isAuthenticated, upload.single('file'), async (req: any, res) => {
     try {
