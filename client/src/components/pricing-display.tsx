@@ -125,6 +125,18 @@ export const PricingDisplay = ({
     isRefetching 
   } = useQuery<PricingResponse>({
     queryKey: ['/api/pricing/estimate', queryString, refreshKey],
+    queryFn: async () => {
+      const url = `/api/pricing/estimate?${queryString}`;
+      const response = await fetch(url, {
+        credentials: 'include',
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch pricing: ${response.statusText}`);
+      }
+      
+      return response.json();
+    },
     staleTime: query.category === 'crypto' ? 60000 : 300000, // 1 min for crypto, 5 min for others
     refetchInterval: autoRefresh ? (query.category === 'crypto' ? 60000 : 300000) : false,
   });

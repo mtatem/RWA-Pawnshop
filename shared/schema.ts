@@ -1093,7 +1093,7 @@ export const pricingQuerySchema = z.object({
   symbol: z.string().optional(), // For crypto/metals
   itemType: z.string().optional(), // For physical items
   specifications: z.record(z.any()).optional(), // Item-specific data
-  forceRefresh: z.boolean().default(false), // Force fresh API call
+  forceRefresh: z.union([z.boolean(), z.string()]).transform(val => val === true || val === 'true').default(false), // Force fresh API call (handles both boolean and string)
 });
 
 // Pricing response schema
