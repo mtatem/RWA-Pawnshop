@@ -495,7 +495,7 @@ export default function RwaSubmissionForm() {
 
           {/* Real-time Pricing Display */}
           {generatePricingQuery() && (
-            <Card className="p-4 bg-gradient-to-r from-blue-50 to-green-50 dark:from-blue-950 dark:to-green-950 border-blue-200 dark:border-blue-800">
+            <Card className="p-4 bg-gray-700 dark:bg-gray-800 border-gray-600 dark:border-gray-700">
               <h4 className="text-sm font-semibold mb-3 flex items-center">
                 <TrendingUp className="mr-2 h-4 w-4 text-green-600" />
                 Live Market Pricing
