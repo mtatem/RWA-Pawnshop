@@ -1687,10 +1687,12 @@ export default function Profile() {
                     <div className="mt-6 pt-4 border-t">
                       <h4 className="font-semibold mb-3">Quick Actions</h4>
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                        <Button variant="outline" size="sm" onClick={() => setShowPawnForm(true)} disabled={!canPawnAssets()}>
-                          <Plus className="h-4 w-4 mr-2" />
-                          Pawn Asset
-                        </Button>
+                        <Link href="/dashboard">
+                          <Button variant="outline" size="sm" disabled={!canPawnAssets()} className="w-full">
+                            <Plus className="h-4 w-4 mr-2" />
+                            Pawn Asset
+                          </Button>
+                        </Link>
                         <Button variant="outline" size="sm" onClick={() => setActiveTab('assets')}>
                           <Package className="h-4 w-4 mr-2" />
                           View Assets
@@ -1753,14 +1755,15 @@ export default function Profile() {
                   <h3 className="text-lg font-semibold">Your Assets</h3>
                   <p className="text-muted-foreground">Manage your pawned and submitted assets</p>
                 </div>
-                <Button
-                  onClick={() => setShowPawnForm(true)}
-                  disabled={!canPawnAssets()}
-                  data-testid="button-pawn-new-asset"
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  Pawn New Asset
-                </Button>
+                <Link href="/dashboard">
+                  <Button
+                    disabled={!canPawnAssets()}
+                    data-testid="button-pawn-new-asset"
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Pawn New Asset
+                  </Button>
+                </Link>
               </div>
 
               {/* KYC Requirement Warning */}
@@ -1790,13 +1793,14 @@ export default function Profile() {
                     <div className="text-center py-8">
                       <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                       <p className="text-muted-foreground mb-4">No active pawn loans</p>
-                      <Button
-                        onClick={() => setShowPawnForm(true)}
-                        disabled={!canPawnAssets()}
-                        data-testid="button-pawn-first-asset"
-                      >
-                        Pawn Your First Asset
-                      </Button>
+                      <Link href="/dashboard">
+                        <Button
+                          disabled={!canPawnAssets()}
+                          data-testid="button-pawn-first-asset"
+                        >
+                          Pawn Your First Asset
+                        </Button>
+                      </Link>
                     </div>
                   ) : (
                     <div className="space-y-4">
