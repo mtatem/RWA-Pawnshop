@@ -272,7 +272,7 @@ export default function AssetMarketplace() {
             {filteredAssets.map((asset) => (
               <Card
                 key={asset.id}
-                className="bg-card border border-border overflow-hidden hover:border-primary transition-colors glass-effect h-fit"
+                className="bg-card border border-border overflow-hidden hover:border-purple-500 transition-colors glass-effect h-fit"
                 data-testid={`asset-card-${asset.id}`}
               >
                 {asset.imageUrl && (
@@ -306,7 +306,7 @@ export default function AssetMarketplace() {
                       <span className="text-muted-foreground">
                         {asset.currentBid ? "Current Bid:" : "Starting Bid:"}
                       </span>
-                      <span className="font-medium text-primary" data-testid={`asset-current-bid-${asset.id}`}>
+                      <span className="font-medium text-purple-500" data-testid={`asset-current-bid-${asset.id}`}>
                         {formatPrice(asset.currentBid || asset.startingPrice)}
                       </span>
                     </div>
@@ -332,7 +332,7 @@ export default function AssetMarketplace() {
                       <DialogTrigger asChild>
                         <Button
                           onClick={() => handlePlaceBid(asset)}
-                          className="flex-1 h-11 sm:h-10 text-sm bg-primary hover:bg-primary/90 text-primary-foreground"
+                          className="flex-1 h-11 sm:h-10 text-sm bg-purple-600 hover:bg-purple-700 text-white"
                           data-testid={`button-place-bid-${asset.id}`}
                         >
                           Place Bid
@@ -368,7 +368,7 @@ export default function AssetMarketplace() {
                             !wallet || 
                             (bidAmount && wallet ? wallet.balance < parseFloat(bidAmount) : false)
                           }
-                          className="w-full h-11 sm:h-10 text-sm"
+                          className="w-full h-11 sm:h-10 text-sm bg-purple-600 hover:bg-purple-700 text-white"
                           data-testid="button-submit-bid"
                         >
                           {bidMutation.isPending
