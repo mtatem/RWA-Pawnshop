@@ -299,7 +299,7 @@ export default function Register() {
 
             <Button
               type="submit"
-              className="w-full bg-purple-600 hover:bg-purple-700 text-white"
+              className="w-full"
               disabled={isLoading}
               data-testid="button-register"
             >
@@ -322,7 +322,7 @@ export default function Register() {
             Already have an account?{" "}
             <Link 
               href="/login"
-              className="text-purple-500 hover:text-purple-400 hover:underline font-medium"
+              className="text-primary hover:underline font-medium"
               data-testid="link-login"
             >
               Sign in here

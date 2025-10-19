@@ -198,7 +198,7 @@ export default function Login() {
 
               <Link 
                 href="/forgot-password"
-                className="text-sm text-purple-500 hover:text-purple-400 hover:underline"
+                className="text-sm text-primary hover:underline"
                 data-testid="link-forgot-password"
               >
                 Forgot password?
@@ -207,7 +207,7 @@ export default function Login() {
 
             <Button
               type="submit"
-              className="w-full bg-purple-600 hover:bg-purple-700 text-white"
+              className="w-full"
               disabled={isLoading}
               data-testid="button-login"
             >
@@ -246,7 +246,7 @@ export default function Login() {
             Don't have an account?{" "}
             <Link 
               href="/register"
-              className="text-purple-500 hover:text-purple-400 hover:underline font-medium"
+              className="text-primary hover:underline font-medium"
               data-testid="link-register"
             >
               Create one here
