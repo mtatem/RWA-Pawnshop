@@ -72,8 +72,8 @@ export default function Navigation() {
           <span
             className={`${
               location === item.href
-                ? "text-primary"
-                : "text-foreground hover:text-primary"
+                ? "text-purple-500 font-semibold"
+                : "text-foreground hover:text-purple-500"
             } transition-colors cursor-pointer ${mobile ? "block py-2" : ""}`}
             data-testid={`nav-link-${item.label.toLowerCase()}`}
           >
@@ -178,7 +178,7 @@ export default function Navigation() {
 
             {/* Authentication - Desktop Only */}
             {isLoading ? (
-              <Button disabled className="hidden md:flex bg-primary hover:bg-primary/90 text-primary-foreground text-xs sm:text-sm px-2 sm:px-3 h-8 sm:h-9">
+              <Button disabled className="hidden md:flex bg-purple-500/50 text-white text-xs sm:text-sm px-2 sm:px-3 h-8 sm:h-9">
                 Loading...
               </Button>
             ) : isAuthenticated ? (
@@ -186,12 +186,12 @@ export default function Navigation() {
                 <Link href="/profile">
                   <Button
                     variant="outline"
-                    className="text-xs sm:text-sm px-2 sm:px-3 h-8 sm:h-9 flex items-center"
+                    className="text-xs sm:text-sm px-2 sm:px-3 h-8 sm:h-9 flex items-center border-purple-500/20 hover:border-purple-500/40 hover:bg-purple-500/5"
                     data-testid="button-user-profile"
                   >
                   <Avatar className="h-5 w-5 sm:h-6 sm:w-6 mr-1 sm:mr-2">
                     <AvatarImage src={user?.profileImageUrl || ""} />
-                    <AvatarFallback className="text-xs">
+                    <AvatarFallback className="text-xs bg-purple-500/10 text-purple-500">
                       {(user?.firstName?.[0] || user?.username?.[0] || "U").toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
@@ -203,7 +203,7 @@ export default function Navigation() {
                   onClick={handleLogout}
                   variant="outline"
                   size="icon"
-                  className="h-8 w-8 sm:h-9 sm:w-9"
+                  className="h-8 w-8 sm:h-9 sm:w-9 border-purple-500/20 hover:border-purple-500/40 hover:bg-purple-500/5"
                   data-testid="button-logout"
                 >
                   <LogOut className="h-3 w-3 sm:h-4 sm:w-4" />
@@ -213,7 +213,7 @@ export default function Navigation() {
               <div className="hidden md:flex items-center space-x-1 sm:space-x-2">
                 <Button
                   onClick={handleLogin}
-                  className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs sm:text-sm px-2 sm:px-3 h-8 sm:h-9"
+                  className="bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-600 text-white text-xs sm:text-sm px-2 sm:px-3 h-8 sm:h-9 border-0"
                   data-testid="button-login"
                 >
                   <User className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
@@ -223,7 +223,7 @@ export default function Navigation() {
                 <Link href="/register">
                   <Button
                     variant="outline"
-                    className="text-xs sm:text-sm px-2 sm:px-3 h-8 sm:h-9"
+                    className="text-xs sm:text-sm px-2 sm:px-3 h-8 sm:h-9 border-purple-500/30 hover:border-purple-500/50 hover:bg-purple-500/5 text-purple-500"
                     data-testid="button-register"
                   >
                     <UserPlus className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
@@ -250,7 +250,7 @@ export default function Navigation() {
                     <div className="pt-4 border-t space-y-2">
                       <Button
                         onClick={handleLogin}
-                        className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
+                        className="w-full bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-600 text-white border-0"
                         data-testid="button-login-mobile"
                       >
                         <User className="mr-2 h-4 w-4" />
@@ -259,7 +259,7 @@ export default function Navigation() {
                       <Link href="/register">
                         <Button
                           variant="outline"
-                          className="w-full"
+                          className="w-full border-purple-500/30 hover:border-purple-500/50 hover:bg-purple-500/5 text-purple-500"
                           data-testid="button-register-mobile"
                         >
                           <UserPlus className="mr-2 h-4 w-4" />

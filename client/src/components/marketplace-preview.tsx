@@ -41,23 +41,23 @@ export default function MarketplacePreview() {
       <div className="absolute inset-0 bg-[linear-gradient(to_right,#8882_1px,transparent_1px),linear-gradient(to_bottom,#8882_1px,transparent_1px)] bg-[size:4rem_4rem] opacity-20"></div>
       
       {/* Decorative Blobs */}
-      <div className="absolute top-0 right-0 w-96 h-96 bg-primary/5 rounded-full blur-3xl"></div>
-      <div className="absolute bottom-0 left-0 w-96 h-96 bg-secondary/5 rounded-full blur-3xl"></div>
+      <div className="absolute top-0 right-0 w-96 h-96 bg-purple-500/5 rounded-full blur-3xl"></div>
+      <div className="absolute bottom-0 left-0 w-96 h-96 bg-purple-600/5 rounded-full blur-3xl"></div>
 
       <div className="max-w-7xl mx-auto relative z-10">
         {/* Section Header */}
         <div className="text-center mb-12">
-          <Badge className="mb-4 px-4 py-1.5 text-sm" variant="outline">
+          <Badge className="mb-4 px-4 py-1.5 text-sm bg-purple-500/10 border-purple-500/30 text-purple-500 hover:bg-purple-500/20">
             <TrendingUp className="w-4 h-4 mr-2" />
             Live Marketplace
           </Badge>
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-4">
             Featured RWA{" "}
-            <span className="bg-gradient-to-r from-primary via-purple-500 to-secondary bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-purple-500 via-purple-600 to-purple-500 bg-clip-text text-transparent">
               Marketplace
             </span>
           </h2>
-          <p className="text-lg text-muted-foreground max-w-3xl mx-auto">
+          <p className="text-lg text-muted-foreground max-w-3xl mx-auto leading-relaxed">
             Discover premium real-world assets available for bidding. Each asset represents a unique opportunity 
             to own high-value items that have been tokenized on the ICP blockchain.
           </p>
@@ -68,7 +68,7 @@ export default function MarketplacePreview() {
           {demoAssets.map((asset) => (
             <Card
               key={asset.id}
-              className="group relative bg-card border-2 border-border/50 overflow-hidden hover:border-primary/50 transition-all duration-300 glass-effect h-fit shadow-lg hover:shadow-2xl hover:scale-105"
+              className="group relative bg-card border-2 border-purple-500/20 overflow-hidden hover:border-purple-500/50 transition-all duration-300 glass-effect h-fit shadow-lg hover:shadow-2xl hover:shadow-purple-500/10 hover:scale-105"
               data-testid={`marketplace-asset-${asset.id}`}
             >
               {/* Image Container with Overlay */}
@@ -86,7 +86,7 @@ export default function MarketplacePreview() {
                   {/* Hover View Icon */}
                   <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                     <div className="bg-white/90 dark:bg-black/90 rounded-full p-3">
-                      <Eye className="h-6 w-6 text-primary" />
+                      <Eye className="h-6 w-6 text-purple-500" />
                     </div>
                   </div>
                 </div>
@@ -94,7 +94,7 @@ export default function MarketplacePreview() {
 
               <div className="p-4 sm:p-6 relative">
                 {/* Decorative Corner */}
-                <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-primary/10 to-transparent rounded-bl-full"></div>
+                <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-purple-500/10 to-transparent rounded-bl-full"></div>
                 
                 <div className="flex flex-col xs:flex-row xs:justify-between xs:items-start mb-3 space-y-2 xs:space-y-0 relative z-10">
                   <div className="flex-1">
@@ -118,11 +118,11 @@ export default function MarketplacePreview() {
                       {formatCurrency(asset.originalValue)}
                     </span>
                   </div>
-                  <div className="flex justify-between text-xs sm:text-sm p-2 rounded-lg bg-primary/5 border border-primary/20">
+                  <div className="flex justify-between text-xs sm:text-sm p-2 rounded-lg bg-purple-500/5 border border-purple-500/20">
                     <span className="text-muted-foreground">
                       {asset.currentBid ? "Current Bid:" : "Starting Bid:"}
                     </span>
-                    <span className="font-bold text-primary" data-testid={`asset-current-bid-${asset.id}`}>
+                    <span className="font-bold text-purple-500" data-testid={`asset-current-bid-${asset.id}`}>
                       {formatCurrency(asset.currentBid || asset.startingPrice)}
                     </span>
                   </div>
@@ -139,7 +139,7 @@ export default function MarketplacePreview() {
 
                 <Link href={`/asset/${asset.id}`}>
                   <Button
-                    className="w-full h-11 sm:h-10 text-sm bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-primary-foreground shadow-md hover:shadow-lg transition-all duration-300"
+                    className="w-full h-11 sm:h-10 text-sm bg-gradient-to-r from-purple-500 via-purple-600 to-purple-500 hover:from-purple-600 hover:to-purple-600 text-white shadow-md hover:shadow-lg hover:shadow-purple-500/30 transition-all duration-300 border-0"
                     data-testid={`button-view-details-${asset.id}`}
                   >
                     View Details & Bid
@@ -149,22 +149,22 @@ export default function MarketplacePreview() {
               </div>
 
               {/* Corner Accent */}
-              <div className="absolute bottom-0 left-0 w-16 h-16 bg-gradient-to-tr from-secondary/10 to-transparent rounded-tr-full"></div>
+              <div className="absolute bottom-0 left-0 w-16 h-16 bg-gradient-to-tr from-purple-500/10 to-transparent rounded-tr-full"></div>
             </Card>
           ))}
         </div>
 
         {/* Call to Action */}
         <div className="text-center mt-12">
-          <div className="inline-block p-8 rounded-2xl bg-gradient-to-br from-primary/10 via-purple-500/5 to-secondary/10 border-2 border-primary/20 shadow-xl">
-            <h3 className="text-2xl font-bold mb-3">Ready to Explore More?</h3>
-            <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+          <div className="inline-block p-8 sm:p-10 rounded-2xl bg-gradient-to-br from-purple-500/10 via-purple-600/5 to-purple-500/10 border-2 border-purple-500/30 shadow-xl shadow-purple-500/10">
+            <h3 className="text-2xl sm:text-3xl font-bold mb-3">Ready to Explore More?</h3>
+            <p className="text-muted-foreground mb-6 max-w-md mx-auto leading-relaxed">
               Browse our full marketplace to find your perfect investment opportunity
             </p>
             <Link href="/marketplace">
               <Button 
                 size="lg" 
-                className="bg-gradient-to-r from-primary via-purple-500 to-secondary hover:from-primary/90 hover:to-secondary/90 shadow-lg hover:shadow-xl transition-all duration-300 text-lg px-8 py-6"
+                className="bg-gradient-to-r from-purple-500 via-purple-600 to-purple-500 hover:from-purple-600 hover:to-purple-600 shadow-lg hover:shadow-xl hover:shadow-purple-500/30 transition-all duration-300 text-lg px-8 py-6 text-white border-0"
                 data-testid="button-view-all-marketplace"
               >
                 <Clock className="w-5 h-5 mr-2" />
