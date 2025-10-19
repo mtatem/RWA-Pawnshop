@@ -44,7 +44,7 @@ export default function AssetDetail() {
           <h1 className="text-2xl font-bold mb-4">Asset Not Found</h1>
           <p className="text-muted-foreground mb-6">The requested asset could not be found.</p>
           <Link href="/marketplace">
-            <Button data-testid="button-return-marketplace">Return to Marketplace</Button>
+            <Button className="bg-purple-600 hover:bg-purple-700 text-white" data-testid="button-return-marketplace">Return to Marketplace</Button>
           </Link>
         </div>
       </div>
@@ -199,7 +199,7 @@ export default function AssetDetail() {
           {/* Action Buttons */}
           <div className="space-y-3">
             <Link href="/marketplace">
-              <Button size="lg" className="w-full bg-primary hover:bg-primary/90" data-testid={`button-place-bid-detail-${enhancedAsset.id}`}>
+              <Button size="lg" className="w-full bg-purple-600 hover:bg-purple-700 text-white" data-testid={`button-place-bid-detail-${enhancedAsset.id}`}>
                 Place Bid on Marketplace
               </Button>
             </Link>
@@ -233,7 +233,7 @@ export default function AssetDetail() {
             <div className="space-y-3">
               {enhancedAsset.specifications.map((spec: string, index: number) => (
                 <div key={index} className="flex items-center" data-testid={`asset-detail-spec-${enhancedAsset.id}-${index}`}>
-                  <div className="w-2 h-2 bg-primary rounded-full mr-3 flex-shrink-0"></div>
+                  <div className="w-2 h-2 bg-purple-500 rounded-full mr-3 flex-shrink-0"></div>
                   <span className="text-sm">{spec}</span>
                 </div>
               ))}
@@ -254,7 +254,7 @@ export default function AssetDetail() {
             <div className="text-sm text-muted-foreground">Days Since Expiry</div>
           </div>
           <div>
-            <div className="text-2xl font-bold text-primary mb-2">
+            <div className="text-2xl font-bold text-purple-500 mb-2">
               {enhancedAsset.currentBid ? "Active" : "New"}
             </div>
             <div className="text-sm text-muted-foreground">Bidding Status</div>
