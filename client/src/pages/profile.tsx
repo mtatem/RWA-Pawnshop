@@ -706,7 +706,7 @@ export default function Profile() {
               You need to be logged in to view your profile.
             </p>
             <Link href="/login">
-              <Button className="w-full" data-testid="button-login">
+              <Button className="w-full bg-purple-600 hover:bg-purple-700 text-white" data-testid="button-login">
                 Sign In
               </Button>
             </Link>
@@ -791,6 +791,7 @@ export default function Profile() {
                     </div>
                     <Button
                       variant={isEditing ? "outline" : "default"}
+                      className={isEditing ? "" : "bg-purple-600 hover:bg-purple-700 text-white"}
                       onClick={() => setIsEditing(!isEditing)}
                       data-testid={isEditing ? "button-cancel-edit" : "button-edit-profile"}
                     >
@@ -901,6 +902,7 @@ export default function Profile() {
                         <div className="flex justify-end space-x-2">
                           <Button
                             type="submit"
+                            className="bg-purple-600 hover:bg-purple-700 text-white"
                             disabled={updateProfileMutation.isPending}
                             data-testid="button-save-profile"
                           >
@@ -1025,6 +1027,7 @@ export default function Profile() {
                       
                       <Button
                         type="submit"
+                        className="bg-purple-600 hover:bg-purple-700 text-white"
                         disabled={changePasswordMutation.isPending}
                         data-testid="button-change-password"
                       >
@@ -1427,7 +1430,7 @@ export default function Profile() {
 
                         <Button 
                           type="submit" 
-                          className="w-full" 
+                          className="w-full bg-purple-600 hover:bg-purple-700 text-white" 
                           disabled={submitKYCMutation.isPending}
                           data-testid="button-submit-kyc"
                         >
@@ -1566,6 +1569,7 @@ export default function Profile() {
                       <div className="flex flex-col sm:flex-row gap-3 justify-center">
                         {isPlugAvailable && (
                           <Button 
+                            className="bg-purple-600 hover:bg-purple-700 text-white"
                             onClick={connectPlug}
                             disabled={isConnecting}
                             data-testid="button-connect-plug"
@@ -1575,6 +1579,7 @@ export default function Profile() {
                         )}
                         <Button 
                           variant="outline"
+                          className="border-purple-600 text-purple-600 hover:bg-purple-600 hover:text-white"
                           onClick={connectInternetIdentity}
                           disabled={isConnecting}
                           data-testid="button-connect-ii"
@@ -2080,6 +2085,7 @@ export default function Profile() {
                 </Button>
                 <Button
                   type="submit"
+                  className="bg-purple-600 hover:bg-purple-700 text-white"
                   disabled={submitRwaMutation.isPending}
                   data-testid="button-submit-pawn"
                 >
