@@ -21,7 +21,7 @@ main, section, div[class*="container"], div[class*="wrapper"] {
   --card-foreground: hsl(0, 0%, 100%);
   --popover: hsl(20, 14%, 4%);
   --popover-foreground: hsl(45, 25%, 91%);
-  --primary: hsl(271, 75%, 60%);
+  --primary: hsl(271, 75%, 65%);
   --primary-foreground: hsl(0, 0%, 0%);
   --secondary: #ebebeb;
   --secondary-foreground: #0d0d0d;
@@ -33,7 +33,7 @@ main, section, div[class*="container"], div[class*="wrapper"] {
   --destructive-foreground: #ffffff;
   --border: #2b2b2b;
   --input: #2b2b2b;
-  --ring: hsl(271, 75%, 60%);
+  --ring: hsl(271, 75%, 65%);
   --chart-1: hsl(203.8863, 88.2845%, 53.1373%);
   --chart-2: hsl(159.7826, 100%, 36.0784%);
   --chart-3: hsl(42.0290, 92.8251%, 56.2745%);
@@ -41,12 +41,12 @@ main, section, div[class*="container"], div[class*="wrapper"] {
   --chart-5: hsl(341.4894, 75.2000%, 50.9804%);
   --sidebar: hsl(271, 40%, 15%);
   --sidebar-foreground: hsl(0, 0%, 95%);
-  --sidebar-primary: hsl(271, 75%, 60%);
+  --sidebar-primary: hsl(271, 75%, 65%);
   --sidebar-primary-foreground: hsl(0, 0%, 100%);
   --sidebar-accent: hsl(271, 60%, 35%);
   --sidebar-accent-foreground: hsl(0, 0%, 95%);
   --sidebar-border: hsl(271, 30%, 25%);
-  --sidebar-ring: hsl(271, 75%, 60%);
+  --sidebar-ring: hsl(271, 75%, 65%);
   --font-sans: 'Inter', sans-serif;
   --font-serif: Inter;
   --font-mono: Architects Daughter;
@@ -70,7 +70,7 @@ main, section, div[class*="container"], div[class*="wrapper"] {
   --card-foreground: hsl(45, 25%, 85%);
   --popover: hsl(20, 14%, 4%);
   --popover-foreground: hsl(45, 25%, 91%);
-  --primary: hsl(271, 75%, 60%);
+  --primary: hsl(271, 75%, 65%);
   --primary-foreground: hsl(0, 0%, 0%);
   --secondary: hsl(30, 15%, 52%);
   --secondary-foreground: hsl(0, 0%, 100%);
@@ -82,7 +82,7 @@ main, section, div[class*="container"], div[class*="wrapper"] {
   --destructive-foreground: hsl(0, 0%, 100%);
   --border: hsl(20, 14%, 15%);
   --input: hsl(20, 14%, 18%);
-  --ring: hsl(271, 75%, 60%);
+  --ring: hsl(271, 75%, 65%);
   --chart-1: hsl(203.8863, 88.2845%, 53.1373%);
   --chart-2: hsl(159.7826, 100%, 36.0784%);
   --chart-3: hsl(42.0290, 92.8251%, 56.2745%);
@@ -90,12 +90,12 @@ main, section, div[class*="container"], div[class*="wrapper"] {
   --chart-5: hsl(341.4894, 75.2000%, 50.9804%);
   --sidebar: hsl(271, 40%, 8%);
   --sidebar-foreground: hsl(0, 0%, 85%);
-  --sidebar-primary: hsl(271, 75%, 60%);
+  --sidebar-primary: hsl(271, 75%, 65%);
   --sidebar-primary-foreground: hsl(0, 0%, 100%);
   --sidebar-accent: hsl(271, 60%, 20%);
   --sidebar-accent-foreground: hsl(0, 0%, 85%);
   --sidebar-border: hsl(271, 30%, 15%);
-  --sidebar-ring: hsl(271, 75%, 60%);
+  --sidebar-ring: hsl(271, 75%, 65%);
   --font-sans: Open Sans, sans-serif;
   --font-serif: Georgia, serif;
   --font-mono: Menlo, monospace;
