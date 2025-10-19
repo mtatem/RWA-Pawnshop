@@ -70,7 +70,7 @@ main, section, div[class*="container"], div[class*="wrapper"] {
   --card-foreground: hsl(45, 25%, 85%);
   --popover: hsl(20, 14%, 4%);
   --popover-foreground: hsl(45, 25%, 91%);
-  --primary: hsl(9, 75%, 61%);
+  --primary: hsl(271, 91%, 65%);
   --primary-foreground: hsl(0, 0%, 100%);
   --secondary: hsl(30, 15%, 52%);
   --secondary-foreground: hsl(0, 0%, 100%);
