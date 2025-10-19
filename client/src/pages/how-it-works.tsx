@@ -133,32 +133,32 @@ export default function HowItWorks() {
       </section>
 
       {/* Process Steps Section */}
-      <section className="relative py-12 px-4 sm:px-6 lg:px-8 bg-muted/30">
-        <div className="container mx-auto">
-          <div className="grid gap-8 md:gap-12">
+      <section className="relative py-16 sm:py-20 px-4 sm:px-6 lg:px-8 bg-muted/30">
+        <div className="container mx-auto max-w-5xl">
+          <div className="grid gap-10 md:gap-14">
             {steps.map((step, index) => (
               <Card 
                 key={index} 
-                className="group relative overflow-hidden border-2 border-border/50 hover:border-primary/50 transition-all duration-300 shadow-lg hover:shadow-2xl hover:scale-[1.02]" 
+                className="group relative overflow-hidden border-2 border-purple-500/20 hover:border-purple-500/50 transition-all duration-300 shadow-lg hover:shadow-2xl hover:shadow-purple-500/10" 
                 data-testid={`step-${index + 1}`}
               >
-                {/* Decorative Corner Gradient */}
-                <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-primary/10 to-transparent rounded-bl-full"></div>
-                <div className="absolute bottom-0 left-0 w-24 h-24 bg-gradient-to-tr from-secondary/10 to-transparent rounded-tr-full"></div>
+                {/* Decorative Corner Gradient - Purple */}
+                <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-purple-500/10 to-transparent rounded-bl-full"></div>
+                <div className="absolute bottom-0 left-0 w-32 h-32 bg-gradient-to-tr from-purple-400/10 to-transparent rounded-tr-full"></div>
                 
-                <CardHeader className="pb-4 relative z-10">
-                  <div className="flex items-start space-x-4">
-                    <div className="flex items-center justify-center w-14 h-14 bg-gradient-to-br from-primary/20 to-secondary/20 rounded-full shadow-md group-hover:scale-110 transition-transform duration-300">
+                <CardHeader className="pb-6 relative z-10 px-6 sm:px-8 pt-6 sm:pt-8">
+                  <div className="flex items-start space-x-5">
+                    <div className="flex items-center justify-center w-16 h-16 bg-gradient-to-br from-purple-500/20 to-purple-600/20 rounded-full shadow-lg shadow-purple-500/20 group-hover:scale-110 transition-transform duration-300 flex-shrink-0">
                       {step.icon}
                     </div>
                     <div className="flex-1">
-                      <div className="flex items-center space-x-3 mb-2">
-                        <Badge className="bg-gradient-to-r from-primary to-secondary text-primary-foreground shadow-md">
+                      <div className="flex flex-wrap items-center gap-3 mb-3">
+                        <Badge className="bg-gradient-to-r from-purple-500 to-purple-600 text-white shadow-md border-0">
                           Step {index + 1}
                         </Badge>
-                        <CardTitle className="text-xl sm:text-2xl">{step.title}</CardTitle>
+                        <CardTitle className="text-2xl sm:text-3xl">{step.title}</CardTitle>
                       </div>
-                      <CardDescription className="text-base">
+                      <CardDescription className="text-base sm:text-lg leading-relaxed">
                         {step.description}
                       </CardDescription>
                     </div>
@@ -166,14 +166,14 @@ export default function HowItWorks() {
                 </CardHeader>
                 
                 {/* Divider */}
-                <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent mx-6"></div>
+                <div className="h-px bg-gradient-to-r from-transparent via-purple-500/30 to-transparent mx-6 sm:mx-8"></div>
                 
-                <CardContent className="pt-6 relative z-10">
-                  <ul className="grid md:grid-cols-2 gap-3">
+                <CardContent className="pt-6 pb-8 relative z-10 px-6 sm:px-8">
+                  <ul className="grid md:grid-cols-2 gap-4">
                     {step.details.map((detail, idx) => (
-                      <li key={idx} className="flex items-start space-x-3 p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
-                        <CheckCircle className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
-                        <span className="text-sm">{detail}</span>
+                      <li key={idx} className="flex items-start space-x-3 p-4 rounded-lg bg-purple-500/5 border border-purple-500/10 hover:bg-purple-500/10 hover:border-purple-500/20 transition-all duration-200">
+                        <CheckCircle className="w-5 h-5 text-purple-500 mt-0.5 flex-shrink-0" />
+                        <span className="text-sm sm:text-base leading-relaxed">{detail}</span>
                       </li>
                     ))}
                   </ul>
@@ -185,21 +185,21 @@ export default function HowItWorks() {
       </section>
 
       {/* Call to Action Section */}
-      <section className="relative py-16 px-4 sm:px-6 lg:px-8 overflow-hidden">
+      <section className="relative py-20 sm:py-24 px-4 sm:px-6 lg:px-8 overflow-hidden">
         {/* Background Pattern */}
         <div className="absolute inset-0 bg-[linear-gradient(to_right,#8882_1px,transparent_1px),linear-gradient(to_bottom,#8882_1px,transparent_1px)] bg-[size:4rem_4rem] opacity-20"></div>
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-secondary/5"></div>
+        <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-purple-600/5"></div>
         
         <div className="container mx-auto text-center relative z-10">
-          <div className="inline-block p-8 sm:p-12 rounded-2xl bg-gradient-to-br from-primary/10 via-purple-500/5 to-secondary/10 border-2 border-primary/20 shadow-2xl">
-            <h2 className="text-3xl sm:text-4xl font-bold mb-4">Ready to Get Started?</h2>
-            <p className="text-lg text-muted-foreground mb-8 max-w-2xl mx-auto">
+          <div className="inline-block p-10 sm:p-14 rounded-3xl bg-gradient-to-br from-purple-500/10 via-purple-600/5 to-purple-500/10 border-2 border-purple-500/30 shadow-2xl shadow-purple-500/10">
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-6">Ready to Get Started?</h2>
+            <p className="text-lg sm:text-xl text-muted-foreground mb-10 max-w-2xl mx-auto leading-relaxed">
               Join thousands of users who have already unlocked the value of their real-world assets
             </p>
             <Link href={isAuthenticated ? "/dashboard" : "/register"}>
               <Button 
                 size="lg"
-                className="bg-gradient-to-r from-primary via-purple-500 to-secondary hover:from-primary/90 hover:to-secondary/90 shadow-lg hover:shadow-xl transition-all duration-300 text-lg px-8 py-6"
+                className="bg-gradient-to-r from-purple-500 via-purple-600 to-purple-500 hover:from-purple-600 hover:to-purple-600 shadow-lg hover:shadow-xl hover:shadow-purple-500/30 transition-all duration-300 text-lg px-10 py-7 text-white border-0"
                 data-testid="button-pawn-asset"
               >
                 Pawn An Asset
@@ -213,67 +213,67 @@ export default function HowItWorks() {
       {/* Features Section */}
       <section className="relative py-12 sm:py-16 px-4 sm:px-6 lg:px-8 bg-muted/30">
         <div className="container mx-auto">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl sm:text-4xl font-bold mb-4">
+          <div className="text-center mb-14">
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-6">
               Why Choose{" "}
-              <span className="bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-purple-500 to-purple-600 bg-clip-text text-transparent">
                 RWAPAWN
               </span>
             </h2>
-            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+            <p className="text-lg sm:text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
               Built on cutting-edge blockchain technology with your security and convenience in mind
             </p>
           </div>
           
-          <div className="grid md:grid-cols-3 gap-8">
-            <Card className="relative border-2 border-border/50 hover:border-primary/50 transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105 overflow-hidden group">
-              <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-              <CardHeader className="relative z-10">
-                <CardTitle className="flex items-center space-x-2">
-                  <div className="p-2 rounded-lg bg-primary/10">
-                    <Coins className="w-6 h-6 text-primary" />
+          <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+            <Card className="relative border-2 border-purple-500/20 hover:border-purple-500/50 transition-all duration-300 shadow-lg hover:shadow-xl hover:shadow-purple-500/10 hover:scale-105 overflow-hidden group">
+              <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+              <CardHeader className="relative z-10 pb-4">
+                <CardTitle className="flex items-center space-x-3 text-xl">
+                  <div className="p-3 rounded-xl bg-purple-500/10 shadow-md">
+                    <Coins className="w-6 h-6 text-purple-500" />
                   </div>
                   <span>Instant Liquidity</span>
                 </CardTitle>
               </CardHeader>
               <CardContent className="relative z-10">
-                <p className="text-muted-foreground">
+                <p className="text-muted-foreground text-base leading-relaxed">
                   Get immediate access to funds without selling your valuable assets. 
                   Our platform provides instant loan approval and disbursement.
                 </p>
               </CardContent>
             </Card>
 
-            <Card className="relative border-2 border-border/50 hover:border-secondary/50 transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105 overflow-hidden group">
-              <div className="absolute inset-0 bg-gradient-to-br from-secondary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-              <CardHeader className="relative z-10">
-                <CardTitle className="flex items-center space-x-2">
-                  <div className="p-2 rounded-lg bg-secondary/10">
-                    <Shield className="w-6 h-6 text-secondary" />
+            <Card className="relative border-2 border-purple-500/20 hover:border-purple-500/50 transition-all duration-300 shadow-lg hover:shadow-xl hover:shadow-purple-500/10 hover:scale-105 overflow-hidden group">
+              <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+              <CardHeader className="relative z-10 pb-4">
+                <CardTitle className="flex items-center space-x-3 text-xl">
+                  <div className="p-3 rounded-xl bg-purple-500/10 shadow-md">
+                    <Shield className="w-6 h-6 text-purple-500" />
                   </div>
                   <span>Secure & Transparent</span>
                 </CardTitle>
               </CardHeader>
               <CardContent className="relative z-10">
-                <p className="text-muted-foreground">
+                <p className="text-muted-foreground text-base leading-relaxed">
                   Built on Internet Computer Protocol with enterprise-grade security, 
                   fraud detection, and complete transaction transparency.
                 </p>
               </CardContent>
             </Card>
 
-            <Card className="relative border-2 border-border/50 hover:border-primary/50 transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105 overflow-hidden group">
-              <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-              <CardHeader className="relative z-10">
-                <CardTitle className="flex items-center space-x-2">
-                  <div className="p-2 rounded-lg bg-primary/10">
-                    <Zap className="w-6 h-6 text-primary" />
+            <Card className="relative border-2 border-purple-500/20 hover:border-purple-500/50 transition-all duration-300 shadow-lg hover:shadow-xl hover:shadow-purple-500/10 hover:scale-105 overflow-hidden group">
+              <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+              <CardHeader className="relative z-10 pb-4">
+                <CardTitle className="flex items-center space-x-3 text-xl">
+                  <div className="p-3 rounded-xl bg-purple-500/10 shadow-md">
+                    <Zap className="w-6 h-6 text-purple-500" />
                   </div>
                   <span>Flexible Terms</span>
                 </CardTitle>
               </CardHeader>
               <CardContent className="relative z-10">
-                <p className="text-muted-foreground">
+                <p className="text-muted-foreground text-base leading-relaxed">
                   90-day loan terms with extension options, competitive rates, 
                   and flexible repayment schedules designed around your needs.
                 </p>

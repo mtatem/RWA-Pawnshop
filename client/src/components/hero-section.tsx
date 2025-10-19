@@ -67,7 +67,7 @@ export default function HeroSection() {
           <Link href="/dashboard">
             <Button 
               size="lg" 
-              className="w-full sm:w-auto bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 shadow-lg hover:shadow-xl transition-all duration-300 text-base sm:text-lg px-6 sm:px-8 py-5 sm:py-6"
+              className="w-full sm:w-auto bg-gradient-to-r from-purple-500 via-purple-600 to-purple-500 hover:from-purple-600 hover:to-purple-600 shadow-lg hover:shadow-xl hover:shadow-purple-500/30 transition-all duration-300 text-base sm:text-lg px-6 sm:px-8 py-5 sm:py-6 text-white border-0"
               data-testid="button-get-started"
             >
               Get Started
@@ -88,75 +88,75 @@ export default function HeroSection() {
 
         {/* Feature Highlights */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-12">
-          <div className="flex flex-col items-center p-6 rounded-xl bg-card/50 backdrop-blur-sm border border-border/50 shadow-md hover:shadow-xl transition-all duration-300 hover:scale-105">
-            <div className="p-3 rounded-full bg-primary/10 mb-4">
-              <Shield className="h-8 w-8 text-primary" />
+          <div className="flex flex-col items-center p-6 rounded-xl bg-card/50 backdrop-blur-sm border-2 border-purple-500/20 shadow-md hover:shadow-xl hover:shadow-purple-500/10 transition-all duration-300 hover:scale-105 hover:border-purple-500/40">
+            <div className="p-3 rounded-full bg-purple-500/10 mb-4">
+              <Shield className="h-8 w-8 text-purple-500" />
             </div>
             <h3 className="font-semibold text-lg mb-2">Secure & Trustless</h3>
-            <p className="text-sm text-muted-foreground">Smart contracts ensure transparent and secure transactions</p>
+            <p className="text-sm text-muted-foreground leading-relaxed text-center">Smart contracts ensure transparent and secure transactions</p>
           </div>
           
-          <div className="flex flex-col items-center p-6 rounded-xl bg-card/50 backdrop-blur-sm border border-border/50 shadow-md hover:shadow-xl transition-all duration-300 hover:scale-105">
-            <div className="p-3 rounded-full bg-secondary/10 mb-4">
-              <Zap className="h-8 w-8 text-secondary" />
+          <div className="flex flex-col items-center p-6 rounded-xl bg-card/50 backdrop-blur-sm border-2 border-purple-500/20 shadow-md hover:shadow-xl hover:shadow-purple-500/10 transition-all duration-300 hover:scale-105 hover:border-purple-500/40">
+            <div className="p-3 rounded-full bg-purple-500/10 mb-4">
+              <Zap className="h-8 w-8 text-purple-500" />
             </div>
             <h3 className="font-semibold text-lg mb-2">Instant Liquidity</h3>
-            <p className="text-sm text-muted-foreground">Get up to 70% of your asset's value immediately</p>
+            <p className="text-sm text-muted-foreground leading-relaxed text-center">Get up to 70% of your asset's value immediately</p>
           </div>
           
-          <div className="flex flex-col items-center p-6 rounded-xl bg-card/50 backdrop-blur-sm border border-border/50 shadow-md hover:shadow-xl transition-all duration-300 hover:scale-105">
-            <div className="p-3 rounded-full bg-primary/10 mb-4">
-              <TrendingUp className="h-8 w-8 text-primary" />
+          <div className="flex flex-col items-center p-6 rounded-xl bg-card/50 backdrop-blur-sm border-2 border-purple-500/20 shadow-md hover:shadow-xl hover:shadow-purple-500/10 transition-all duration-300 hover:scale-105 hover:border-purple-500/40">
+            <div className="p-3 rounded-full bg-purple-500/10 mb-4">
+              <TrendingUp className="h-8 w-8 text-purple-500" />
             </div>
             <h3 className="font-semibold text-lg mb-2">Fair Market Value</h3>
-            <p className="text-sm text-muted-foreground">Real-time pricing powered by multiple data sources</p>
+            <p className="text-sm text-muted-foreground leading-relaxed text-center">Real-time pricing powered by multiple data sources</p>
           </div>
         </div>
 
-        {/* Statistics Cards - Enhanced with Shadows & Borders */}
+        {/* Statistics Cards - Enhanced with Purple Theme */}
         <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-          <Card className="relative bg-gradient-to-br from-card to-card/80 border-2 border-primary/20 p-4 sm:p-6 glass-effect shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105 hover:border-primary/40 overflow-hidden group">
-            <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+          <Card className="relative bg-gradient-to-br from-card to-card/80 border-2 border-purple-500/20 p-4 sm:p-6 glass-effect shadow-xl hover:shadow-2xl hover:shadow-purple-500/10 transition-all duration-300 hover:scale-105 hover:border-purple-500/40 overflow-hidden group">
+            <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
             <div className="relative z-10">
-              <div className="text-xl sm:text-2xl lg:text-3xl font-bold text-primary mb-1" data-testid="stat-total-value">
+              <div className="text-xl sm:text-2xl lg:text-3xl font-bold text-purple-500 mb-1" data-testid="stat-total-value">
                 $2.4M
               </div>
               <div className="text-xs sm:text-sm text-muted-foreground">Total Value Locked</div>
             </div>
-            <div className="absolute -bottom-2 -right-2 w-20 h-20 bg-primary/5 rounded-full blur-xl"></div>
+            <div className="absolute -bottom-2 -right-2 w-20 h-20 bg-purple-500/5 rounded-full blur-xl"></div>
           </Card>
 
-          <Card className="relative bg-gradient-to-br from-card to-card/80 border-2 border-secondary/20 p-4 sm:p-6 glass-effect shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105 hover:border-secondary/40 overflow-hidden group">
-            <div className="absolute inset-0 bg-gradient-to-br from-secondary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+          <Card className="relative bg-gradient-to-br from-card to-card/80 border-2 border-purple-500/20 p-4 sm:p-6 glass-effect shadow-xl hover:shadow-2xl hover:shadow-purple-500/10 transition-all duration-300 hover:scale-105 hover:border-purple-500/40 overflow-hidden group">
+            <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
             <div className="relative z-10">
-              <div className="text-xl sm:text-2xl lg:text-3xl font-bold text-secondary mb-1" data-testid="stat-active-loans">
+              <div className="text-xl sm:text-2xl lg:text-3xl font-bold text-purple-500 mb-1" data-testid="stat-active-loans">
                 {stats?.activeLoans || 0}
               </div>
               <div className="text-xs sm:text-sm text-muted-foreground">Active Loans</div>
             </div>
-            <div className="absolute -bottom-2 -right-2 w-20 h-20 bg-secondary/5 rounded-full blur-xl"></div>
+            <div className="absolute -bottom-2 -right-2 w-20 h-20 bg-purple-500/5 rounded-full blur-xl"></div>
           </Card>
 
-          <Card className="relative bg-gradient-to-br from-card to-card/80 border-2 border-primary/20 p-4 sm:p-6 glass-effect shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105 hover:border-primary/40 overflow-hidden group">
-            <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+          <Card className="relative bg-gradient-to-br from-card to-card/80 border-2 border-purple-500/20 p-4 sm:p-6 glass-effect shadow-xl hover:shadow-2xl hover:shadow-purple-500/10 transition-all duration-300 hover:scale-105 hover:border-purple-500/40 overflow-hidden group">
+            <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
             <div className="relative z-10">
-              <div className="text-xl sm:text-2xl lg:text-3xl font-bold text-foreground mb-1" data-testid="stat-assets-listed">
+              <div className="text-xl sm:text-2xl lg:text-3xl font-bold text-purple-500 mb-1" data-testid="stat-assets-listed">
                 89
               </div>
               <div className="text-xs sm:text-sm text-muted-foreground">Assets for Sale</div>
             </div>
-            <div className="absolute -bottom-2 -right-2 w-20 h-20 bg-primary/5 rounded-full blur-xl"></div>
+            <div className="absolute -bottom-2 -right-2 w-20 h-20 bg-purple-500/5 rounded-full blur-xl"></div>
           </Card>
 
-          <Card className="relative bg-gradient-to-br from-card to-card/80 border-2 border-secondary/20 p-4 sm:p-6 glass-effect shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105 hover:border-secondary/40 overflow-hidden group">
-            <div className="absolute inset-0 bg-gradient-to-br from-secondary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+          <Card className="relative bg-gradient-to-br from-card to-card/80 border-2 border-purple-500/20 p-4 sm:p-6 glass-effect shadow-xl hover:shadow-2xl hover:shadow-purple-500/10 transition-all duration-300 hover:scale-105 hover:border-purple-500/40 overflow-hidden group">
+            <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
             <div className="relative z-10">
-              <div className="text-xl sm:text-2xl lg:text-3xl font-bold text-primary mb-1" data-testid="stat-loan-to-value">
+              <div className="text-xl sm:text-2xl lg:text-3xl font-bold text-purple-500 mb-1" data-testid="stat-loan-to-value">
                 70%
               </div>
               <div className="text-xs sm:text-sm text-muted-foreground">Max Loan-to-Value</div>
             </div>
-            <div className="absolute -bottom-2 -right-2 w-20 h-20 bg-secondary/5 rounded-full blur-xl"></div>
+            <div className="absolute -bottom-2 -right-2 w-20 h-20 bg-purple-500/5 rounded-full blur-xl"></div>
           </Card>
         </div>
       </div>
