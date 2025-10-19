@@ -34,6 +34,29 @@ The system includes mock ICP blockchain integration with plans for full implemen
 ### Admin Dashboard
 A comprehensive admin interface provides oversight of all platform operations including pending submissions review, active loan monitoring, marketplace oversight, and platform analytics. The admin panel includes approval workflows and reporting functionality.
 
+### Fee Waiver System
+The platform includes a VIP fee waiver system that automatically grants 100% fee exemption to designated users. This system applies to all platform fees including:
+
+**VIP Users (Complete Fee Waiver):**
+- mtatem@gmail.com
+- tatm@tatemweb.com
+
+**Fees Waived:**
+- Listing Fee: $25 USDC per asset submission
+- Marketplace Transaction Fee: 3% of sale price
+- Loan Interest: 8.5% APR
+- Bridge Transaction Fee: 0.5% of bridged amount
+
+**Implementation:**
+The fee waiver is implemented in `server/fee-waiver.ts` with centralized logic for:
+- Fee calculation with automatic waiver detection
+- Individual fee calculators for each fee type
+- Fee waiver status API endpoint
+- Comprehensive audit trail in transaction metadata
+
+**API Endpoints:**
+- GET `/api/user/fee-waiver-status` - Check current user's fee waiver eligibility and benefits
+
 ## External Dependencies
 
 ### Database Services

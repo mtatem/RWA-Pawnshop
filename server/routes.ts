@@ -155,6 +155,15 @@ import { sql, eq, and } from "drizzle-orm";
 import { rwapawnPurchases } from "@shared/schema";
 import { verifyAdminCredentials, generateAdminToken } from "./admin-auth";
 import { emailService } from "./services/email-service";
+import { 
+  checkFeeWaiver, 
+  calculateListingFee, 
+  calculateMarketplaceFee, 
+  calculateLoanInterest,
+  calculateBridgeFee,
+  getFeeWaiverStatus,
+  PLATFORM_FEES 
+} from "./fee-waiver";
 
 // Session management for traditional auth
 const TRADITIONAL_SESSION_DURATION = 7 * 24 * 60 * 60 * 1000; // 7 days
@@ -1368,6 +1377,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   );
 
+
+  // Get fee waiver status for current user
+  app.get("/api/user/fee-waiver-status", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id as string;
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return res.status(404).json({ success: false, error: "User not found" });
+      }
+      
+      const feeWaiverStatus = getFeeWaiverStatus(user.email);
+      res.json({ success: true, data: feeWaiverStatus });
+    } catch (error) {
+      console.error("Error fetching fee waiver status:", error);
+      res.status(500).json({ success: false, error: "Failed to fetch fee waiver status" });
+    }
+  });
 
   // Update user profile
   app.patch("/api/user/profile", isAuthenticated, async (req: any, res) => {
@@ -3089,17 +3116,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Create the submission
       const submission = await storage.createRwaSubmission(submissionData);
       
-      // Create a fee payment transaction
+      // Calculate listing fee with waiver check
+      const listingFeeResult = calculateListingFee(user.email);
+      
+      // Create a fee payment transaction (waived for VIP users)
       const feeTransaction = await storage.createTransaction({
         userId,
         type: "fee_payment",
-        amount: "2.00",
-        currency: "ICP",
-        status: "pending",
-        metadata: { submissionId: submission.id }
+        amount: listingFeeResult.finalFee.toFixed(2),
+        currency: "USDC",
+        status: listingFeeResult.isWaived ? "completed" : "pending",
+        metadata: { 
+          submissionId: submission.id,
+          originalFee: listingFeeResult.originalFee,
+          feeWaived: listingFeeResult.isWaived,
+          waiverReason: listingFeeResult.reason
+        }
       });
       
-      res.json({ submission, transaction: feeTransaction });
+      res.json({ 
+        submission, 
+        transaction: feeTransaction,
+        feeWaiver: listingFeeResult.isWaived ? {
+          applied: true,
+          savedAmount: listingFeeResult.originalFee,
+          reason: listingFeeResult.reason
+        } : undefined
+      });
     } catch (error) {
       console.error("Error creating RWA submission:", error);
       res.status(400).json({ error: "Invalid submission data" });
