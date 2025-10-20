@@ -105,7 +105,7 @@ export default function Login() {
               className="mx-auto h-12 w-auto cursor-pointer hover:opacity-80 transition-opacity"
             />
           </Link>
-          <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
+          <h1 className="text-lg font-semibold leading-none tracking-tight">
             Welcome Back
           </h1>
           <p className="text-sm text-muted-foreground">
