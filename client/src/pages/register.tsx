@@ -317,7 +317,7 @@ export default function Register() {
 
         <Separator />
 
-        <div className="text-center space-y-4">
+        <div className="text-center">
           <p className="text-sm text-muted-foreground">
             Already have an account?{" "}
             <Link 
@@ -328,20 +328,6 @@ export default function Register() {
               Sign in here
             </Link>
           </p>
-
-          <div className="text-xs text-muted-foreground">
-            <p>Or continue with</p>
-            <div className="mt-2">
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={() => window.location.href = '/api/login'}
-                data-testid="button-replit-auth"
-              >
-                Replit Auth (OAuth)
-              </Button>
-            </div>
-          </div>
         </div>
       </Card>
     </div>

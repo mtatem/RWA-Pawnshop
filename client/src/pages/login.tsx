@@ -223,25 +223,9 @@ export default function Login() {
           </form>
         </Form>
 
-        <div className="text-center">
-          <p className="text-sm text-muted-foreground mb-3">
-            New to RWA Pawn Platform?
-          </p>
-          <Link href="/register">
-            <Button
-              variant="outline"
-              className="w-full"
-              data-testid="button-register"
-            >
-              <UserPlus className="mr-2 h-4 w-4" />
-              Create Account
-            </Button>
-          </Link>
-        </div>
-
         <Separator />
 
-        <div className="text-center space-y-4">
+        <div className="text-center">
           <p className="text-sm text-muted-foreground">
             Don't have an account?{" "}
             <Link 
@@ -252,20 +236,6 @@ export default function Login() {
               Create one here
             </Link>
           </p>
-
-          <div className="text-xs text-muted-foreground">
-            <p>Or continue with</p>
-            <div className="mt-2">
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={() => window.location.href = '/api/login'}
-                data-testid="button-replit-auth"
-              >
-                Replit Auth (OAuth)
-              </Button>
-            </div>
-          </div>
         </div>
       </Card>
     </div>
