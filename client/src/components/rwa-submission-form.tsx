@@ -311,6 +311,16 @@ export default function RwaSubmissionForm() {
         </div>
       )}
 
+      {/* Wallet Connection Status */}
+      {isAuthenticated && !isConnected && (
+        <Alert className="mb-4 sm:mb-6 border-purple-200 bg-purple-50 dark:border-purple-800 dark:bg-purple-950">
+          <Wallet className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+          <AlertDescription className="text-purple-700 dark:text-purple-300">
+            <span className="font-medium">💼 Wallet Required</span> - Please connect your ICP wallet in the header before pawning assets
+          </AlertDescription>
+        </Alert>
+      )}
+
       <Form {...form}>
         <form onSubmit={form.handleSubmit((data) => submitMutation.mutate(data))} className="space-y-4 sm:space-y-6">
           <FormField
