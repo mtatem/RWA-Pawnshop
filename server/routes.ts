@@ -482,6 +482,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         // Create session for traditional auth users (compatible with isAuthenticated middleware)
         const sessionUser = {
+          id: user.id, // Add direct ID field for easier access in endpoints
           claims: {
             sub: user.id,
             email: user.email,
