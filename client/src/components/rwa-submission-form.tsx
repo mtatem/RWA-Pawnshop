@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Upload, FileText, Image, Tag, Wallet, DollarSign, TrendingUp, Shield, CheckCircle, Clock, AlertCircle } from "lucide-react";
 import { PricingDisplay } from "./pricing-display";
 import DocumentUpload from "./document-upload";
@@ -62,6 +62,14 @@ export default function RwaSubmissionForm() {
   const queryClient = useQueryClient();
   const { user, isAuthenticated } = useAuth();
   const { wallet, isConnected, sendTransaction } = useICPWallet();
+
+  // Fetch fee waiver status for the user (includes admin status)
+  const { data: feeWaiverData } = useQuery<any>({
+    queryKey: ['/api/user/fee-waiver-status'],
+    enabled: isAuthenticated,
+  });
+  
+  const hasFeeWaiver = (feeWaiverData?.data?.hasWaiver ?? false) as boolean;
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -196,8 +204,8 @@ export default function RwaSubmissionForm() {
         throw new Error('Please connect your ICP wallet to submit an RWA');
       }
 
-      // Check if user has sufficient balance for fee (25 USDC)
-      if (wallet.balance < 25) {
+      // Check if user has sufficient balance for fee (25 USDC) - skip for users with fee waiver
+      if (!hasFeeWaiver && wallet.balance < 25) {
         throw new Error('Insufficient USDC balance. You need at least 25 USDC to cover the listing fee.');
       }
 
@@ -658,18 +666,38 @@ export default function RwaSubmissionForm() {
           <Card className="bg-muted p-4">
             <div className="flex justify-between items-center mb-2">
               <span className="text-sm">Listing Fee:</span>
-              <span className="font-medium">25 USDC</span>
+              <span className={`font-medium ${hasFeeWaiver ? 'text-green-600 dark:text-green-400 line-through' : ''}`}>
+                25 USDC
+              </span>
+              {hasFeeWaiver && (
+                <span className="text-sm font-semibold text-green-600 dark:text-green-400">FREE (Waived)</span>
+              )}
             </div>
             <div className="flex justify-between items-center mb-2">
               <span className="text-sm">Marketplace Fee:</span>
-              <span className="font-medium">3% of final bid</span>
-            </div>
-            <div className="flex justify-between items-center mb-2">
-              <span className="text-sm">Your Balance:</span>
-              <span className={`font-medium ${wallet && wallet.balance < 25 ? 'text-destructive' : 'text-foreground'}`}>
-                {wallet ? `${wallet.balance.toFixed(2)} USDC` : 'Not connected'}
+              <span className={`font-medium ${hasFeeWaiver ? 'text-green-600 dark:text-green-400 line-through' : ''}`}>
+                3% of final bid
               </span>
+              {hasFeeWaiver && (
+                <span className="text-sm font-semibold text-green-600 dark:text-green-400">FREE (Waived)</span>
+              )}
             </div>
+            {!hasFeeWaiver && (
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-sm">Your Balance:</span>
+                <span className={`font-medium ${wallet && wallet.balance < 25 ? 'text-destructive' : 'text-foreground'}`}>
+                  {wallet ? `${wallet.balance.toFixed(2)} USDC` : 'Not connected'}
+                </span>
+              </div>
+            )}
+            {hasFeeWaiver && (
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-sm">Fee Waiver:</span>
+                <span className="font-medium text-green-600 dark:text-green-400">
+                  {feeWaiverData?.data?.reason || 'Active'}
+                </span>
+              </div>
+            )}
             <div className="flex justify-between items-center text-sm text-muted-foreground">
               <span>Loan Period:</span>
               <span>90 days</span>
@@ -679,7 +707,7 @@ export default function RwaSubmissionForm() {
           <Button
             type="submit"
             className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
-            disabled={submitMutation.isPending || !isAuthenticated || !isConnected || (wallet ? wallet.balance < 25 : false) || user?.kycStatus !== "completed"}
+            disabled={submitMutation.isPending || !isAuthenticated || !isConnected || (!hasFeeWaiver && wallet ? wallet.balance < 25 : false) || user?.kycStatus !== "completed"}
             data-testid="button-submit-rwa"
           >
             {submitMutation.isPending 
@@ -690,8 +718,10 @@ export default function RwaSubmissionForm() {
               ? "Complete KYC Verification First"
               : !isConnected 
               ? "Connect ICP Wallet First" 
-              : wallet && wallet.balance < 25 
+              : !hasFeeWaiver && wallet && wallet.balance < 25 
               ? "Insufficient USDC Balance" 
+              : hasFeeWaiver
+              ? "Submit for Listing (Fee Waived)"
               : "Submit for Listing (25 USDC)"}
           </Button>
         </form>
