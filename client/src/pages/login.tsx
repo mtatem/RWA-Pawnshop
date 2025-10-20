@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Lock, User, Eye, EyeOff, ArrowRight, UserPlus } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
-import logoImage from "@assets/logo-rwa-purple_1760969093013.png";
+import logoImage from "@assets/logo-rwapawn-wh-purp_1760975762031.png";
 import { z } from "zod";
 
 // Login form schema - matches userLoginSchema from backend
