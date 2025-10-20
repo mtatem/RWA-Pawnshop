@@ -157,11 +157,16 @@ import { verifyAdminCredentials, generateAdminToken } from "./admin-auth";
 import { emailService } from "./services/email-service";
 import { 
   checkFeeWaiver, 
-  calculateListingFee, 
-  calculateMarketplaceFee, 
+  calculateListingFee,
+  calculateListingFeeForUser,
+  calculateMarketplaceFee,
+  calculateMarketplaceFeeForUser,
   calculateLoanInterest,
+  calculateLoanInterestForUser,
   calculateBridgeFee,
+  calculateBridgeFeeForUser,
   getFeeWaiverStatus,
+  getFeeWaiverStatusForUser,
   PLATFORM_FEES 
 } from "./fee-waiver";
 
@@ -1388,7 +1393,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ success: false, error: "User not found" });
       }
       
-      const feeWaiverStatus = getFeeWaiverStatus(user.email);
+      // Use admin-aware fee waiver status check
+      const feeWaiverStatus = getFeeWaiverStatusForUser({
+        email: user.email,
+        isAdmin: user.isAdmin ?? undefined,
+        role: user.role ?? undefined
+      });
       res.json({ success: true, data: feeWaiverStatus });
     } catch (error) {
       console.error("Error fetching fee waiver status:", error);
@@ -3116,8 +3126,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Create the submission
       const submission = await storage.createRwaSubmission(submissionData);
       
-      // Calculate listing fee with waiver check
-      const listingFeeResult = calculateListingFee(user.email);
+      // Calculate listing fee with waiver check (includes admin beta testing waiver)
+      const listingFeeResult = calculateListingFeeForUser({
+        email: user.email,
+        isAdmin: user.isAdmin ?? undefined,
+        role: user.role ?? undefined
+      });
       
       // Create a fee payment transaction (waived for VIP users)
       const feeTransaction = await storage.createTransaction({

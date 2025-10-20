@@ -35,11 +35,16 @@ The system includes mock ICP blockchain integration with plans for full implemen
 A comprehensive admin interface provides oversight of all platform operations including pending submissions review, active loan monitoring, marketplace oversight, and platform analytics. The admin panel includes approval workflows and reporting functionality.
 
 ### Fee Waiver System
-The platform includes a VIP fee waiver system that automatically grants 100% fee exemption to designated users. This system applies to all platform fees including:
+The platform includes a comprehensive fee waiver system that automatically grants 100% fee exemption to designated users and administrators. This system applies to all platform fees including:
 
 **VIP Users (Complete Fee Waiver):**
 - mtatem@gmail.com
 - tatm@tatemweb.com
+
+**Admin Users (Beta Testing Fee Waiver):**
+- All users with `isAdmin = true` OR `role = 'administrator'` OR `role = 'manager'`
+- Enables admins to beta test pawn asset functionality without incurring fees
+- Fee waiver automatically applies based on user account status
 
 **Fees Waived:**
 - Listing Fee: $25 USDC per asset submission
@@ -49,13 +54,14 @@ The platform includes a VIP fee waiver system that automatically grants 100% fee
 
 **Implementation:**
 The fee waiver is implemented in `server/fee-waiver.ts` with centralized logic for:
-- Fee calculation with automatic waiver detection
-- Individual fee calculators for each fee type
-- Fee waiver status API endpoint
+- Fee calculation with automatic waiver detection for both VIP users and admins
+- Individual fee calculators for each fee type (with both email-based and user-object-based variants)
+- Fee waiver status API endpoint with admin support
 - Comprehensive audit trail in transaction metadata
+- Backward compatibility with existing email-only fee waiver checks
 
 **API Endpoints:**
-- GET `/api/user/fee-waiver-status` - Check current user's fee waiver eligibility and benefits
+- GET `/api/user/fee-waiver-status` - Check current user's fee waiver eligibility and benefits (includes admin status)
 
 ## External Dependencies
 
