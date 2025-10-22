@@ -337,7 +337,20 @@ export default function RwaSubmissionForm() {
       )}
 
       <Form {...form}>
-        <form onSubmit={form.handleSubmit((data) => submitMutation.mutate(data))} className="space-y-4 sm:space-y-6">
+        <form onSubmit={form.handleSubmit(
+          (data) => {
+            console.log('Form submitted successfully with data:', data);
+            submitMutation.mutate(data);
+          },
+          (errors) => {
+            console.log('Form validation errors:', errors);
+            toast({
+              title: "Form Validation Failed",
+              description: "Please check all required fields are filled correctly.",
+              variant: "destructive"
+            });
+          }
+        )} className="space-y-4 sm:space-y-6">
           <FormField
             control={form.control}
             name="assetName"
