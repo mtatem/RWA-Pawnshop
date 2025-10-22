@@ -156,7 +156,8 @@ import { rwapawnPurchases } from "@shared/schema";
 import { verifyAdminCredentials, generateAdminToken } from "./admin-auth";
 import { emailService } from "./services/email-service";
 import { 
-  checkFeeWaiver, 
+  checkFeeWaiver,
+  checkFeeWaiverForUser,
   calculateListingFee,
   calculateListingFeeForUser,
   calculateMarketplaceFee,
