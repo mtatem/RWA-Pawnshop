@@ -3108,9 +3108,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.id as string; // Derive userId from authenticated user
       
-      // Check KYC verification requirement
+      // Check KYC verification requirement (admins with fee waiver bypass this)
       const user = await storage.getUser(userId);
-      if (!user || user.kycStatus !== "completed") {
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          error: "User not found",
+          code: "USER_NOT_FOUND",
+          timestamp: new Date().toISOString()
+        });
+      }
+      
+      // Check if user has admin fee waiver (includes beta testing admins)
+      const hasFeeWaiver = checkFeeWaiverForUser({
+        email: user.email,
+        isAdmin: user.isAdmin ?? undefined,
+        role: user.role ?? undefined
+      });
+      
+      // Require KYC unless user has fee waiver (admin beta testing bypass)
+      if (!hasFeeWaiver && user.kycStatus !== "completed") {
         return res.status(403).json({
           success: false,
           error: "KYC verification is required before submitting assets for pawning",
@@ -3126,6 +3143,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Create the submission
       const submission = await storage.createRwaSubmission(submissionData);
+      
+      // Automatically create an asset review for admin approval
+      try {
+        await storage.createAssetReview({
+          submissionId: submission.id,
+          reviewType: 'initial',
+          status: 'pending',
+          priority: 1, // normal priority
+          confidenceLevel: '0',
+          riskAssessment: 'pending_review'
+        });
+        console.log(`Asset review created for submission ${submission.id}`);
+      } catch (reviewError) {
+        console.error('Failed to create asset review:', reviewError);
+        // Continue even if review creation fails - admin can manually create it
+      }
       
       // Calculate listing fee with waiver check (includes admin beta testing waiver)
       const listingFeeResult = calculateListingFeeForUser({
