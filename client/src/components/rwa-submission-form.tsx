@@ -232,8 +232,8 @@ export default function RwaSubmissionForm() {
     },
     onSuccess: (data: any) => {
       toast({
-        title: "Submission Created Successfully",
-        description: "Redirecting to document upload...",
+        title: "Thank You! Submission Received",
+        description: "Your asset is now under review by our team at RWApawn. Redirecting to document upload...",
       });
       
       queryClient.invalidateQueries({ queryKey: ["/api/rwa-submissions"] });
@@ -241,7 +241,7 @@ export default function RwaSubmissionForm() {
       // Redirect to upload documents page
       setTimeout(() => {
         setLocation(`/upload-documents/${data.submission?.id || data.id}`);
-      }, 500);
+      }, 1000);
     },
     onError: (error: any) => {
       toast({

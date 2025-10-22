@@ -74,14 +74,22 @@ export default function UploadDocuments() {
           </p>
         </div>
 
-        {/* Success Alert */}
+        {/* Success & Thank You Alert */}
         <Alert className="mb-6 border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950">
           <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
           <AlertDescription className="text-green-700 dark:text-green-300">
-            <span className="font-medium">Submission Created Successfully!</span>
-            {submission?.data?.assetName && (
-              <span className="ml-2">- {submission.data.assetName}</span>
-            )}
+            <div className="space-y-2">
+              <div>
+                <span className="font-semibold text-lg">Thank You for Your Submission!</span>
+                {submission?.data?.assetName && (
+                  <span className="ml-2 font-medium">({submission.data.assetName})</span>
+                )}
+              </div>
+              <p className="text-sm">
+                Your asset submission has been successfully received and is now under review by our team at RWApawn. 
+                We'll notify you once the review is complete. Please upload your documents below to help expedite the process.
+              </p>
+            </div>
           </AlertDescription>
         </Alert>
 
