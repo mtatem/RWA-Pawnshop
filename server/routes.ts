@@ -1395,12 +1395,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ success: false, error: "User not found" });
       }
       
+      // Enhanced logging for fee waiver debugging
+      console.log('[FEE WAIVER CHECK]', {
+        userId: user.id,
+        email: user.email,
+        emailNormalized: user.email?.toLowerCase().trim(),
+        isAdmin: user.isAdmin,
+        role: user.role,
+        vipEmails: ['mtatem@gmail.com', 'tatm@tatemweb.com'],
+        timestamp: new Date().toISOString()
+      });
+      
       // Use admin-aware fee waiver status check
       const feeWaiverStatus = getFeeWaiverStatusForUser({
         email: user.email,
         isAdmin: user.isAdmin ?? undefined,
         role: user.role ?? undefined
       });
+      
+      console.log('[FEE WAIVER RESULT]', {
+        hasWaiver: feeWaiverStatus.hasWaiver,
+        reason: feeWaiverStatus.reason,
+        email: user.email,
+        benefits: feeWaiverStatus.benefits.length
+      });
+      
       res.json({ success: true, data: feeWaiverStatus });
     } catch (error) {
       console.error("Error fetching fee waiver status:", error);

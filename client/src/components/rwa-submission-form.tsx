@@ -77,6 +77,21 @@ export default function RwaSubmissionForm() {
   });
   
   const hasFeeWaiver = (feeWaiverData?.data?.hasWaiver ?? false) as boolean;
+  
+  // Debug logging for fee waiver status
+  useEffect(() => {
+    if (feeWaiverData) {
+      console.log('[FEE WAIVER - FRONTEND]', {
+        rawData: feeWaiverData,
+        hasWaiver: hasFeeWaiver,
+        userData: feeWaiverData?.data,
+        userEmail: user?.email,
+        isAdmin: user?.isAdmin,
+        userRole: user?.role,
+        timestamp: new Date().toISOString()
+      });
+    }
+  }, [feeWaiverData, hasFeeWaiver, user]);
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
