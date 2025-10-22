@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Clock } from "lucide-react";
+import { Clock, FileText, CheckCircle } from "lucide-react";
 import type { PawnLoan, RwaSubmission } from "@shared/schema";
 
 // Extended type for pawn loans with submission details
@@ -7,6 +7,7 @@ type PawnLoanWithSubmission = PawnLoan & {
   assetName: string;
   category: string;
 };
+
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -23,8 +24,14 @@ export default function ActivePawns() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Fetch real pawn loans from API  
-  const { data: pawns = [], isLoading } = useQuery<PawnLoanWithSubmission[]>({
+  // Fetch pending RWA submissions
+  const { data: submissions = [], isLoading: submissionsLoading } = useQuery<RwaSubmission[]>({
+    queryKey: ["/api/rwa-submissions/user", user?.id],
+    enabled: isAuthenticated && !!user?.id,
+  });
+
+  // Fetch active pawn loans  
+  const { data: pawns = [], isLoading: pawnsLoading } = useQuery<PawnLoanWithSubmission[]>({
     queryKey: ["/api/pawn-loans/user", user?.id],
     enabled: isAuthenticated && !!user?.id,
   });
@@ -80,6 +87,15 @@ export default function ActivePawns() {
     redeemMutation.mutate({ pawnId, loanAmount });
   };
 
+  const isLoading = submissionsLoading || pawnsLoading;
+
+  // Filter pending/under review submissions
+  const pendingSubmissions = submissions.filter(
+    s => s.status === 'pending' || s.status === 'under_review'
+  );
+
+  const totalItems = pendingSubmissions.length + pawns.length;
+
   if (isLoading) {
     return (
       <Card className="bg-card border border-border p-8 glass-effect">
@@ -99,13 +115,60 @@ export default function ActivePawns() {
         <div className="text-center py-8 text-muted-foreground">
           <p>Please log in to view your active pawns.</p>
         </div>
-      ) : pawns.length === 0 ? (
+      ) : totalItems === 0 ? (
         <div className="text-center py-8 text-muted-foreground">
           <p>No active pawns found.</p>
           <p className="text-sm mt-2">Submit an RWA to get started!</p>
         </div>
       ) : (
         <div className="space-y-3 sm:space-y-4">
+          {/* Pending Submissions */}
+          {pendingSubmissions.map((submission) => (
+            <Card
+              key={`submission-${submission.id}`}
+              className="border border-border p-3 sm:p-4 hover:border-primary transition-colors bg-muted/30"
+              data-testid={`submission-card-${submission.id}`}
+            >
+              <div className="flex flex-col xs:flex-row xs:justify-between xs:items-start mb-3 space-y-2 xs:space-y-0">
+                <div className="flex-1">
+                  <h4 className="font-medium text-sm sm:text-base flex items-center gap-2" data-testid={`submission-name-${submission.id}`}>
+                    <FileText className="h-4 w-4 text-primary" />
+                    {submission.assetName}
+                  </h4>
+                  <p className="text-xs sm:text-sm text-muted-foreground">{submission.category}</p>
+                </div>
+                <Badge
+                  variant="outline"
+                  data-testid={`submission-status-${submission.id}`}
+                  className="text-xs self-start xs:self-auto bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-100 border-yellow-200 dark:border-yellow-800"
+                >
+                  {submission.status === 'pending' ? 'Pending Review' : 'Under Review'}
+                </Badge>
+              </div>
+
+              <div className="grid grid-cols-1 xs:grid-cols-2 gap-3 sm:gap-4 text-xs sm:text-sm mb-4">
+                <div>
+                  <span className="text-muted-foreground block">Estimated Value:</span>
+                  <div className="font-medium text-sm sm:text-base" data-testid={`submission-value-${submission.id}`}>
+                    ${parseFloat(submission.estimatedValue).toLocaleString()}
+                  </div>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block">Submitted:</span>
+                  <div className="font-medium text-sm sm:text-base">
+                    {new Date(submission.createdAt).toLocaleDateString()}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
+                <Clock className="h-4 w-4" />
+                <span>Awaiting admin approval to activate pawn loan</span>
+              </div>
+            </Card>
+          ))}
+
+          {/* Active Pawns */}
           {pawns.map((pawn) => {
             const expiryDate = new Date(pawn.expiryDate);
             const now = new Date();
@@ -114,13 +177,14 @@ export default function ActivePawns() {
 
             return (
               <Card
-                key={pawn.id}
+                key={`pawn-${pawn.id}`}
                 className="border border-border p-3 sm:p-4 hover:border-primary transition-colors"
                 data-testid={`pawn-card-${pawn.id}`}
               >
                 <div className="flex flex-col xs:flex-row xs:justify-between xs:items-start mb-3 space-y-2 xs:space-y-0">
                   <div className="flex-1">
-                    <h4 className="font-medium text-sm sm:text-base" data-testid={`pawn-name-${pawn.id}`}>
+                    <h4 className="font-medium text-sm sm:text-base flex items-center gap-2" data-testid={`pawn-name-${pawn.id}`}>
+                      <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
                       {pawn.assetName}
                     </h4>
                     <p className="text-xs sm:text-sm text-muted-foreground">{pawn.category}</p>
@@ -130,7 +194,7 @@ export default function ActivePawns() {
                     data-testid={`pawn-status-${pawn.id}`}
                     className="text-xs self-start xs:self-auto"
                   >
-                    {isExpiringSoon ? "Expires Soon" : "Active"}
+                    {isExpiringSoon ? "Expires Soon" : "Active Loan"}
                   </Badge>
                 </div>
 
