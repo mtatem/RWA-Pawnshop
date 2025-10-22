@@ -21,13 +21,15 @@ import { useAuth } from "@/hooks/useAuth";
 import { useICPWallet } from "@/hooks/useICPWallet";
 import { z } from "zod";
 
-const formSchema = insertRwaSubmissionSchema.extend({
-  assetName: z.string().min(1, "Asset name is required"),
-  category: z.string().min(1, "Category is required"),
-  estimatedValue: z.string().min(1, "Estimated value is required"),
-  walletAddress: z.string().min(1, "Wallet address is required"),
-  description: z.string().optional(),
-});
+const formSchema = insertRwaSubmissionSchema
+  .omit({ userId: true })
+  .extend({
+    assetName: z.string().min(1, "Asset name is required"),
+    category: z.string().min(1, "Category is required"),
+    estimatedValue: z.string().min(1, "Estimated value is required"),
+    walletAddress: z.string().min(1, "Wallet address is required"),
+    description: z.string().optional(),
+  });
 
 type FormData = z.infer<typeof formSchema>;
 
