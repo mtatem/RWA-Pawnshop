@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -54,6 +54,9 @@ export default function RwaSubmissionForm() {
   
   // File upload state (for compatibility with unused FileUploadArea component)
   const [files, setFiles] = useState<Record<string, File | null>>({});
+  
+  // Ref for scrolling to upload section
+  const uploadSectionRef = useRef<HTMLDivElement>(null);
 
   // Pricing state
   const [pricingData, setPricingData] = useState<any>(null);
@@ -233,6 +236,14 @@ export default function RwaSubmissionForm() {
       });
       
       queryClient.invalidateQueries({ queryKey: ["/api/rwa-submissions"] });
+      
+      // Scroll to upload section after a short delay
+      setTimeout(() => {
+        uploadSectionRef.current?.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'start' 
+        });
+      }, 500);
     },
     onError: (error: any) => {
       toast({
@@ -661,28 +672,36 @@ export default function RwaSubmissionForm() {
           />
 
           {/* Document Upload Section */}
-          {submissionId ? (
-            <div className="space-y-4">
-              <h4 className="font-medium">Required Documents</h4>
-              <DocumentUpload
-                submissionId={submissionId}
-                requiredDocuments={['coa', 'nft_certificate', 'photo']}
-                onDocumentsChange={setUploadedDocuments}
-                maxFiles={5}
-                maxFileSize={50 * 1024 * 1024} // 50MB
-              />
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <h4 className="font-medium">Document Upload</h4>
-              <Card className="bg-muted/50 p-6 text-center">
-                <FileText className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-                <p className="text-muted-foreground">
-                  Complete the asset information above, then submit to enable document upload
+          <div ref={uploadSectionRef}>
+            {submissionId ? (
+              <div className="space-y-4 p-6 bg-green-50 dark:bg-green-950 border-2 border-green-200 dark:border-green-800 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
+                  <h4 className="font-semibold text-green-800 dark:text-green-200">Upload Required Documents</h4>
+                </div>
+                <p className="text-sm text-green-700 dark:text-green-300">
+                  Your submission has been created! Please upload the required documents below to complete your application.
                 </p>
-              </Card>
-            </div>
-          )}
+                <DocumentUpload
+                  submissionId={submissionId}
+                  requiredDocuments={['coa', 'nft_certificate', 'photo']}
+                  onDocumentsChange={setUploadedDocuments}
+                  maxFiles={5}
+                  maxFileSize={50 * 1024 * 1024} // 50MB
+                />
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <h4 className="font-medium">Document Upload</h4>
+                <Card className="bg-muted/50 p-6 text-center">
+                  <FileText className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+                  <p className="text-muted-foreground">
+                    Complete the asset information above, then submit to enable document upload
+                  </p>
+                </Card>
+              </div>
+            )}
+          </div>
 
           {/* Fee Information */}
           <Card className="bg-muted p-4">
