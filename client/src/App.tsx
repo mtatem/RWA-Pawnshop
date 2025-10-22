@@ -28,6 +28,7 @@ import Register from "@/pages/register";
 import ForgotPassword from "@/pages/forgot-password";
 import Profile from "@/pages/profile";
 import KYC from "@/pages/kyc";
+import UploadDocuments from "@/pages/upload-documents";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -56,6 +57,7 @@ function Router() {
       <Route path="/forgot-password" component={ForgotPassword} />
       <Route path="/profile" component={Profile} />
       <Route path="/kyc" component={KYC} />
+      <Route path="/upload-documents/:submissionId" component={UploadDocuments} />
       <Route path="/admin-login" component={AdminLogin} />
       <Route path="/admin" component={Admin} />
       <Route component={NotFound} />

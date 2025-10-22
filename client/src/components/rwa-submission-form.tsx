@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { Upload, FileText, Image, Tag, Wallet, DollarSign, TrendingUp, Shield, CheckCircle, Clock, AlertCircle } from "lucide-react";
 import { PricingDisplay } from "./pricing-display";
 import DocumentUpload from "./document-upload";
@@ -65,6 +66,7 @@ export default function RwaSubmissionForm() {
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [, setLocation] = useLocation();
   const { user, isAuthenticated } = useAuth();
   const { wallet, isConnected, sendTransaction } = useICPWallet();
 
@@ -229,20 +231,16 @@ export default function RwaSubmissionForm() {
       return responseData;
     },
     onSuccess: (data: any) => {
-      setSubmissionId(data.id);
       toast({
         title: "Submission Created Successfully",
-        description: "Please upload the required documents to complete your submission.",
+        description: "Redirecting to document upload...",
       });
       
       queryClient.invalidateQueries({ queryKey: ["/api/rwa-submissions"] });
       
-      // Scroll to upload section after a short delay
+      // Redirect to upload documents page
       setTimeout(() => {
-        uploadSectionRef.current?.scrollIntoView({ 
-          behavior: 'smooth', 
-          block: 'start' 
-        });
+        setLocation(`/upload-documents/${data.submission?.id || data.id}`);
       }, 500);
     },
     onError: (error: any) => {
