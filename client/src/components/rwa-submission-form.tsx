@@ -195,8 +195,8 @@ export default function RwaSubmissionForm() {
         throw new Error('Please log in to submit an RWA');
       }
       
-      // Check KYC verification requirement
-      if (user.kycStatus !== "completed") {
+      // Check KYC verification requirement (skip for admins with fee waiver)
+      if (!hasFeeWaiver && user.kycStatus !== "completed") {
         throw new Error('KYC verification is required before submitting assets for pawning. Please complete your identity verification in your profile.');
       }
       
@@ -707,14 +707,14 @@ export default function RwaSubmissionForm() {
           <Button
             type="submit"
             className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
-            disabled={submitMutation.isPending || !isAuthenticated || !isConnected || (!hasFeeWaiver && wallet ? wallet.balance < 25 : false) || user?.kycStatus !== "completed"}
+            disabled={submitMutation.isPending || !isAuthenticated || !isConnected || (!hasFeeWaiver && wallet ? wallet.balance < 25 : false) || (!hasFeeWaiver && user?.kycStatus !== "completed")}
             data-testid="button-submit-rwa"
           >
             {submitMutation.isPending 
               ? "Submitting..." 
               : !isAuthenticated 
               ? "Please Login First" 
-              : user?.kycStatus !== "completed"
+              : !hasFeeWaiver && user?.kycStatus !== "completed"
               ? "Complete KYC Verification First"
               : !isConnected 
               ? "Connect ICP Wallet First" 
