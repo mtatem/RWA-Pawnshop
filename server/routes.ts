@@ -156,17 +156,11 @@ import { rwapawnPurchases } from "@shared/schema";
 import { verifyAdminCredentials, generateAdminToken } from "./admin-auth";
 import { emailService } from "./services/email-service";
 import { 
-  checkFeeWaiver,
   checkFeeWaiverForUser,
-  calculateListingFee,
   calculateListingFeeForUser,
-  calculateMarketplaceFee,
   calculateMarketplaceFeeForUser,
-  calculateLoanInterest,
   calculateLoanInterestForUser,
-  calculateBridgeFee,
   calculateBridgeFeeForUser,
-  getFeeWaiverStatus,
   getFeeWaiverStatusForUser,
   PLATFORM_FEES 
 } from "./fee-waiver";
@@ -1399,10 +1393,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('[FEE WAIVER CHECK]', {
         userId: user.id,
         email: user.email,
-        emailNormalized: user.email?.toLowerCase().trim(),
         isAdmin: user.isAdmin,
         role: user.role,
-        vipEmails: ['mtatem@gmail.com', 'tatm@tatemweb.com'],
         timestamp: new Date().toISOString()
       });
       
