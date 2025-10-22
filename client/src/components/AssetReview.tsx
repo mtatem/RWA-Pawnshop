@@ -55,7 +55,7 @@ interface AssetReview {
   submissionId: string;
   reviewType: 'initial' | 'detailed' | 'physical_inspection' | 'coa_verification';
   status: 'pending' | 'in_progress' | 'completed' | 'escalated';
-  priority: 'low' | 'medium' | 'high' | 'urgent';
+  priority: number; // 1=low, 2=medium, 3=high, 4=urgent
   assignedTo?: string;
   estimatedValue?: string;
   adjustedValue?: string;
@@ -213,12 +213,23 @@ export default function AssetReview() {
     }
   };
 
-  const getPriorityColor = (priority: string) => {
+  // Convert numeric priority to string label
+  const getPriorityLabel = (priority: number): string => {
     switch (priority) {
-      case 'urgent': return 'bg-red-100 text-red-800 border-red-200';
-      case 'high': return 'bg-orange-100 text-orange-800 border-orange-200';
-      case 'medium': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'low': return 'bg-green-100 text-green-800 border-green-200';
+      case 1: return 'LOW';
+      case 2: return 'MEDIUM';
+      case 3: return 'HIGH';
+      case 4: return 'URGENT';
+      default: return 'NORMAL';
+    }
+  };
+
+  const getPriorityColor = (priority: number) => {
+    switch (priority) {
+      case 4: return 'bg-red-100 text-red-800 border-red-200'; // urgent
+      case 3: return 'bg-orange-100 text-orange-800 border-orange-200'; // high
+      case 2: return 'bg-yellow-100 text-yellow-800 border-yellow-200'; // medium
+      case 1: return 'bg-green-100 text-green-800 border-green-200'; // low
       default: return 'bg-gray-100 text-gray-800 border-gray-200';
     }
   };
@@ -421,9 +432,9 @@ export default function AssetReview() {
         ) : (
           filteredReviews.map((review) => (
             <Card key={review.id} className={`border-l-4 ${
-              review.priority === 'urgent' ? 'border-l-red-500' :
-              review.priority === 'high' ? 'border-l-orange-500' :
-              review.priority === 'medium' ? 'border-l-yellow-500' :
+              review.priority === 4 ? 'border-l-red-500' :
+              review.priority === 3 ? 'border-l-orange-500' :
+              review.priority === 2 ? 'border-l-yellow-500' :
               'border-l-green-500'
             }`} data-testid={`review-card-${review.id}`}>
               <CardContent className="pt-6">
@@ -432,7 +443,7 @@ export default function AssetReview() {
                     <div className="flex items-center space-x-3 mb-3">
                       {getStatusIcon(review.status)}
                       <Badge className={getPriorityColor(review.priority)}>
-                        {review.priority.toUpperCase()}
+                        {getPriorityLabel(review.priority)}
                       </Badge>
                       <Badge variant="outline">
                         {review.reviewType.replace('_', ' ').toUpperCase()}
@@ -553,7 +564,7 @@ export default function AssetReview() {
                                   <Label className="text-sm font-medium">Review Information</Label>
                                   <div className="space-y-2 mt-2">
                                     <div><span className="font-medium">Review Type:</span> {selectedReview.reviewType.replace('_', ' ')}</div>
-                                    <div><span className="font-medium">Priority:</span> {selectedReview.priority}</div>
+                                    <div><span className="font-medium">Priority:</span> {getPriorityLabel(selectedReview.priority)}</div>
                                     <div><span className="font-medium">Confidence Level:</span> {selectedReview.confidenceLevel}%</div>
                                     <div><span className="font-medium">Risk Assessment:</span> {selectedReview.riskAssessment}</div>
                                     {selectedReview.coaStatus && (
