@@ -287,7 +287,14 @@ export default function RwaSubmissionForm() {
       {/* KYC Status Indicator */}
       {isAuthenticated && (
         <div className="mb-4 sm:mb-6">
-          {user?.kycStatus === "completed" ? (
+          {hasFeeWaiver ? (
+            <Alert className="border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950">
+              <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+              <AlertDescription className="text-green-700 dark:text-green-300">
+                <span className="font-medium">✓ Admin Access</span> - KYC verification bypassed for beta testing
+              </AlertDescription>
+            </Alert>
+          ) : user?.kycStatus === "completed" ? (
             <Alert className="border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950">
               <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
               <AlertDescription className="text-green-700 dark:text-green-300">
