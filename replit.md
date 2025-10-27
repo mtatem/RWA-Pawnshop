@@ -67,8 +67,36 @@ The bridge infrastructure now includes production-grade oracle integration:
 - 1 ETH → ckETH: ~0.0086 ETH total fee (0.5% + $15 gas = ~0.86%)
 - 100 USDC → ckUSDC: ~$0.65 total fee (0.5% + ~$0.15 gas = ~0.65%)
 
+### KYC Integration with Asset Submissions
+The platform enforces mandatory KYC verification for loan eligibility, ensuring regulatory compliance and risk management. The system integrates KYC status directly into the asset review and loan approval workflow.
+
+**KYC Eligibility Requirements:**
+- Users must complete KYC verification to receive pawn loans
+- KYC status is checked at loan approval time
+- Submissions from unverified users are blocked from approval
+- Clear error messages guide admins when KYC verification is missing
+
+**Backend Implementation:**
+- `getPendingRwaSubmissions()` JOINs with `kycInformation` table to fetch KYC status
+- Both loan approval endpoints verify `kycStatus === 'approved'` before proceeding
+- KYC check occurs BEFORE submission status update to maintain data consistency
+- Endpoints: `/api/rwa-submissions/:id/status` (PATCH) and `/api/admin/assets/:submissionId/approve` (POST)
+
+**Admin Interface Integration:**
+- AssetReview component displays comprehensive KYC Eligibility Status section
+- Color-coded badges show KYC status (green=approved, yellow=pending, red=rejected/not started)
+- Eligibility messages explain whether user can receive loans
+- Displays user name, email, KYC submission date, and rejection reasons when applicable
+- Shield icon indicates security and compliance focus
+
+**KYC Status Values:**
+- `approved` - User verified, eligible for loans
+- `pending` - KYC under review, loans blocked
+- `rejected` - KYC denied, loans blocked with reason displayed
+- `not_started` - No KYC submission, loans blocked
+
 ### Admin Dashboard
-A comprehensive admin interface provides oversight of all platform operations including pending submissions review, active loan monitoring, marketplace oversight, and platform analytics. The admin panel includes approval workflows and reporting functionality.
+A comprehensive admin interface provides oversight of all platform operations including pending submissions review, active loan monitoring, marketplace oversight, and platform analytics. The admin panel includes approval workflows, KYC eligibility checks, and reporting functionality.
 
 ### Fee Waiver System
 The platform includes an admin-based fee waiver system that automatically grants 100% fee exemption to administrators for beta testing purposes. This system applies to all platform fees.
