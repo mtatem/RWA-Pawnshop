@@ -15,6 +15,8 @@ import {
   BridgeStatus
 } from "@shared/schema";
 import { storage } from "../storage";
+import { priceOracleService } from "./price-oracle";
+import { parseToBigInt, formatBigIntToDecimal, calculatePercentage } from "../utils/decimal-parser";
 
 // Chain Fusion canister IDs (ICP mainnet)
 const CHAIN_FUSION_CANISTERS = {
@@ -73,16 +75,10 @@ const NETWORK_CONFIG = {
 } as const;
 
 // Bridge fee structure (in basis points, 1% = 100)
-// NOTE: This is a simplified MVP fee structure. Production implementation should:
-// 1. Query real-time gas prices for accurate network fee estimation
-// 2. Convert network fees to source token using price oracles
-// 3. Add price slippage protection
-// For MVP, we use a combined percentage fee sufficient to cover typical network costs
+// Production-ready fee structure with oracle integration
 const BRIDGE_FEES = {
-  totalFeePercent: {
-    ethereum: 100, // 1.0% total (includes ~$15-20 gas at typical prices)
-    icp: 60        // 0.6% total (ICP has minimal network fees)
-  }
+  protocolFee: 50, // 0.5% protocol fee for all bridges
+  // Network fees are calculated dynamically using oracle services
 } as const;
 
 // EVM RPC Canister Interface
@@ -191,79 +187,168 @@ export class ChainFusionBridgeService {
     );
   }
 
-  // Estimate bridge transaction costs and timing
+  // Estimate bridge transaction costs and timing with oracle integration
   async estimateBridge(request: BridgeEstimation): Promise<BridgeEstimationResponse> {
     try {
-      await this.initializeAgent();
-
+      // Note: Agent initialization not required for fee estimation
+      // Only oracle services are needed for price and gas cost data
+      
       const { fromNetwork, toNetwork, fromToken, toToken, amount } = request;
+      
+      // Validate wrapped token pairs (only allow 1:1 bridges)
+      this.validateBridgePair(fromNetwork, toNetwork, fromToken, toToken);
+      
       const fromTokenKey = fromToken as keyof typeof TOKEN_CONFIG;
       const toTokenKey = toToken as keyof typeof TOKEN_CONFIG;
       
-      // Convert amount to fromToken smallest units (e.g., wei for ETH, smallest unit for USDC)
       const fromDecimals = TOKEN_CONFIG[fromTokenKey].decimals;
       const toDecimals = TOKEN_CONFIG[toTokenKey].decimals;
-      const amountBigInt = BigInt(Math.floor(parseFloat(amount) * Math.pow(10, fromDecimals)));
+      
+      // Use precise decimal parser to avoid float precision loss
+      const amountBigInt = parseToBigInt(amount, fromDecimals);
 
-      // Calculate combined fee as percentage of amount in fromToken units
-      // Fee varies by destination network to account for different gas costs
-      const totalFeePercent = BRIDGE_FEES.totalFeePercent[toNetwork] / 10000;
-      const totalFeeBigInt = amountBigInt * BigInt(Math.floor(totalFeePercent * 1e18)) / BigInt(1e18);
+      // Calculate protocol fee (0.5% of amount)
+      const protocolFeeBigInt = calculatePercentage(amountBigInt, BRIDGE_FEES.protocolFee);
+      
+      // Calculate network fee using oracle service
+      // NOTE: Network fees are incurred based on which blockchain you're interacting with
+      // - If bridging FROM Ethereum → need to pay Ethereum gas
+      // - If bridging FROM ICP → only pay minimal ICP cost
+      let networkFeeBigInt: bigint;
+      
+      if (fromNetwork === 'ethereum') {
+        // Ethereum source: User pays Ethereum gas to deposit/lock tokens
+        const gasEstimate = await priceOracleService.estimateEthereumGasCost();
+        console.log(`Ethereum gas estimate: $${gasEstimate.totalGasCostUSD.toFixed(2)} (${gasEstimate.totalGasCostETH.toFixed(6)} ETH)`);
+        
+        // Convert gas cost to fromToken units
+        if (fromToken === 'ETH') {
+          // Gas cost is already in ETH, convert to wei
+          networkFeeBigInt = parseToBigInt(gasEstimate.totalGasCostETH.toString(), fromDecimals);
+        } else if (fromToken === 'USDC') {
+          // Convert USD gas cost to USDC (1:1)
+          networkFeeBigInt = parseToBigInt(gasEstimate.totalGasCostUSD.toFixed(2), fromDecimals);
+        } else {
+          // Use price oracle to convert
+          const prices = await priceOracleService.getTokenPrices();
+          const gasCostInToken = gasEstimate.totalGasCostUSD / prices[fromToken as keyof typeof prices];
+          networkFeeBigInt = parseToBigInt(gasCostInToken.toFixed(fromDecimals), fromDecimals);
+        }
+      } else if (fromNetwork === 'icp') {
+        // ICP source: User pays minimal ICP cost to burn ck tokens
+        const icpCost = await priceOracleService.estimateICPNetworkCost();
+        console.log(`ICP network cost: $${icpCost.costUSD.toFixed(4)}`);
+        
+        // If going TO Ethereum, user will also pay gas on destination (handled separately in actual withdrawal)
+        // For estimation, we show the ICP burn cost which is what they pay upfront
+        // The actual Ethereum gas will be deducted from ckETH balance during withdrawal process
+        
+        // Convert ICP cost to fromToken units
+        if (fromToken === 'ckETH') {
+          const prices = await priceOracleService.getTokenPrices();
+          const costInETH = icpCost.costUSD / prices.ETH;
+          networkFeeBigInt = parseToBigInt(costInETH.toFixed(18), fromDecimals);
+        } else if (fromToken === 'ckUSDC') {
+          networkFeeBigInt = parseToBigInt(icpCost.costUSD.toFixed(6), fromDecimals);
+        } else {
+          const prices = await priceOracleService.getTokenPrices();
+          const costInToken = icpCost.costUSD / prices[fromToken as keyof typeof prices];
+          networkFeeBigInt = parseToBigInt(costInToken.toFixed(fromDecimals), fromDecimals);
+        }
+        
+        // For ICP → Ethereum bridges, add Ethereum gas cost estimate
+        // (This is burned from user's ckETH balance during withdrawal per ckETH minter design)
+        if (toNetwork === 'ethereum') {
+          const ethGasEstimate = await priceOracleService.estimateEthereumGasCost();
+          console.log(`+ Ethereum withdrawal gas: $${ethGasEstimate.totalGasCostUSD.toFixed(2)}`);
+          
+          if (fromToken === 'ckETH') {
+            const ethGasBigInt = parseToBigInt(ethGasEstimate.totalGasCostETH.toString(), fromDecimals);
+            networkFeeBigInt = networkFeeBigInt + ethGasBigInt;
+          } else if (fromToken === 'ckUSDC') {
+            const usdcGasBigInt = parseToBigInt(ethGasEstimate.totalGasCostUSD.toFixed(2), fromDecimals);
+            networkFeeBigInt = networkFeeBigInt + usdcGasBigInt;
+          }
+        }
+      } else {
+        throw new Error(`Unsupported fromNetwork: ${fromNetwork}`);
+      }
+      
+      // Calculate total fee
+      const totalFeeBigInt = protocolFeeBigInt + networkFeeBigInt;
       
       // Calculate what user receives after fees
       const amountAfterFees = amountBigInt - totalFeeBigInt;
       
-      // Prevent negative receive amounts with precise minimum calculation
+      // Validate minimum amount
       if (amountAfterFees <= BigInt(0)) {
-        // Calculate precise minimum using BigInt math to avoid precision loss
-        // Add 1% buffer to ensure user has enough
-        const minAmountBigInt = (totalFeeBigInt * BigInt(101)) / BigInt(100);
-        const minAmount = this.formatBigIntToDecimal(minAmountBigInt, fromDecimals);
+        const minAmountBigInt = (totalFeeBigInt * BigInt(105)) / BigInt(100); // +5% buffer
+        const minAmount = formatBigIntToDecimal(minAmountBigInt, fromDecimals);
         throw new Error(`Amount ${amount} ${fromToken} is too small to cover bridge fees. Minimum required: ${minAmount} ${fromToken}`);
       }
       
-      // Convert receive amount from fromToken decimals to toToken decimals
-      // For 1:1 wrapped tokens, maintain value across decimal differences
+      // Convert receive amount to destination token decimals (1:1 for wrapped tokens)
       const decimalDiff = toDecimals - fromDecimals;
       const receiveAmountBigInt = decimalDiff >= 0 
         ? amountAfterFees * BigInt(Math.pow(10, decimalDiff))
         : amountAfterFees / BigInt(Math.pow(10, -decimalDiff));
 
-      // Estimate completion time based on networks
+      // Estimate completion time
       let estimatedTime = 15; // Base 15 minutes
       if (fromNetwork === 'ethereum') {
         estimatedTime += 20; // Ethereum confirmation time
       }
       if (toNetwork === 'ethereum') {
-        estimatedTime += 10; // Ethereum processing time
+        estimatedTime += 10; // Ethereum finality time
       }
 
-      // Exchange rate for wrapped tokens is 1:1
+      // Exchange rate for wrapped tokens is always 1:1
       const exchangeRate = "1.0000";
 
-      // Convert BigInt values to decimal strings using precise helper
-      const totalFeeDecimal = this.formatBigIntToDecimal(totalFeeBigInt, fromDecimals);
-      const receiveAmountDecimal = this.formatBigIntToDecimal(receiveAmountBigInt, toDecimals);
-      
-      // For display purposes, split fee into "bridge" and "network" portions
-      // (even though it's calculated as one combined fee)
-      const bridgeFeeDecimal = this.formatBigIntToDecimal(totalFeeBigInt * BigInt(3) / BigInt(5), fromDecimals); // 60% labeled as bridge fee
-      const networkFeeDecimal = this.formatBigIntToDecimal(totalFeeBigInt * BigInt(2) / BigInt(5), fromDecimals); // 40% labeled as network fee
-
+      // Format response using precise decimal conversion
       return {
-        estimatedFee: totalFeeDecimal,
+        estimatedFee: formatBigIntToDecimal(totalFeeBigInt, fromDecimals, 8),
         estimatedTime,
         minimumAmount: TOKEN_CONFIG[fromTokenKey].minAmount,
         maximumAmount: TOKEN_CONFIG[fromTokenKey].maxAmount,
         exchangeRate,
-        networkFee: networkFeeDecimal,
-        bridgeFee: bridgeFeeDecimal,
-        totalCost: totalFeeDecimal,
-        receiveAmount: receiveAmountDecimal,
+        networkFee: formatBigIntToDecimal(networkFeeBigInt, fromDecimals, 8),
+        bridgeFee: formatBigIntToDecimal(protocolFeeBigInt, fromDecimals, 8),
+        totalCost: formatBigIntToDecimal(totalFeeBigInt, fromDecimals, 8),
+        receiveAmount: formatBigIntToDecimal(receiveAmountBigInt, toDecimals, 8),
       };
     } catch (error) {
       console.error("Bridge estimation failed:", error);
       throw new Error(`Bridge estimation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  // Validate that bridge only supports 1:1 wrapped token pairs
+  private validateBridgePair(
+    fromNetwork: SupportedNetwork,
+    toNetwork: SupportedNetwork,
+    fromToken: SupportedToken,
+    toToken: SupportedToken
+  ): void {
+    const validPairs = [
+      { from: 'ethereum', to: 'icp', fromToken: 'ETH', toToken: 'ckETH' },
+      { from: 'icp', to: 'ethereum', fromToken: 'ckETH', toToken: 'ETH' },
+      { from: 'ethereum', to: 'icp', fromToken: 'USDC', toToken: 'ckUSDC' },
+      { from: 'icp', to: 'ethereum', fromToken: 'ckUSDC', toToken: 'USDC' },
+    ];
+
+    const isValid = validPairs.some(pair => 
+      pair.from === fromNetwork &&
+      pair.to === toNetwork &&
+      pair.fromToken === fromToken &&
+      pair.toToken === toToken
+    );
+
+    if (!isValid) {
+      throw new Error(
+        `Invalid bridge pair: ${fromToken} (${fromNetwork}) → ${toToken} (${toNetwork}). ` +
+        `Only 1:1 wrapped token pairs are supported: ETH↔ckETH, USDC↔ckUSDC`
+      );
     }
   }
 
@@ -471,24 +556,6 @@ export class ChainFusionBridgeService {
     return [];
   }
 
-  // Helper: Format BigInt to decimal string with proper precision
-  private formatBigIntToDecimal(value: bigint, decimals: number): string {
-    const divisor = BigInt(Math.pow(10, decimals));
-    const wholePart = value / divisor;
-    const fractionalPart = value % divisor;
-    
-    // Pad fractional part with leading zeros
-    const fractionalStr = fractionalPart.toString().padStart(decimals, '0');
-    
-    // Trim trailing zeros and decimal point if needed
-    const trimmed = fractionalStr.replace(/0+$/, '');
-    
-    if (trimmed === '') {
-      return wholePart.toString();
-    }
-    
-    return `${wholePart}.${trimmed}`;
-  }
 
   // Get supported bridge pairs
   getSupportedBridgePairs(): Array<{ from: SupportedNetwork; to: SupportedNetwork; fromToken: SupportedToken; toToken: SupportedToken }> {

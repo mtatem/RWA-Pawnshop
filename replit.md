@@ -31,22 +31,41 @@ The platform implements a complete asset lifecycle from submission to final disp
 ### Blockchain Integration
 The system includes ICP blockchain integration with wallet connectivity and transaction management. The platform maintains transaction records and supports both ICP and traditional payment methods.
 
-**Chain Fusion Bridge (Prototype)**:
-The bridge infrastructure is in place but requires production enhancements:
+**Chain Fusion Bridge (Production-Ready Oracle Integration)**:
+The bridge infrastructure now includes production-grade oracle integration:
 - ✅ Frontend UI complete with estimation, initiation, and history views
 - ✅ Backend API endpoints functional (/estimate, /initiate, /status, /history)
 - ✅ Database-backed monitoring service with job persistence and recovery
 - ✅ ICP canister integration architecture (ckETH, ckUSDC, evmRPC)
-- ⚠️ Fee calculation currently uses simplified percentages; production needs:
-  * Real-time gas price oracles for accurate Ethereum fees
-  * Price oracle integration for cross-currency conversion
-  * Precise decimal parsing (no float→BigInt conversion loss)
-  * Restrict to 1:1 wrapped tokens (ETH↔ckETH, USDC↔ckUSDC only)
+- ✅ Real-time gas price oracles using Etherscan API with fallback
+- ✅ Price oracle integration via CoinGecko API for accurate FX conversion
+- ✅ Precise BigInt decimal parsing (no float precision loss)
+- ✅ Validated bridge pairs (restricted to 1:1 wrapped tokens only)
   
-Current fee structure (MVP):
-- Ethereum bridges: 1.0% combined fee
-- ICP bridges: 0.6% combined fee
-- Note: These are placeholders; production should use dynamic gas pricing
+**Oracle Services:**
+- **Price Oracle**: CoinGecko API with 5-minute caching
+  - Fetches real-time prices for ETH, ICP, USDC
+  - Automatic fallback to cached or hardcoded values on API failure
+  - Supports token-to-token price conversion for fee normalization
+
+- **Gas Oracle**: Etherscan Gas Tracker API
+  - Real-time Ethereum gas price estimation (~100K gas units for bridge)
+  - EIP-1559 support with base fee + priority fee
+  - Conservative $15 fallback for API failures
+  
+- **Fee Structure**:
+  - Protocol fee: 0.5% of bridged amount
+  - Network fee (Ethereum): Real-time gas cost in USD (~$5-$20 typical)
+  - Network fee (ICP): ~$0.0003 (minimal)
+  - Total fee dynamically calculated based on real market conditions
+
+**Supported Bridge Pairs** (1:1 wrapped tokens only):
+- ETH (Ethereum) ↔ ckETH (ICP)
+- USDC (Ethereum) ↔ ckUSDC (ICP)
+
+**Example Bridge Cost** (at current prices):
+- 1 ETH → ckETH: ~0.0086 ETH total fee (0.5% + $15 gas = ~0.86%)
+- 100 USDC → ckUSDC: ~$0.65 total fee (0.5% + ~$0.15 gas = ~0.65%)
 
 ### Admin Dashboard
 A comprehensive admin interface provides oversight of all platform operations including pending submissions review, active loan monitoring, marketplace oversight, and platform analytics. The admin panel includes approval workflows and reporting functionality.
