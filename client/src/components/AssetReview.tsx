@@ -17,7 +17,9 @@ import {
   Shield,
   Download,
   RefreshCw,
-  Filter
+  Filter,
+  Wallet,
+  ExternalLink
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -42,8 +44,14 @@ interface AssetSubmission {
   estimatedValue: string;
   userId: string;
   walletAddress: string;
+  coaUrl?: string;
+  nftUrl?: string;
+  physicalDocsUrl?: string;
   documentIds: string[];
   status: 'pending' | 'under_review' | 'approved' | 'rejected';
+  adminNotes?: string;
+  reviewedBy?: string;
+  reviewedAt?: string;
   images: string[];
   metadata: any;
   createdAt: string;
@@ -553,11 +561,69 @@ export default function AssetReview() {
                                     <div><span className="font-medium">Name:</span> {selectedReview.submission?.assetName}</div>
                                     <div><span className="font-medium">Category:</span> {selectedReview.submission?.category}</div>
                                     <div><span className="font-medium">Estimated Value:</span> {selectedReview.submission?.estimatedValue ? formatCurrency(selectedReview.submission.estimatedValue) : 'N/A'}</div>
+                                    <div className="flex items-center gap-2">
+                                      <Wallet className="h-4 w-4 text-gray-600" />
+                                      <span className="font-medium">Wallet:</span>
+                                      <code className="text-xs bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded font-mono truncate max-w-xs">
+                                        {selectedReview.submission?.walletAddress}
+                                      </code>
+                                    </div>
                                     <div><span className="font-medium">Description:</span></div>
-                                    <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded">
+                                    <p className="text-sm text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-800 p-3 rounded">
                                       {selectedReview.submission?.description || 'No description provided'}
                                     </p>
                                   </div>
+
+                                  {/* Document URLs */}
+                                  {(selectedReview.submission?.coaUrl || selectedReview.submission?.nftUrl || selectedReview.submission?.physicalDocsUrl) && (
+                                    <div className="mt-4 pt-4 border-t">
+                                      <Label className="text-sm font-medium mb-2 block">Submitted Documents</Label>
+                                      <div className="space-y-2">
+                                        {selectedReview.submission?.coaUrl && (
+                                          <div className="flex items-center gap-2">
+                                            <FileText className="h-4 w-4 text-blue-600" />
+                                            <a
+                                              href={selectedReview.submission.coaUrl}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className="text-sm text-blue-600 hover:underline flex items-center gap-1"
+                                            >
+                                              Certificate of Authenticity
+                                              <ExternalLink className="h-3 w-3" />
+                                            </a>
+                                          </div>
+                                        )}
+                                        {selectedReview.submission?.nftUrl && (
+                                          <div className="flex items-center gap-2">
+                                            <FileText className="h-4 w-4 text-purple-600" />
+                                            <a
+                                              href={selectedReview.submission.nftUrl}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className="text-sm text-purple-600 hover:underline flex items-center gap-1"
+                                            >
+                                              NFT Certificate
+                                              <ExternalLink className="h-3 w-3" />
+                                            </a>
+                                          </div>
+                                        )}
+                                        {selectedReview.submission?.physicalDocsUrl && (
+                                          <div className="flex items-center gap-2">
+                                            <FileText className="h-4 w-4 text-green-600" />
+                                            <a
+                                              href={selectedReview.submission.physicalDocsUrl}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className="text-sm text-green-600 hover:underline flex items-center gap-1"
+                                            >
+                                              Physical Documents
+                                              <ExternalLink className="h-3 w-3" />
+                                            </a>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  )}
                                 </div>
 
                                 <div>
@@ -571,6 +637,35 @@ export default function AssetReview() {
                                       <div><span className="font-medium">COA Status:</span> {selectedReview.coaStatus}</div>
                                     )}
                                   </div>
+
+                                  {/* Previous Review Info */}
+                                  {(selectedReview.submission?.adminNotes || selectedReview.submission?.reviewedAt) && (
+                                    <div className="mt-4 pt-4 border-t">
+                                      <Label className="text-sm font-medium mb-2 block">Previous Review</Label>
+                                      <div className="space-y-2">
+                                        {selectedReview.submission?.reviewedAt && (
+                                          <div>
+                                            <span className="font-medium text-sm">Reviewed:</span>
+                                            <span className="text-sm ml-2">{new Date(selectedReview.submission.reviewedAt).toLocaleString()}</span>
+                                          </div>
+                                        )}
+                                        {selectedReview.submission?.reviewedBy && (
+                                          <div>
+                                            <span className="font-medium text-sm">Reviewed By:</span>
+                                            <span className="text-sm ml-2">{selectedReview.submission.reviewedBy}</span>
+                                          </div>
+                                        )}
+                                        {selectedReview.submission?.adminNotes && (
+                                          <div>
+                                            <span className="font-medium text-sm block mb-1">Admin Notes:</span>
+                                            <p className="text-sm text-gray-700 dark:text-gray-300 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 p-3 rounded">
+                                              {selectedReview.submission.adminNotes}
+                                            </p>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             </TabsContent>

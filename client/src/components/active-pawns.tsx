@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Clock, FileText, CheckCircle } from "lucide-react";
+import { Clock, FileText, CheckCircle, ExternalLink, Wallet, MessageSquare } from "lucide-react";
 import type { PawnLoan, RwaSubmission } from "@shared/schema";
 
 // Extended type for pawn loans with submission details
@@ -156,10 +156,92 @@ export default function ActivePawns() {
                 <div>
                   <span className="text-muted-foreground block">Submitted:</span>
                   <div className="font-medium text-sm sm:text-base">
-                    {new Date(submission.createdAt).toLocaleDateString()}
+                    {submission.createdAt ? new Date(submission.createdAt).toLocaleDateString() : 'N/A'}
                   </div>
                 </div>
               </div>
+
+              {submission.description && (
+                <div className="mb-4">
+                  <span className="text-muted-foreground block text-xs sm:text-sm mb-1">Description:</span>
+                  <p className="text-xs sm:text-sm text-foreground bg-muted/50 p-2 sm:p-3 rounded border border-border">
+                    {submission.description}
+                  </p>
+                </div>
+              )}
+
+              <div className="mb-4 space-y-2">
+                <div className="flex items-center gap-2 text-xs sm:text-sm">
+                  <Wallet className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
+                  <span className="text-muted-foreground">Wallet:</span>
+                  <code className="text-xs bg-muted px-2 py-1 rounded font-mono truncate max-w-[200px] sm:max-w-xs" data-testid={`submission-wallet-${submission.id}`}>
+                    {submission.walletAddress}
+                  </code>
+                </div>
+
+                {(submission.coaUrl || submission.nftUrl || submission.physicalDocsUrl) && (
+                  <div className="pt-2 space-y-1">
+                    <span className="text-muted-foreground block text-xs sm:text-sm">Documents:</span>
+                    <div className="flex flex-wrap gap-2">
+                      {submission.coaUrl && (
+                        <a
+                          href={submission.coaUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs px-2 py-1 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 rounded hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
+                          data-testid={`submission-coa-${submission.id}`}
+                        >
+                          <FileText className="h-3 w-3" />
+                          Certificate of Authenticity
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      )}
+                      {submission.nftUrl && (
+                        <a
+                          href={submission.nftUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs px-2 py-1 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 rounded hover:bg-purple-100 dark:hover:bg-purple-900/30 transition-colors"
+                          data-testid={`submission-nft-${submission.id}`}
+                        >
+                          <FileText className="h-3 w-3" />
+                          NFT Certificate
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      )}
+                      {submission.physicalDocsUrl && (
+                        <a
+                          href={submission.physicalDocsUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs px-2 py-1 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 rounded hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors"
+                          data-testid={`submission-docs-${submission.id}`}
+                        >
+                          <FileText className="h-3 w-3" />
+                          Physical Documents
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {submission.adminNotes && (submission.status === 'rejected' || submission.reviewedAt) && (
+                <div className="mb-4 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded">
+                  <div className="flex items-start gap-2">
+                    <MessageSquare className="h-4 w-4 text-amber-700 dark:text-amber-300 mt-0.5" />
+                    <div className="flex-1">
+                      <span className="text-xs font-medium text-amber-800 dark:text-amber-200 block mb-1">
+                        Admin Notes{submission.reviewedAt ? ` (Reviewed ${new Date(submission.reviewedAt).toLocaleDateString()})` : ''}:
+                      </span>
+                      <p className="text-xs text-amber-700 dark:text-amber-300" data-testid={`submission-notes-${submission.id}`}>
+                        {submission.adminNotes}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
                 <Clock className="h-4 w-4" />
