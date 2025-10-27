@@ -73,11 +73,15 @@ const NETWORK_CONFIG = {
 } as const;
 
 // Bridge fee structure (in basis points, 1% = 100)
+// NOTE: This is a simplified MVP fee structure. Production implementation should:
+// 1. Query real-time gas prices for accurate network fee estimation
+// 2. Convert network fees to source token using price oracles
+// 3. Add price slippage protection
+// For MVP, we use a combined percentage fee sufficient to cover typical network costs
 const BRIDGE_FEES = {
-  baseFee: 50, // 0.5%
-  networkFees: {
-    ethereum: "0.005", // ~$15 at current gas prices
-    icp: "0.0001" // ~$0.01 in ICP
+  totalFeePercent: {
+    ethereum: 100, // 1.0% total (includes ~$15-20 gas at typical prices)
+    icp: 60        // 0.6% total (ICP has minimal network fees)
   }
 } as const;
 
@@ -193,18 +197,37 @@ export class ChainFusionBridgeService {
       await this.initializeAgent();
 
       const { fromNetwork, toNetwork, fromToken, toToken, amount } = request;
-      const amountBigInt = BigInt(Math.floor(parseFloat(amount) * Math.pow(10, TOKEN_CONFIG[fromToken].decimals)));
-
-      // Calculate bridge fee (0.5% base + network fees)
-      const bridgeFeePercent = BRIDGE_FEES.baseFee / 10000; // Convert basis points to decimal
-      const bridgeFee = amountBigInt * BigInt(Math.floor(bridgeFeePercent * 1e18)) / BigInt(1e18);
-
-      // Network-specific fees
-      const networkFee = BRIDGE_FEES.networkFees[toNetwork];
+      const fromTokenKey = fromToken as keyof typeof TOKEN_CONFIG;
+      const toTokenKey = toToken as keyof typeof TOKEN_CONFIG;
       
-      // Calculate total cost and receive amount
-      const totalFee = bridgeFee + BigInt(Math.floor(parseFloat(networkFee) * Math.pow(10, TOKEN_CONFIG[toToken].decimals)));
-      const receiveAmount = amountBigInt - totalFee;
+      // Convert amount to fromToken smallest units (e.g., wei for ETH, smallest unit for USDC)
+      const fromDecimals = TOKEN_CONFIG[fromTokenKey].decimals;
+      const toDecimals = TOKEN_CONFIG[toTokenKey].decimals;
+      const amountBigInt = BigInt(Math.floor(parseFloat(amount) * Math.pow(10, fromDecimals)));
+
+      // Calculate combined fee as percentage of amount in fromToken units
+      // Fee varies by destination network to account for different gas costs
+      const totalFeePercent = BRIDGE_FEES.totalFeePercent[toNetwork] / 10000;
+      const totalFeeBigInt = amountBigInt * BigInt(Math.floor(totalFeePercent * 1e18)) / BigInt(1e18);
+      
+      // Calculate what user receives after fees
+      const amountAfterFees = amountBigInt - totalFeeBigInt;
+      
+      // Prevent negative receive amounts with precise minimum calculation
+      if (amountAfterFees <= BigInt(0)) {
+        // Calculate precise minimum using BigInt math to avoid precision loss
+        // Add 1% buffer to ensure user has enough
+        const minAmountBigInt = (totalFeeBigInt * BigInt(101)) / BigInt(100);
+        const minAmount = this.formatBigIntToDecimal(minAmountBigInt, fromDecimals);
+        throw new Error(`Amount ${amount} ${fromToken} is too small to cover bridge fees. Minimum required: ${minAmount} ${fromToken}`);
+      }
+      
+      // Convert receive amount from fromToken decimals to toToken decimals
+      // For 1:1 wrapped tokens, maintain value across decimal differences
+      const decimalDiff = toDecimals - fromDecimals;
+      const receiveAmountBigInt = decimalDiff >= 0 
+        ? amountAfterFees * BigInt(Math.pow(10, decimalDiff))
+        : amountAfterFees / BigInt(Math.pow(10, -decimalDiff));
 
       // Estimate completion time based on networks
       let estimatedTime = 15; // Base 15 minutes
@@ -215,19 +238,28 @@ export class ChainFusionBridgeService {
         estimatedTime += 10; // Ethereum processing time
       }
 
-      // Get current exchange rate (simplified - in production, fetch from price oracle)
-      const exchangeRate = "1.0000"; // 1:1 for wrapped tokens
+      // Exchange rate for wrapped tokens is 1:1
+      const exchangeRate = "1.0000";
+
+      // Convert BigInt values to decimal strings using precise helper
+      const totalFeeDecimal = this.formatBigIntToDecimal(totalFeeBigInt, fromDecimals);
+      const receiveAmountDecimal = this.formatBigIntToDecimal(receiveAmountBigInt, toDecimals);
+      
+      // For display purposes, split fee into "bridge" and "network" portions
+      // (even though it's calculated as one combined fee)
+      const bridgeFeeDecimal = this.formatBigIntToDecimal(totalFeeBigInt * BigInt(3) / BigInt(5), fromDecimals); // 60% labeled as bridge fee
+      const networkFeeDecimal = this.formatBigIntToDecimal(totalFeeBigInt * BigInt(2) / BigInt(5), fromDecimals); // 40% labeled as network fee
 
       return {
-        estimatedFee: (totalFee / BigInt(Math.pow(10, TOKEN_CONFIG[fromToken].decimals))).toString(),
+        estimatedFee: totalFeeDecimal,
         estimatedTime,
-        minimumAmount: TOKEN_CONFIG[fromToken].minAmount,
-        maximumAmount: TOKEN_CONFIG[fromToken].maxAmount,
+        minimumAmount: TOKEN_CONFIG[fromTokenKey].minAmount,
+        maximumAmount: TOKEN_CONFIG[fromTokenKey].maxAmount,
         exchangeRate,
-        networkFee,
-        bridgeFee: (bridgeFee / BigInt(Math.pow(10, TOKEN_CONFIG[fromToken].decimals))).toString(),
-        totalCost: (totalFee / BigInt(Math.pow(10, TOKEN_CONFIG[fromToken].decimals))).toString(),
-        receiveAmount: (receiveAmount / BigInt(Math.pow(10, TOKEN_CONFIG[toToken].decimals))).toString(),
+        networkFee: networkFeeDecimal,
+        bridgeFee: bridgeFeeDecimal,
+        totalCost: totalFeeDecimal,
+        receiveAmount: receiveAmountDecimal,
       };
     } catch (error) {
       console.error("Bridge estimation failed:", error);
@@ -378,7 +410,8 @@ export class ChainFusionBridgeService {
     }
 
     const actor = bridge.toToken === 'ckETH' ? this.ckETHActor : this.ckUSDCActor;
-    const amount = BigInt(Math.floor(parseFloat(bridge.amount) * Math.pow(10, TOKEN_CONFIG[bridge.toToken].decimals)));
+    const toToken = bridge.toToken as keyof typeof TOKEN_CONFIG;
+    const amount = BigInt(Math.floor(parseFloat(bridge.amount) * Math.pow(10, TOKEN_CONFIG[toToken].decimals)));
 
     try {
       const result = await actor.icrc1_transfer({
@@ -436,6 +469,25 @@ export class ChainFusionBridgeService {
       return ['ckETH', 'ckUSDC'];
     }
     return [];
+  }
+
+  // Helper: Format BigInt to decimal string with proper precision
+  private formatBigIntToDecimal(value: bigint, decimals: number): string {
+    const divisor = BigInt(Math.pow(10, decimals));
+    const wholePart = value / divisor;
+    const fractionalPart = value % divisor;
+    
+    // Pad fractional part with leading zeros
+    const fractionalStr = fractionalPart.toString().padStart(decimals, '0');
+    
+    // Trim trailing zeros and decimal point if needed
+    const trimmed = fractionalStr.replace(/0+$/, '');
+    
+    if (trimmed === '') {
+      return wholePart.toString();
+    }
+    
+    return `${wholePart}.${trimmed}`;
   }
 
   // Get supported bridge pairs

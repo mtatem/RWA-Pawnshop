@@ -429,13 +429,9 @@ export class BridgeMonitorService {
     }
   }
 
-  // Stop monitoring a specific bridge transaction
-  stopMonitoringTransaction(transactionId: string): void {
-    if (this.monitoringTimers.has(transactionId)) {
-      clearTimeout(this.monitoringTimers.get(transactionId)!);
-      this.monitoringTimers.delete(transactionId);
-      console.log(`Stopped monitoring transaction ${transactionId}`);
-    }
+  // Stop monitoring a specific bridge transaction (deactivate database job)
+  async stopMonitoringTransaction(transactionId: string): Promise<void> {
+    await this.deactivateMonitoringJob(transactionId);
   }
 
   // Check and update bridge transaction status
@@ -444,7 +440,7 @@ export class BridgeMonitorService {
       const transaction = await storage.getBridgeTransaction(transactionId);
       if (!transaction) {
         console.warn(`Transaction ${transactionId} not found during status check`);
-        this.stopMonitoringTransaction(transactionId);
+        await this.stopMonitoringTransaction(transactionId);
         return;
       }
 
@@ -466,7 +462,7 @@ export class BridgeMonitorService {
 
         // Check for timeout (mark as failed if pending too long)
         const timeoutMinutes = 60; // 60 minutes timeout
-        const createdAt = new Date(transaction.createdAt);
+        const createdAt = transaction.createdAt ? new Date(transaction.createdAt) : new Date();
         const now = new Date();
         const timeDiff = (now.getTime() - createdAt.getTime()) / (1000 * 60);
 
@@ -492,7 +488,7 @@ export class BridgeMonitorService {
             statusUpdate = {
               ...statusUpdate,
               txHashTo: bridgeStatus.txHashTo,
-              actualTime: this.calculateActualTime(transaction.createdAt),
+              actualTime: transaction.createdAt ? this.calculateActualTime(transaction.createdAt) : 0,
               completedAt: new Date()
             };
           } else if (bridgeStatus.status === 'failed') {
@@ -506,7 +502,7 @@ export class BridgeMonitorService {
 
         // Check for processing timeout
         const processingTimeoutMinutes = 120; // 2 hours timeout
-        const createdAt = new Date(transaction.createdAt);
+        const createdAt = transaction.createdAt ? new Date(transaction.createdAt) : new Date();
         const now = new Date();
         const timeDiff = (now.getTime() - createdAt.getTime()) / (1000 * 60);
 
@@ -560,33 +556,10 @@ export class BridgeMonitorService {
     return Math.floor((now.getTime() - created.getTime()) / (1000 * 60));
   }
 
-  // Start periodic monitoring for new transactions
+  // Start periodic monitoring for new transactions (now handled by database polling)
+  // This method is kept for API compatibility but functionality is in global job scheduler
   private startPeriodicMonitoring(): void {
-    // Check for new transactions every minute
-    const periodicCheck = async () => {
-      if (!this.isRunning) return;
-
-      try {
-        const pendingTransactions = await storage.getBridgeTransactionsByStatus('pending');
-        const processingTransactions = await storage.getBridgeTransactionsByStatus('processing');
-
-        // Start monitoring any new transactions
-        for (const transaction of [...pendingTransactions, ...processingTransactions]) {
-          if (!this.monitoringTimers.has(transaction.id)) {
-            await this.startMonitoringTransaction(transaction.id);
-          }
-        }
-
-        await this.updateStats();
-      } catch (error) {
-        console.error("Error in periodic monitoring check:", error);
-      }
-
-      // Schedule next check
-      setTimeout(periodicCheck, 60000); // Check every minute
-    };
-
-    periodicCheck();
+    console.log("Periodic monitoring handled by database-backed job scheduler");
   }
 
   // Update monitoring statistics
@@ -627,9 +600,17 @@ export class BridgeMonitorService {
     return { ...this.stats };
   }
 
-  // Get active monitoring count
-  getActiveMonitoringCount(): number {
-    return this.monitoringTimers.size;
+  // Get active monitoring count from database
+  async getActiveMonitoringCount(): Promise<number> {
+    try {
+      const result = await db.execute(sql`
+        SELECT COUNT(*) as count FROM monitoring_jobs WHERE is_active = true
+      `);
+      return result.rows?.[0]?.count as number || 0;
+    } catch (error) {
+      console.error("Error getting active monitoring count:", error);
+      return 0;
+    }
   }
 
   // Get transaction status with real-time monitoring info
@@ -637,17 +618,26 @@ export class BridgeMonitorService {
     const transaction = await storage.getBridgeTransaction(transactionId);
     if (!transaction) return null;
 
+    // Check if being monitored in database
+    const monitoringJob = await db.execute(sql`
+      SELECT is_active FROM monitoring_jobs WHERE id = ${transactionId}
+    `);
+
     // Add monitoring status
     const monitoringInfo = {
-      isBeingMonitored: this.monitoringTimers.has(transactionId),
+      isBeingMonitored: monitoringJob.rows?.[0]?.is_active as boolean || false,
       monitoringInterval: MONITORING_INTERVALS[transaction.status as keyof typeof MONITORING_INTERVALS],
       lastChecked: new Date().toISOString()
     };
 
+    const bridgeData = transaction.bridgeData && typeof transaction.bridgeData === 'object' 
+      ? transaction.bridgeData as Record<string, any>
+      : {};
+
     return {
       ...transaction,
       bridgeData: {
-        ...transaction.bridgeData,
+        ...bridgeData,
         monitoring: monitoringInfo
       }
     };
@@ -658,13 +648,14 @@ export class BridgeMonitorService {
     console.log(`Force refreshing transaction ${transactionId}`);
     
     // Stop current monitoring
-    this.stopMonitoringTransaction(transactionId);
+    await this.stopMonitoringTransaction(transactionId);
     
     // Check status immediately
     await this.checkTransactionStatus(transactionId);
     
     // Return updated transaction
-    return await storage.getBridgeTransaction(transactionId);
+    const transaction = await storage.getBridgeTransaction(transactionId);
+    return transaction || null;
   }
 
   // Handle new bridge transaction creation
@@ -687,7 +678,7 @@ export class BridgeMonitorService {
       
       for (const transaction of stuckTransactions) {
         try {
-          const createdAt = new Date(transaction.createdAt);
+          const createdAt = transaction.createdAt ? new Date(transaction.createdAt) : new Date();
           const hoursDiff = (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60);
 
           // Mark transactions older than 6 hours as failed
@@ -700,7 +691,7 @@ export class BridgeMonitorService {
               }
             );
             
-            this.stopMonitoringTransaction(transaction.id);
+            await this.stopMonitoringTransaction(transaction.id);
             results.cleaned++;
             
             console.log(`Cleaned up stuck transaction ${transaction.id} (${Math.round(hoursDiff)} hours old)`);

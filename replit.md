@@ -29,7 +29,24 @@ The platform integrates with Google Cloud Storage for secure file handling, supp
 The platform implements a complete asset lifecycle from submission to final disposition. RWA submissions go through a review process by admin users, approved assets can be used as collateral for pawn loans with automated expiry tracking, and expired loans result in assets being listed on the marketplace for public bidding.
 
 ### Blockchain Integration
-The system includes mock ICP blockchain integration with plans for full implementation. This includes wallet connectivity, transaction management, and cross-chain bridging functionality. The platform maintains transaction records and supports both ICP and traditional payment methods.
+The system includes ICP blockchain integration with wallet connectivity and transaction management. The platform maintains transaction records and supports both ICP and traditional payment methods.
+
+**Chain Fusion Bridge (Prototype)**:
+The bridge infrastructure is in place but requires production enhancements:
+- ✅ Frontend UI complete with estimation, initiation, and history views
+- ✅ Backend API endpoints functional (/estimate, /initiate, /status, /history)
+- ✅ Database-backed monitoring service with job persistence and recovery
+- ✅ ICP canister integration architecture (ckETH, ckUSDC, evmRPC)
+- ⚠️ Fee calculation currently uses simplified percentages; production needs:
+  * Real-time gas price oracles for accurate Ethereum fees
+  * Price oracle integration for cross-currency conversion
+  * Precise decimal parsing (no float→BigInt conversion loss)
+  * Restrict to 1:1 wrapped tokens (ETH↔ckETH, USDC↔ckUSDC only)
+  
+Current fee structure (MVP):
+- Ethereum bridges: 1.0% combined fee
+- ICP bridges: 0.6% combined fee
+- Note: These are placeholders; production should use dynamic gas pricing
 
 ### Admin Dashboard
 A comprehensive admin interface provides oversight of all platform operations including pending submissions review, active loan monitoring, marketplace oversight, and platform analytics. The admin panel includes approval workflows and reporting functionality.
