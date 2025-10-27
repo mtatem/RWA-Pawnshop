@@ -3237,6 +3237,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Invalid status" });
       }
       
+      // Get submission first to check KYC before updating status
+      const existingSubmission = await storage.getRwaSubmission(req.params.id);
+      if (!existingSubmission) {
+        return res.status(404).json({ error: "Submission not found" });
+      }
+      
+      // If approving, verify KYC eligibility BEFORE updating submission status
+      if (status === "approved") {
+        // Check user's KYC status
+        const kycInfo = await storage.getKycInformation(existingSubmission.userId);
+        
+        if (!kycInfo || kycInfo.status !== 'approved') {
+          return res.status(400).json({ 
+            error: "KYC verification required",
+            message: "User must have approved KYC verification before receiving a loan. KYC status: " + (kycInfo?.status || "not started")
+          });
+        }
+      }
+      
+      // KYC check passed (or status is rejected) - proceed with status update
       const submission = await storage.updateRwaSubmissionStatus(
         req.params.id,
         status,
@@ -3244,12 +3264,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         reviewedBy
       );
       
-      // Check if submission exists
-      if (!submission) {
-        return res.status(404).json({ error: "Submission not found" });
-      }
-      
-      // If approved, create a pawn loan
+      // If approved, create the loan (KYC already verified above)
       if (status === "approved") {
         const loanAmount = (parseFloat(submission.estimatedValue) * 0.7).toFixed(2);
         const expiryDate = new Date();
@@ -4715,7 +4730,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { estimatedValue, reasoning, conditions } = req.body;
       const adminId = req.user.id;
       
-      // Update submission status to approved
+      // Get submission to check user's KYC status
+      const submission = await storage.getRwaSubmission(submissionId);
+      if (!submission) {
+        return res.status(404).json({ error: "Submission not found" });
+      }
+      
+      // Check user's KYC status before approval
+      const kycInfo = await storage.getKycInformation(submission.userId);
+      
+      if (!kycInfo || kycInfo.status !== 'approved') {
+        return res.status(400).json({ 
+          error: "KYC verification required",
+          message: "User must have approved KYC verification before receiving a loan. KYC status: " + (kycInfo?.status || "not started"),
+          kycStatus: kycInfo?.status || "not_started"
+        });
+      }
+      
+      // KYC approved - proceed with submission approval
       await storage.updateRwaSubmissionStatus(submissionId, "approved", reasoning, adminId);
       
       // Log admin action

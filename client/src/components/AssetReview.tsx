@@ -56,6 +56,18 @@ interface AssetSubmission {
   metadata: any;
   createdAt: string;
   updatedAt: string;
+  // User info
+  userEmail?: string;
+  userFirstName?: string;
+  userLastName?: string;
+  userKycStatus?: string;
+  userRole?: string;
+  // KYC info
+  kycStatus?: string;
+  kycSubmittedAt?: string;
+  kycReviewedAt?: string;
+  kycReviewNotes?: string;
+  kycRejectionReason?: string;
 }
 
 interface AssetReview {
@@ -636,6 +648,97 @@ export default function AssetReview() {
                                     {selectedReview.coaStatus && (
                                       <div><span className="font-medium">COA Status:</span> {selectedReview.coaStatus}</div>
                                     )}
+                                  </div>
+
+                                  {/* KYC Eligibility Section */}
+                                  <div className="mt-4 pt-4 border-t">
+                                    <Label className="text-sm font-medium mb-2 block flex items-center gap-2">
+                                      <Shield className="h-4 w-4" />
+                                      KYC Eligibility Status
+                                    </Label>
+                                    <div className="space-y-3">
+                                      {selectedReview.submission?.userEmail && (
+                                        <div>
+                                          <span className="font-medium text-sm">User:</span>
+                                          <span className="text-sm ml-2">
+                                            {selectedReview.submission.userFirstName} {selectedReview.submission.userLastName}
+                                          </span>
+                                          <div className="text-xs text-gray-600 dark:text-gray-400 ml-0 mt-1">
+                                            {selectedReview.submission.userEmail}
+                                          </div>
+                                        </div>
+                                      )}
+                                      
+                                      <div className="flex items-center gap-2">
+                                        <span className="font-medium text-sm">KYC Status:</span>
+                                        <Badge 
+                                          variant="outline" 
+                                          className={
+                                            selectedReview.submission?.kycStatus === 'approved' 
+                                              ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-100 border-green-200 dark:border-green-800'
+                                              : selectedReview.submission?.kycStatus === 'rejected'
+                                              ? 'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-100 border-red-200 dark:border-red-800'
+                                              : selectedReview.submission?.kycStatus === 'pending'
+                                              ? 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-100 border-yellow-200 dark:border-yellow-800'
+                                              : 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-300 border-gray-200 dark:border-gray-700'
+                                          }
+                                          data-testid="kyc-status-badge"
+                                        >
+                                          {selectedReview.submission?.kycStatus || selectedReview.submission?.userKycStatus || 'Not Started'}
+                                        </Badge>
+                                      </div>
+
+                                      {selectedReview.submission?.kycStatus === 'approved' && (
+                                        <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 p-3 rounded flex items-start gap-2">
+                                          <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400 mt-0.5 flex-shrink-0" />
+                                          <div className="text-sm">
+                                            <div className="font-medium text-green-800 dark:text-green-200">Eligible for Loan</div>
+                                            <div className="text-green-700 dark:text-green-300 text-xs mt-1">
+                                              User has completed KYC verification and is eligible to receive pawn loans.
+                                            </div>
+                                          </div>
+                                        </div>
+                                      )}
+
+                                      {(selectedReview.submission?.kycStatus === 'pending' || selectedReview.submission?.userKycStatus === 'in_progress') && (
+                                        <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 p-3 rounded flex items-start gap-2">
+                                          <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-400 mt-0.5 flex-shrink-0" />
+                                          <div className="text-sm">
+                                            <div className="font-medium text-yellow-800 dark:text-yellow-200">KYC Pending</div>
+                                            <div className="text-yellow-700 dark:text-yellow-300 text-xs mt-1">
+                                              User KYC verification is in progress. Cannot approve loan until KYC is completed.
+                                            </div>
+                                          </div>
+                                        </div>
+                                      )}
+
+                                      {(selectedReview.submission?.kycStatus === 'rejected' || (!selectedReview.submission?.kycStatus && selectedReview.submission?.userKycStatus === 'not_started')) && (
+                                        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-3 rounded flex items-start gap-2">
+                                          <XCircle className="h-4 w-4 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />
+                                          <div className="text-sm">
+                                            <div className="font-medium text-red-800 dark:text-red-200">
+                                              {selectedReview.submission?.kycStatus === 'rejected' ? 'KYC Rejected' : 'Not Eligible'}
+                                            </div>
+                                            <div className="text-red-700 dark:text-red-300 text-xs mt-1">
+                                              {selectedReview.submission?.kycStatus === 'rejected' 
+                                                ? 'User KYC was rejected. Cannot approve loan without valid KYC.'
+                                                : 'User has not completed KYC verification. Cannot approve loan.'}
+                                            </div>
+                                            {selectedReview.submission?.kycRejectionReason && (
+                                              <div className="text-red-700 dark:text-red-300 text-xs mt-2 font-medium">
+                                                Reason: {selectedReview.submission.kycRejectionReason}
+                                              </div>
+                                            )}
+                                          </div>
+                                        </div>
+                                      )}
+
+                                      {selectedReview.submission?.kycSubmittedAt && (
+                                        <div className="text-xs text-gray-600 dark:text-gray-400">
+                                          KYC Submitted: {new Date(selectedReview.submission.kycSubmittedAt).toLocaleDateString()}
+                                        </div>
+                                      )}
+                                    </div>
                                   </div>
 
                                   {/* Previous Review Info */}

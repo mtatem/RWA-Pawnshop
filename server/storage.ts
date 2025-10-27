@@ -163,7 +163,7 @@ export interface IStorage {
   createRwaSubmission(submission: InsertRwaSubmission): Promise<RwaSubmission>;
   getRwaSubmission(id: string): Promise<RwaSubmission | undefined>;
   getRwaSubmissionsByUser(userId: string): Promise<RwaSubmission[]>;
-  getPendingRwaSubmissions(): Promise<RwaSubmission[]>;
+  getPendingRwaSubmissions(): Promise<any[]>;
   updateRwaSubmissionStatus(id: string, status: string, adminNotes?: string, reviewedBy?: string): Promise<RwaSubmission>;
 
   // Pawn Loan operations
@@ -1417,8 +1417,46 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(rwaSubmissions).where(eq(rwaSubmissions.userId, userId)).orderBy(desc(rwaSubmissions.createdAt));
   }
 
-  async getPendingRwaSubmissions(): Promise<RwaSubmission[]> {
-    return await db.select().from(rwaSubmissions).where(eq(rwaSubmissions.status, "pending")).orderBy(desc(rwaSubmissions.createdAt));
+  async getPendingRwaSubmissions(): Promise<any[]> {
+    const results = await db
+      .select({
+        // RWA submission fields
+        id: rwaSubmissions.id,
+        userId: rwaSubmissions.userId,
+        assetName: rwaSubmissions.assetName,
+        category: rwaSubmissions.category,
+        estimatedValue: rwaSubmissions.estimatedValue,
+        description: rwaSubmissions.description,
+        walletAddress: rwaSubmissions.walletAddress,
+        coaUrl: rwaSubmissions.coaUrl,
+        nftUrl: rwaSubmissions.nftUrl,
+        physicalDocsUrl: rwaSubmissions.physicalDocsUrl,
+        status: rwaSubmissions.status,
+        adminNotes: rwaSubmissions.adminNotes,
+        reviewedBy: rwaSubmissions.reviewedBy,
+        reviewedAt: rwaSubmissions.reviewedAt,
+        createdAt: rwaSubmissions.createdAt,
+        updatedAt: rwaSubmissions.updatedAt,
+        // User fields
+        userEmail: users.email,
+        userFirstName: users.firstName,
+        userLastName: users.lastName,
+        userKycStatus: users.kycStatus,
+        userRole: users.role,
+        // KYC fields
+        kycStatus: kycInformation.status,
+        kycSubmittedAt: kycInformation.submittedAt,
+        kycReviewedAt: kycInformation.reviewedAt,
+        kycReviewNotes: kycInformation.reviewNotes,
+        kycRejectionReason: kycInformation.rejectionReason,
+      })
+      .from(rwaSubmissions)
+      .leftJoin(users, eq(rwaSubmissions.userId, users.id))
+      .leftJoin(kycInformation, eq(users.id, kycInformation.userId))
+      .where(eq(rwaSubmissions.status, "pending"))
+      .orderBy(desc(rwaSubmissions.createdAt));
+    
+    return results;
   }
 
   async updateRwaSubmissionStatus(id: string, status: string, adminNotes?: string, reviewedBy?: string): Promise<RwaSubmission> {
