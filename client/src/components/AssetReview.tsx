@@ -775,24 +775,65 @@ export default function AssetReview() {
 
                             {/* Images Tab */}
                             <TabsContent value="images" className="space-y-4">
-                              <div className="grid md:grid-cols-3 gap-4">
-                                {selectedReview.submission?.images?.length ? (
-                                  selectedReview.submission.images.map((image, index) => (
-                                    <div key={index} className="relative">
+                              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                {/* Display images from document URLs */}
+                                {selectedReview.submission?.coaUrl && (
+                                  <div className="space-y-2">
+                                    <Label className="text-xs font-medium text-gray-600 dark:text-gray-400">Certificate of Authenticity</Label>
+                                    <div className="border rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800">
+                                      <img 
+                                        src={selectedReview.submission.coaUrl} 
+                                        alt="Certificate of Authenticity"
+                                        className="w-full h-48 object-contain p-2"
+                                        data-testid="img-coa"
+                                      />
+                                    </div>
+                                  </div>
+                                )}
+                                {selectedReview.submission?.nftUrl && (
+                                  <div className="space-y-2">
+                                    <Label className="text-xs font-medium text-gray-600 dark:text-gray-400">NFT Certificate</Label>
+                                    <div className="border rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800">
+                                      <img 
+                                        src={selectedReview.submission.nftUrl} 
+                                        alt="NFT Certificate"
+                                        className="w-full h-48 object-contain p-2"
+                                        data-testid="img-nft"
+                                      />
+                                    </div>
+                                  </div>
+                                )}
+                                {selectedReview.submission?.physicalDocsUrl && (
+                                  <div className="space-y-2">
+                                    <Label className="text-xs font-medium text-gray-600 dark:text-gray-400">Physical Documentation</Label>
+                                    <div className="border rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800">
+                                      <img 
+                                        src={selectedReview.submission.physicalDocsUrl} 
+                                        alt="Physical Documentation"
+                                        className="w-full h-48 object-contain p-2"
+                                        data-testid="img-physical-docs"
+                                      />
+                                    </div>
+                                  </div>
+                                )}
+                                {/* Legacy images array */}
+                                {selectedReview.submission?.images?.map((image, index) => (
+                                  <div key={index} className="space-y-2">
+                                    <Label className="text-xs font-medium text-gray-600 dark:text-gray-400">Asset Image {index + 1}</Label>
+                                    <div className="border rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800">
                                       <img 
                                         src={image} 
                                         alt={`Asset image ${index + 1}`}
-                                        className="w-full h-48 object-cover rounded-lg border"
+                                        className="w-full h-48 object-cover"
                                       />
-                                      <Button size="sm" variant="secondary" className="absolute top-2 right-2">
-                                        <Download className="h-4 w-4" />
-                                      </Button>
                                     </div>
-                                  ))
-                                ) : (
+                                  </div>
+                                ))}
+                                {/* Show message if no images */}
+                                {!selectedReview.submission?.coaUrl && !selectedReview.submission?.nftUrl && !selectedReview.submission?.physicalDocsUrl && !selectedReview.submission?.images?.length && (
                                   <div className="col-span-3 text-center py-8">
                                     <Camera className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                                    <p className="text-gray-500">No images available</p>
+                                    <p className="text-gray-500">No images or documents available</p>
                                   </div>
                                 )}
                               </div>
