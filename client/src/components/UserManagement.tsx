@@ -134,7 +134,20 @@ export default function UserManagement() {
   const [isRoleChangeOpen, setIsRoleChangeOpen] = useState(false);
   const [isPasswordResetOpen, setIsPasswordResetOpen] = useState(false);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [isEditKycOpen, setIsEditKycOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<UserAccount | null>(null);
+  const [kycStatus, setKycStatus] = useState('');
+  const [kycReviewNotes, setKycReviewNotes] = useState('');
+  const [kycRejectionReason, setKycRejectionReason] = useState('');
+
+  // Initialize KYC form when dialog opens
+  useEffect(() => {
+    if (isEditKycOpen && userDetailsData?.kycInfo) {
+      setKycStatus(userDetailsData.kycInfo.status || '');
+      setKycReviewNotes(userDetailsData.kycInfo.reviewNotes || '');
+      setKycRejectionReason(userDetailsData.kycInfo.rejectionReason || '');
+    }
+  }, [isEditKycOpen, userDetailsData]);
 
   // Form for user flagging
   const flagForm = useForm({
@@ -408,6 +421,44 @@ export default function UserManagement() {
           variant: "destructive",
         });
       }
+    },
+  });
+
+  // Update KYC status mutation
+  const updateKycMutation = useMutation({
+    mutationFn: async ({ kycId, status, reviewNotes, rejectionReason }: { 
+      kycId: string; 
+      status: string; 
+      reviewNotes: string;
+      rejectionReason?: string;
+    }) => {
+      const response = await apiRequest("PATCH", `/api/admin/kyc/${kycId}/review`, {
+        status: status === 'approved' ? 'completed' : status,
+        reviewNotes,
+        rejectionReason
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "KYC Status Updated",
+        description: "KYC status has been updated successfully.",
+      });
+      // Invalidate both the user details and the main user list
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/users/${selectedUser?.id}`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      setIsEditKycOpen(false);
+      // Reset KYC form state
+      setKycStatus('');
+      setKycReviewNotes('');
+      setKycRejectionReason('');
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to Update KYC",
+        description: error.message || "An error occurred while updating KYC status.",
+        variant: "destructive",
+      });
     },
   });
 
@@ -823,9 +874,10 @@ export default function UserManagement() {
                         
                         {selectedUser && (
                           <Tabs defaultValue="overview" className="space-y-6">
-                            <TabsList className="grid w-full grid-cols-4">
+                            <TabsList className="grid w-full grid-cols-5">
                               <TabsTrigger value="overview">Overview</TabsTrigger>
                               <TabsTrigger value="kyc">KYC Info</TabsTrigger>
+                              <TabsTrigger value="assets">Submitted Assets</TabsTrigger>
                               <TabsTrigger value="history">History</TabsTrigger>
                               <TabsTrigger value="actions">Actions</TabsTrigger>
                             </TabsList>
@@ -863,46 +915,182 @@ export default function UserManagement() {
 
                             {/* KYC Info Tab */}
                             <TabsContent value="kyc" className="space-y-4">
-                              <div className="grid md:grid-cols-2 gap-6">
-                                <div>
-                                  <Label className="text-sm font-medium">KYC Information</Label>
-                                  <div className="space-y-3 mt-2">
-                                    <div className="p-4 border rounded">
-                                      <div className="flex items-center justify-between mb-2">
-                                        <span className="font-medium">KYC Status:</span>
-                                        <Badge className={selectedUser.kycStatus === 'verified' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}>
-                                          {selectedUser.kycStatus.replace('_', ' ').toUpperCase()}
-                                        </Badge>
-                                      </div>
-                                      <div className="flex items-center justify-between mb-2">
-                                        <span className="font-medium">Verification Status:</span>
-                                        <Badge className={selectedUser.verificationStatus === 'verified' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}>
-                                          {selectedUser.verificationStatus.replace('_', ' ').toUpperCase()}
-                                        </Badge>
-                                      </div>
-                                      <div className="text-sm text-gray-600 mt-3">
-                                        <p>Account created: {new Date(selectedUser.createdAt).toLocaleString()}</p>
-                                        <p>Last updated: {new Date(selectedUser.updatedAt).toLocaleString()}</p>
+                              {userDetailsData?.kycInfo ? (
+                                <div className="space-y-6">
+                                  <div className="grid md:grid-cols-2 gap-6">
+                                    <div>
+                                      <Label className="text-sm font-medium">KYC Status</Label>
+                                      <div className="space-y-3 mt-2">
+                                        <div className="p-4 border rounded">
+                                          <div className="flex items-center justify-between mb-2">
+                                            <span className="font-medium">Status:</span>
+                                            <Badge className={userDetailsData.kycInfo.status === 'approved' ? 'bg-green-100 text-green-800' : userDetailsData.kycInfo.status === 'rejected' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'}>
+                                              {userDetailsData.kycInfo.status?.toUpperCase() || 'PENDING'}
+                                            </Badge>
+                                          </div>
+                                          <div className="text-sm space-y-1 mt-3">
+                                            <div><span className="font-medium">Document Type:</span> {userDetailsData.kycInfo.documentType || 'N/A'}</div>
+                                            <div><span className="font-medium">Document Country:</span> {userDetailsData.kycInfo.documentCountry || 'N/A'}</div>
+                                            <div><span className="font-medium">Submitted:</span> {userDetailsData.kycInfo.submittedAt ? new Date(userDetailsData.kycInfo.submittedAt).toLocaleString() : 'N/A'}</div>
+                                            {userDetailsData.kycInfo.reviewedAt && (
+                                              <div><span className="font-medium">Reviewed:</span> {new Date(userDetailsData.kycInfo.reviewedAt).toLocaleString()}</div>
+                                            )}
+                                            {userDetailsData.kycInfo.rejectionReason && (
+                                              <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded">
+                                                <span className="font-medium">Rejection Reason:</span>
+                                                <p className="text-xs mt-1">{userDetailsData.kycInfo.rejectionReason}</p>
+                                              </div>
+                                            )}
+                                          </div>
+                                        </div>
                                       </div>
                                     </div>
-                                  </div>
-                                </div>
 
-                                <div>
-                                  <Label className="text-sm font-medium">Identity Information</Label>
-                                  <div className="space-y-2 mt-2">
-                                    <div className="p-4 border rounded">
-                                      <div className="space-y-2 text-sm">
-                                        <div><span className="font-medium">Full Name:</span> {selectedUser.firstName && selectedUser.lastName ? `${selectedUser.firstName} ${selectedUser.lastName}` : 'Not provided'}</div>
-                                        <div><span className="font-medium">Email:</span> {selectedUser.email || 'Not provided'}</div>
-                                        <div><span className="font-medium">Phone:</span> {selectedUser.phone || 'Not provided'}</div>
-                                        <div><span className="font-medium">Date of Birth:</span> {selectedUser.dateOfBirth ? new Date(selectedUser.dateOfBirth).toLocaleDateString() : 'Not provided'}</div>
-                                        <div><span className="font-medium">Address:</span> {selectedUser.address || 'Not provided'}</div>
+                                    <div>
+                                      <Label className="text-sm font-medium">Document Images</Label>
+                                      <div className="space-y-2 mt-2">
+                                        <div className="grid grid-cols-1 gap-2">
+                                          {userDetailsData.kycInfo.documentImageKeyEncrypted && (
+                                            <div className="border rounded p-2">
+                                              <p className="text-xs font-medium mb-1">Front</p>
+                                              <img 
+                                                src={`/api/admin/kyc/document/${userDetailsData.kycInfo.id}/front`}
+                                                alt="Document front"
+                                                className="w-full h-32 object-contain bg-gray-100 rounded"
+                                                data-testid="img-kyc-front"
+                                              />
+                                            </div>
+                                          )}
+                                          {userDetailsData.kycInfo.documentBackImageKeyEncrypted && (
+                                            <div className="border rounded p-2">
+                                              <p className="text-xs font-medium mb-1">Back</p>
+                                              <img 
+                                                src={`/api/admin/kyc/document/${userDetailsData.kycInfo.id}/back`}
+                                                alt="Document back"
+                                                className="w-full h-32 object-contain bg-gray-100 rounded"
+                                                data-testid="img-kyc-back"
+                                              />
+                                            </div>
+                                          )}
+                                          {userDetailsData.kycInfo.selfieImageKeyEncrypted && (
+                                            <div className="border rounded p-2">
+                                              <p className="text-xs font-medium mb-1">Selfie</p>
+                                              <img 
+                                                src={`/api/admin/kyc/document/${userDetailsData.kycInfo.id}/selfie`}
+                                                alt="Selfie"
+                                                className="w-full h-32 object-contain bg-gray-100 rounded"
+                                                data-testid="img-kyc-selfie"
+                                              />
+                                            </div>
+                                          )}
+                                        </div>
                                       </div>
                                     </div>
                                   </div>
+
+                                  {/* Edit KYC Button */}
+                                  <div className="flex justify-end">
+                                    <Button 
+                                      variant="outline" 
+                                      size="sm"
+                                      onClick={() => setIsEditKycOpen(true)}
+                                      data-testid="button-edit-kyc"
+                                    >
+                                      Edit KYC Status
+                                    </Button>
+                                  </div>
                                 </div>
-                              </div>
+                              ) : (
+                                <div className="text-center py-8 text-gray-500">
+                                  <AlertCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                                  <p>No KYC information submitted</p>
+                                </div>
+                              )}
+                            </TabsContent>
+
+                            {/* Submitted Assets Tab */}
+                            <TabsContent value="assets" className="space-y-4">
+                              {userDetailsData?.rwaSubmissions && userDetailsData.rwaSubmissions.length > 0 ? (
+                                <div className="space-y-4">
+                                  {userDetailsData.rwaSubmissions.map((submission: any) => (
+                                    <Card key={submission.id}>
+                                      <CardContent className="pt-6">
+                                        <div className="grid md:grid-cols-2 gap-6">
+                                          <div>
+                                            <h4 className="font-semibold text-lg mb-2">{submission.assetName}</h4>
+                                            <div className="space-y-1 text-sm">
+                                              <div><span className="font-medium">Category:</span> {submission.category}</div>
+                                              <div><span className="font-medium">Estimated Value:</span> ${submission.estimatedValue}</div>
+                                              <div><span className="font-medium">Status:</span> <Badge className={submission.status === 'approved' ? 'bg-green-100 text-green-800' : submission.status === 'rejected' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'}>{submission.status?.toUpperCase()}</Badge></div>
+                                              <div><span className="font-medium">Submitted:</span> {new Date(submission.createdAt).toLocaleDateString()}</div>
+                                              {submission.description && (
+                                                <div className="mt-2">
+                                                  <span className="font-medium">Description:</span>
+                                                  <p className="text-xs mt-1 text-gray-600">{submission.description}</p>
+                                                </div>
+                                              )}
+                                            </div>
+                                          </div>
+
+                                          <div>
+                                            <Label className="text-sm font-medium mb-2 block">Asset Documents</Label>
+                                            <div className="grid grid-cols-1 gap-2">
+                                              {submission.coaUrl && (
+                                                <div className="border rounded p-2">
+                                                  <p className="text-xs font-medium mb-1">Certificate of Authenticity</p>
+                                                  <img 
+                                                    src={submission.coaUrl}
+                                                    alt="COA"
+                                                    className="w-full h-24 object-contain bg-gray-100 rounded"
+                                                    data-testid={`img-asset-coa-${submission.id}`}
+                                                  />
+                                                </div>
+                                              )}
+                                              {submission.nftUrl && (
+                                                <div className="border rounded p-2">
+                                                  <p className="text-xs font-medium mb-1">NFT Certificate</p>
+                                                  <img 
+                                                    src={submission.nftUrl}
+                                                    alt="NFT"
+                                                    className="w-full h-24 object-contain bg-gray-100 rounded"
+                                                    data-testid={`img-asset-nft-${submission.id}`}
+                                                  />
+                                                </div>
+                                              )}
+                                              {submission.physicalDocsUrl && (
+                                                <div className="border rounded p-2">
+                                                  <p className="text-xs font-medium mb-1">Physical Documentation</p>
+                                                  <img 
+                                                    src={submission.physicalDocsUrl}
+                                                    alt="Physical Docs"
+                                                    className="w-full h-24 object-contain bg-gray-100 rounded"
+                                                    data-testid={`img-asset-docs-${submission.id}`}
+                                                  />
+                                                </div>
+                                              )}
+                                              {submission.images && submission.images.map((img: string, idx: number) => (
+                                                <div key={idx} className="border rounded p-2">
+                                                  <p className="text-xs font-medium mb-1">Image {idx + 1}</p>
+                                                  <img 
+                                                    src={img}
+                                                    alt={`Asset image ${idx + 1}`}
+                                                    className="w-full h-24 object-cover bg-gray-100 rounded"
+                                                  />
+                                                </div>
+                                              ))}
+                                            </div>
+                                          </div>
+                                        </div>
+                                      </CardContent>
+                                    </Card>
+                                  ))}
+                                </div>
+                              ) : (
+                                <div className="text-center py-8 text-gray-500">
+                                  <AlertCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                                  <p>No asset submissions found</p>
+                                </div>
+                              )}
                             </TabsContent>
 
                             {/* History Tab */}
@@ -1350,6 +1538,95 @@ export default function UserManagement() {
               </div>
             </form>
           </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit KYC Dialog */}
+      <Dialog open={isEditKycOpen} onOpenChange={(open) => {
+        setIsEditKycOpen(open);
+        if (!open) {
+          // Reset form state when closing dialog
+          setKycStatus('');
+          setKycReviewNotes('');
+          setKycRejectionReason('');
+        }
+      }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Shield className="h-5 w-5" />
+              Edit KYC Status
+            </DialogTitle>
+            <DialogDescription>
+              Update KYC verification status for {selectedUser?.firstName} {selectedUser?.lastName}
+            </DialogDescription>
+          </DialogHeader>
+          {userDetailsData?.kycInfo && (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>KYC Status</Label>
+                <Select 
+                  value={kycStatus}
+                  onValueChange={setKycStatus}
+                >
+                  <SelectTrigger data-testid="select-kyc-status">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background dark:bg-black border-border dark:border-gray-800">
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="approved">Approved</SelectItem>
+                    <SelectItem value="rejected">Rejected</SelectItem>
+                    <SelectItem value="needs_review">Needs Review</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Review Notes</Label>
+                <Textarea 
+                  placeholder="Add review notes or feedback..."
+                  value={kycReviewNotes}
+                  onChange={(e) => setKycReviewNotes(e.target.value)}
+                  data-testid="input-kyc-notes"
+                />
+              </div>
+
+              {kycStatus === 'rejected' && (
+                <div className="space-y-2">
+                  <Label>Rejection Reason</Label>
+                  <Textarea 
+                    placeholder="Explain why the KYC was rejected..."
+                    value={kycRejectionReason}
+                    onChange={(e) => setKycRejectionReason(e.target.value)}
+                    data-testid="input-rejection-reason"
+                  />
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setIsEditKycOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={() => {
+                    updateKycMutation.mutate({
+                      kycId: userDetailsData.kycInfo.id,
+                      status: kycStatus,
+                      reviewNotes: kycReviewNotes,
+                      rejectionReason: kycStatus === 'rejected' ? kycRejectionReason : undefined
+                    });
+                  }}
+                  disabled={updateKycMutation.isPending || !kycReviewNotes.trim()}
+                  data-testid="button-save-kyc"
+                >
+                  {updateKycMutation.isPending ? "Saving..." : "Save Changes"}
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
