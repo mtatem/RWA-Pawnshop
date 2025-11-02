@@ -31,6 +31,60 @@ const bridgeFormSchema = z.object({
   ),
   fromAddress: z.string().min(1, "From address is required"),
   toAddress: z.string().min(1, "To address is required"),
+}).superRefine((data, ctx) => {
+  // Validate fromAddress format based on network
+  if (data.fromNetwork === 'ethereum') {
+    if (!/^0x[0-9a-fA-F]{40}$/.test(data.fromAddress) && !/^[0-9a-fA-F]{40}$/.test(data.fromAddress)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Invalid Ethereum address format",
+        path: ['fromAddress']
+      });
+    }
+  } else if (data.fromNetwork === 'icp') {
+    if (!/^[0-9a-fA-F]{64}$/.test(data.fromAddress)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Invalid ICP AccountIdentifier format",
+        path: ['fromAddress']
+      });
+    }
+  } else if (data.fromNetwork === 'bitcoin') {
+    if (!/^(1|3|bc1)[a-zA-HJ-NP-Z0-9]{25,62}$/.test(data.fromAddress)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Invalid Bitcoin address format",
+        path: ['fromAddress']
+      });
+    }
+  }
+
+  // Validate toAddress format based on network
+  if (data.toNetwork === 'ethereum') {
+    if (!/^0x[0-9a-fA-F]{40}$/.test(data.toAddress) && !/^[0-9a-fA-F]{40}$/.test(data.toAddress)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Invalid Ethereum address format",
+        path: ['toAddress']
+      });
+    }
+  } else if (data.toNetwork === 'icp') {
+    if (!/^[0-9a-fA-F]{64}$/.test(data.toAddress)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Invalid ICP AccountIdentifier format",
+        path: ['toAddress']
+      });
+    }
+  } else if (data.toNetwork === 'bitcoin') {
+    if (!/^(1|3|bc1)[a-zA-HJ-NP-Z0-9]{25,62}$/.test(data.toAddress)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Invalid Bitcoin address format",
+        path: ['toAddress']
+      });
+    }
+  }
 });
 
 type BridgeFormData = z.infer<typeof bridgeFormSchema>;
