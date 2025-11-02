@@ -36,7 +36,7 @@ The bridge infrastructure now includes production-grade oracle integration:
 - ✅ Frontend UI complete with estimation, initiation, and history views
 - ✅ Backend API endpoints functional (/estimate, /initiate, /status, /history)
 - ✅ Database-backed monitoring service with job persistence and recovery
-- ✅ ICP canister integration architecture (ckETH, ckUSDC, evmRPC)
+- ✅ ICP canister integration architecture (ckETH, ckUSDC, ckBTC, evmRPC)
 - ✅ Real-time gas price oracles using Etherscan API with fallback
 - ✅ Price oracle integration via CoinGecko API for accurate FX conversion
 - ✅ Precise BigInt decimal parsing (no float precision loss)
@@ -44,7 +44,7 @@ The bridge infrastructure now includes production-grade oracle integration:
   
 **Oracle Services:**
 - **Price Oracle**: CoinGecko API with 5-minute caching
-  - Fetches real-time prices for ETH, ICP, USDC
+  - Fetches real-time prices for ETH, ICP, USDC, BTC
   - Automatic fallback to cached or hardcoded values on API failure
   - Supports token-to-token price conversion for fee normalization
 
@@ -62,10 +62,12 @@ The bridge infrastructure now includes production-grade oracle integration:
 **Supported Bridge Pairs** (1:1 wrapped tokens only):
 - ETH (Ethereum) ↔ ckETH (ICP)
 - USDC (Ethereum) ↔ ckUSDC (ICP)
+- BTC (Bitcoin) ↔ ckBTC (ICP)
 
 **Example Bridge Cost** (at current prices):
 - 1 ETH → ckETH: ~0.0086 ETH total fee (0.5% + $15 gas = ~0.86%)
 - 100 USDC → ckUSDC: ~$0.65 total fee (0.5% + ~$0.15 gas = ~0.65%)
+- 0.1 BTC → ckBTC: ~0.00051 BTC total fee (0.5% + minimal Bitcoin network fee)
 
 ### KYC Integration with Asset Submissions
 The platform enforces mandatory KYC verification for loan eligibility, ensuring regulatory compliance and risk management. The system integrates KYC status directly into the asset review and loan approval workflow.
