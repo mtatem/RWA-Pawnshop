@@ -6,8 +6,10 @@ export interface TokenPrices {
   ETH: number;
   ICP: number;
   USDC: number;
+  BTC: number;
   ckETH: number;
   ckUSDC: number;
+  ckBTC: number;
 }
 
 export interface GasEstimate {
@@ -35,7 +37,7 @@ class PriceOracleService {
 
     try {
       const response = await fetch(
-        'https://api.coingecko.com/api/v3/simple/price?ids=ethereum,internet-computer,usd-coin&vs_currencies=usd',
+        'https://api.coingecko.com/api/v3/simple/price?ids=ethereum,internet-computer,usd-coin,bitcoin&vs_currencies=usd',
         {
           headers: {
             'Accept': 'application/json'
@@ -51,14 +53,17 @@ class PriceOracleService {
         ethereum?: { usd: number };
         'internet-computer'?: { usd: number };
         'usd-coin'?: { usd: number };
+        bitcoin?: { usd: number };
       };
 
       const prices: TokenPrices = {
         ETH: data.ethereum?.usd || 0,
         ICP: data['internet-computer']?.usd || 0,
         USDC: data['usd-coin']?.usd || 1.0, // Stablecoin should be ~$1
+        BTC: data.bitcoin?.usd || 0,
         ckETH: data.ethereum?.usd || 0, // ckETH is 1:1 with ETH
         ckUSDC: data['usd-coin']?.usd || 1.0, // ckUSDC is 1:1 with USDC
+        ckBTC: data.bitcoin?.usd || 0, // ckBTC is 1:1 with BTC
       };
 
       // Cache the prices
@@ -81,8 +86,10 @@ class PriceOracleService {
         ETH: 3000,
         ICP: 3.28,
         USDC: 1.0,
+        BTC: 95000,
         ckETH: 3000,
         ckUSDC: 1.0,
+        ckBTC: 95000,
       };
     }
   }
@@ -167,8 +174,8 @@ class PriceOracleService {
   // Convert amount from one token to another using current prices
   async convertTokenAmount(
     amount: number,
-    fromToken: 'ETH' | 'ICP' | 'USDC' | 'ckETH' | 'ckUSDC',
-    toToken: 'ETH' | 'ICP' | 'USDC' | 'ckETH' | 'ckUSDC'
+    fromToken: 'ETH' | 'ICP' | 'USDC' | 'BTC' | 'ckETH' | 'ckUSDC' | 'ckBTC',
+    toToken: 'ETH' | 'ICP' | 'USDC' | 'BTC' | 'ckETH' | 'ckUSDC' | 'ckBTC'
   ): Promise<number> {
     const prices = await this.getTokenPrices();
     
