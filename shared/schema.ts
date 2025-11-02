@@ -1110,8 +1110,8 @@ export const pricingResponseSchema = z.object({
 });
 
 // Chain Fusion Bridge Schemas
-export const supportedNetworks = z.enum(['ethereum', 'icp']);
-export const supportedTokens = z.enum(['ETH', 'USDC', 'ckETH', 'ckUSDC']);
+export const supportedNetworks = z.enum(['ethereum', 'icp', 'bitcoin']);
+export const supportedTokens = z.enum(['ETH', 'USDC', 'BTC', 'ckETH', 'ckUSDC', 'ckBTC']);
 export const bridgeStatus = z.enum(['pending', 'processing', 'completed', 'failed', 'refunded']);
 
 // Bridge estimation schema
@@ -1151,6 +1151,15 @@ export const bridgeInitiationSchema = z.object({
         path: ['fromAddress']
       });
     }
+  } else if (data.fromNetwork === 'bitcoin') {
+    // Bitcoin addresses can be P2PKH (starting with 1), P2SH (starting with 3), or Bech32 (starting with bc1)
+    if (!/^(1|3|bc1)[a-zA-HJ-NP-Z0-9]{25,62}$/.test(data.fromAddress)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Invalid Bitcoin address format (must be a valid P2PKH, P2SH, or Bech32 address)",
+        path: ['fromAddress']
+      });
+    }
   }
 
   // Validate toAddress format based on network
@@ -1167,6 +1176,15 @@ export const bridgeInitiationSchema = z.object({
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: "Invalid ICP AccountIdentifier format (must be 64 hex characters)",
+        path: ['toAddress']
+      });
+    }
+  } else if (data.toNetwork === 'bitcoin') {
+    // Bitcoin addresses can be P2PKH (starting with 1), P2SH (starting with 3), or Bech32 (starting with bc1)
+    if (!/^(1|3|bc1)[a-zA-HJ-NP-Z0-9]{25,62}$/.test(data.toAddress)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Invalid Bitcoin address format (must be a valid P2PKH, P2SH, or Bech32 address)",
         path: ['toAddress']
       });
     }
@@ -1189,7 +1207,23 @@ export const bridgeInitiationSchema = z.object({
     });
   }
 
-  if (data.fromNetwork === 'icp' && !['ckETH', 'ckUSDC'].includes(data.fromToken)) {
+  if (data.fromNetwork === 'bitcoin' && !['BTC'].includes(data.fromToken)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Invalid token for Bitcoin network",
+      path: ['fromToken']
+    });
+  }
+
+  if (data.toNetwork === 'bitcoin' && !['BTC'].includes(data.toToken)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Invalid token for Bitcoin network",
+      path: ['toToken']
+    });
+  }
+
+  if (data.fromNetwork === 'icp' && !['ckETH', 'ckUSDC', 'ckBTC'].includes(data.fromToken)) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       message: "Invalid token for ICP network",
@@ -1197,7 +1231,7 @@ export const bridgeInitiationSchema = z.object({
     });
   }
 
-  if (data.toNetwork === 'icp' && !['ckETH', 'ckUSDC'].includes(data.toToken)) {
+  if (data.toNetwork === 'icp' && !['ckETH', 'ckUSDC', 'ckBTC'].includes(data.toToken)) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       message: "Invalid token for ICP network",
