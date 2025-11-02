@@ -21,7 +21,8 @@ import { parseToBigInt, formatBigIntToDecimal, calculatePercentage } from "../ut
 // Chain Fusion canister IDs (ICP mainnet)
 const CHAIN_FUSION_CANISTERS = {
   ckETH: "ss2fx-dyaaa-aaaar-qacoq-cai",
-  ckUSDC: "xkbqi-6qaaa-aaaah-qbpqq-cai", 
+  ckUSDC: "xkbqi-6qaaa-aaaah-qbpqq-cai",
+  ckBTC: "mxzaz-hqaaa-aaaar-qaada-cai",
   evmRPC: "7hfb6-caaaa-aaaar-qadga-cai",
   bridge: "rdmx6-jaaaa-aaaah-qcdwa-cai" // Chain Fusion bridge canister
 } as const;
@@ -46,6 +47,12 @@ const TOKEN_CONFIG = {
     maxAmount: "1000000", // $1M maximum
     address: "0xA0b86a33E6441c5C60000000000000000000000000" // USDC contract
   },
+  BTC: {
+    decimals: 8,
+    minAmount: "0.0001", // 0.0001 BTC minimum (~$10 at $100k/BTC)
+    maxAmount: "10", // 10 BTC maximum
+    address: "native" // Native Bitcoin
+  },
   ckETH: {
     decimals: 18,
     minAmount: "0.001",
@@ -57,6 +64,12 @@ const TOKEN_CONFIG = {
     minAmount: "1",
     maxAmount: "1000000", 
     canisterId: CHAIN_FUSION_CANISTERS.ckUSDC
+  },
+  ckBTC: {
+    decimals: 8,
+    minAmount: "0.0001",
+    maxAmount: "10",
+    canisterId: CHAIN_FUSION_CANISTERS.ckBTC
   }
 } as const;
 
@@ -67,6 +80,11 @@ const NETWORK_CONFIG = {
     rpcUrl: "https://eth-mainnet.g.alchemy.com/v2/demo", // Demo RPC - replace with real
     blockConfirmations: 12,
     bridgeContract: "0x7f268357A8c2552623316e2562D90e642bB538E5" // Example - replace with real
+  },
+  bitcoin: {
+    network: "mainnet",
+    rpcUrl: "https://blockstream.info/api", // Public Bitcoin API
+    blockConfirmations: 6, // Bitcoin typically requires 6 confirmations
   },
   icp: {
     network: "mainnet",
