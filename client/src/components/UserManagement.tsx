@@ -51,6 +51,7 @@ interface UserAccount {
   principalId: string | null;
   username?: string | null;
   email?: string | null;
+  phone?: string | null;
   firstName?: string | null;
   lastName?: string | null;
   role: 'registered' | 'registered_kyc' | 'manager' | 'administrator';
@@ -140,15 +141,6 @@ export default function UserManagement() {
   const [kycReviewNotes, setKycReviewNotes] = useState('');
   const [kycRejectionReason, setKycRejectionReason] = useState('');
 
-  // Initialize KYC form when dialog opens
-  useEffect(() => {
-    if (isEditKycOpen && userDetailsData?.kycInfo) {
-      setKycStatus(userDetailsData.kycInfo.status || '');
-      setKycReviewNotes(userDetailsData.kycInfo.reviewNotes || '');
-      setKycRejectionReason(userDetailsData.kycInfo.rejectionReason || '');
-    }
-  }, [isEditKycOpen, userDetailsData]);
-
   // Form for user flagging
   const flagForm = useForm({
     defaultValues: {
@@ -224,6 +216,15 @@ export default function UserManagement() {
     queryFn: getQueryFn({ on401: "throw" }),
     enabled: !!selectedUser?.id,
   });
+
+  // Initialize KYC form when dialog opens
+  useEffect(() => {
+    if (isEditKycOpen && userDetailsData?.kycInfo) {
+      setKycStatus(userDetailsData.kycInfo.status || '');
+      setKycReviewNotes(userDetailsData.kycInfo.reviewNotes || '');
+      setKycRejectionReason(userDetailsData.kycInfo.rejectionReason || '');
+    }
+  }, [isEditKycOpen, userDetailsData]);
 
   // Flag user mutation
   const flagUserMutation = useMutation({
