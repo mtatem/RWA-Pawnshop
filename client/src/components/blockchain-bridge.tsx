@@ -21,10 +21,10 @@ import { z } from "zod";
 
 // Bridge form schema
 const bridgeFormSchema = z.object({
-  fromNetwork: z.enum(['ethereum', 'icp'], { required_error: "Please select a source network" }),
-  toNetwork: z.enum(['ethereum', 'icp'], { required_error: "Please select a destination network" }),
-  fromToken: z.enum(['ETH', 'USDC', 'ckETH', 'ckUSDC'], { required_error: "Please select a token" }),
-  toToken: z.enum(['ETH', 'USDC', 'ckETH', 'ckUSDC'], { required_error: "Please select a token" }),
+  fromNetwork: z.enum(['ethereum', 'icp', 'bitcoin'], { required_error: "Please select a source network" }),
+  toNetwork: z.enum(['ethereum', 'icp', 'bitcoin'], { required_error: "Please select a destination network" }),
+  fromToken: z.enum(['ETH', 'USDC', 'BTC', 'ckETH', 'ckUSDC', 'ckBTC'], { required_error: "Please select a token" }),
+  toToken: z.enum(['ETH', 'USDC', 'BTC', 'ckETH', 'ckUSDC', 'ckBTC'], { required_error: "Please select a token" }),
   amount: z.string().min(1, "Amount is required").refine(
     (val) => !isNaN(Number(val)) && Number(val) > 0,
     "Amount must be a positive number"
