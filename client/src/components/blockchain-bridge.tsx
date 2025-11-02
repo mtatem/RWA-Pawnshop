@@ -440,6 +440,11 @@ export default function BlockchainBridge() {
                                     </>
                                   ) : (
                                     <>
+                                      <SelectItem value="ckBTC">
+                                        <div className="flex items-center gap-2">
+                                          <span>⚡₿</span> ckBTC
+                                        </div>
+                                      </SelectItem>
                                       <SelectItem value="ckETH">
                                         <div className="flex items-center gap-2">
                                           <span>⚡</span> ckETH
@@ -448,11 +453,6 @@ export default function BlockchainBridge() {
                                       <SelectItem value="ckUSDC">
                                         <div className="flex items-center gap-2">
                                           <span>🏦</span> ckUSDC
-                                        </div>
-                                      </SelectItem>
-                                      <SelectItem value="ckBTC">
-                                        <div className="flex items-center gap-2">
-                                          <span>⚡₿</span> ckBTC
                                         </div>
                                       </SelectItem>
                                     </>
@@ -551,6 +551,11 @@ export default function BlockchainBridge() {
                                     </>
                                   ) : (
                                     <>
+                                      <SelectItem value="ckBTC">
+                                        <div className="flex items-center gap-2">
+                                          <span>⚡₿</span> ckBTC
+                                        </div>
+                                      </SelectItem>
                                       <SelectItem value="ckETH">
                                         <div className="flex items-center gap-2">
                                           <span>⚡</span> ckETH
@@ -559,11 +564,6 @@ export default function BlockchainBridge() {
                                       <SelectItem value="ckUSDC">
                                         <div className="flex items-center gap-2">
                                           <span>🏦</span> ckUSDC
-                                        </div>
-                                      </SelectItem>
-                                      <SelectItem value="ckBTC">
-                                        <div className="flex items-center gap-2">
-                                          <span>⚡₿</span> ckBTC
                                         </div>
                                       </SelectItem>
                                     </>
