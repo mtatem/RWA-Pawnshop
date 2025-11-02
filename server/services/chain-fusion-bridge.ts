@@ -353,6 +353,8 @@ export class ChainFusionBridgeService {
       { from: 'icp', to: 'ethereum', fromToken: 'ckETH', toToken: 'ETH' },
       { from: 'ethereum', to: 'icp', fromToken: 'USDC', toToken: 'ckUSDC' },
       { from: 'icp', to: 'ethereum', fromToken: 'ckUSDC', toToken: 'USDC' },
+      { from: 'bitcoin', to: 'icp', fromToken: 'BTC', toToken: 'ckBTC' },
+      { from: 'icp', to: 'bitcoin', fromToken: 'ckBTC', toToken: 'BTC' },
     ];
 
     const isValid = validPairs.some(pair => 
@@ -365,7 +367,7 @@ export class ChainFusionBridgeService {
     if (!isValid) {
       throw new Error(
         `Invalid bridge pair: ${fromToken} (${fromNetwork}) → ${toToken} (${toNetwork}). ` +
-        `Only 1:1 wrapped token pairs are supported: ETH↔ckETH, USDC↔ckUSDC`
+        `Only 1:1 wrapped token pairs are supported: ETH↔ckETH, USDC↔ckUSDC, BTC↔ckBTC`
       );
     }
   }
